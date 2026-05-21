@@ -22,6 +22,24 @@ class MobileConfig {
     {'time': '13:00', 'title': 'Networking Roundtable', 'speaker': 'Amel Kadi'},
   ];
 
+  static const List<Map<String, String>> notifications = [
+    {
+      'title': 'Welcome to ElMoultaqa',
+      'message': 'Check the new agenda and get ready for the opening session.',
+      'time': 'Just now',
+    },
+    {
+      'title': 'Keynote Updated',
+      'message': 'Keynote start time changed to 10:45 in the Main Hall.',
+      'time': '15m ago',
+    },
+    {
+      'title': 'Networking Session',
+      'message': 'Join the networking roundtable at 13:00 after the keynote.',
+      'time': '1h ago',
+    },
+  ];
+
   static const List<Map<String, dynamic>> scheduleDays = [
     {
       'date': '2026-12-12',
