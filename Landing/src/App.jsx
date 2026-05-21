@@ -20,7 +20,8 @@ const offers = [
     id: "enterprise",
     name: "Enterprise",
     price: "$1,499",
-    description: "Full event suite with sponsorship, notifications, and support.",
+    description:
+      "Full event suite with sponsorship, notifications, and support.",
   },
 ];
 
@@ -61,15 +62,17 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
     onChange({ ...config, [key]: value });
   };
 
-  const addCollaborator = () => onChange({
-    ...config,
-    collaborators: [...config.collaborators, ""],
-  });
+  const addCollaborator = () =>
+    onChange({
+      ...config,
+      collaborators: [...config.collaborators, ""],
+    });
 
-  const addSponsor = () => onChange({
-    ...config,
-    sponsors: [...config.sponsors, ""],
-  });
+  const addSponsor = () =>
+    onChange({
+      ...config,
+      sponsors: [...config.sponsors, ""],
+    });
 
   const updateArrayValue = (key, index, value) => {
     const nextValues = [...config[key]];
@@ -100,7 +103,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                   key={offer.id}
                   type="button"
                   className={
-                    offer.id === config.offer ? "offer-card selected" : "offer-card"
+                    offer.id === config.offer
+                      ? "offer-card selected"
+                      : "offer-card"
                   }
                   onClick={() => updateField("offer", offer.id)}
                 >
@@ -131,7 +136,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                 <input
                   type="text"
                   value={config.shortName}
-                  onChange={(event) => updateField("shortName", event.target.value)}
+                  onChange={(event) =>
+                    updateField("shortName", event.target.value)
+                  }
                   placeholder="ElMoultaqa"
                 />
               </label>
@@ -140,7 +147,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                 <input
                   type="color"
                   value={config.themeColor}
-                  onChange={(event) => updateField("themeColor", event.target.value)}
+                  onChange={(event) =>
+                    updateField("themeColor", event.target.value)
+                  }
                 />
               </label>
               <label>
@@ -157,7 +166,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                 <input
                   type="date"
                   value={config.startDate}
-                  onChange={(event) => updateField("startDate", event.target.value)}
+                  onChange={(event) =>
+                    updateField("startDate", event.target.value)
+                  }
                 />
               </label>
               <label>
@@ -165,7 +176,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                 <input
                   type="date"
                   value={config.endDate}
-                  onChange={(event) => updateField("endDate", event.target.value)}
+                  onChange={(event) =>
+                    updateField("endDate", event.target.value)
+                  }
                 />
               </label>
             </div>
@@ -183,11 +196,21 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                     key={index}
                     type="text"
                     value={collaborator}
-                    onChange={(event) => updateArrayValue("collaborators", index, event.target.value)}
+                    onChange={(event) =>
+                      updateArrayValue(
+                        "collaborators",
+                        index,
+                        event.target.value,
+                      )
+                    }
                     placeholder={`Collaborator ${index + 1}`}
                   />
                 ))}
-                <button type="button" className="link-button" onClick={addCollaborator}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={addCollaborator}
+                >
                   + Add collaborator
                 </button>
               </div>
@@ -198,11 +221,17 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                     key={index}
                     type="text"
                     value={sponsor}
-                    onChange={(event) => updateArrayValue("sponsors", index, event.target.value)}
+                    onChange={(event) =>
+                      updateArrayValue("sponsors", index, event.target.value)
+                    }
                     placeholder={`Sponsor ${index + 1}`}
                   />
                 ))}
-                <button type="button" className="link-button" onClick={addSponsor}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={addSponsor}
+                >
                   + Add sponsor
                 </button>
               </div>
@@ -231,7 +260,9 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
               </div>
               <div className="qr-placeholder">
                 <div>QR CODE</div>
-                <p>Scan to download the mobile app or open the conference portal.</p>
+                <p>
+                  Scan to download the mobile app or open the conference portal.
+                </p>
               </div>
             </div>
           </section>
@@ -277,31 +308,47 @@ export default function App() {
             <span className="brand-subtitle">الملتقى</span>
           </div>
         </div>
-        <button className="landing-cta" onClick={() => setMode("builder")}>Create your conference</button>
+        <button className="landing-cta" onClick={() => setMode("builder")}>
+          Create your conference
+        </button>
       </header>
 
       {mode === "home" ? (
         <main className="landing-main">
           <section className="hero-panel">
             <div className="hero-copy">
-              <h1>Build and launch any conference experience with confidence.</h1>
+              <h1>
+                Build and launch any conference experience with confidence.
+              </h1>
               <p>
                 ElMoultaqa gives you a unified landing page, attendee web app,
                 mobile experience and admin dashboard that are easy to configure
                 for every event.
               </p>
               <div className="hero-actions">
-                <button className="hero-button" onClick={() => setMode("builder")}>Create your conference</button>
-                <button className="secondary-button" onClick={() => setMode("builder")}>Start with a demo</button>
+                <button
+                  className="hero-button"
+                  onClick={() => setMode("builder")}
+                >
+                  Create your conference
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => setMode("builder")}
+                >
+                  Start with a demo
+                </button>
               </div>
             </div>
             <div className="hero-visual">
               <div className="hero-card">
                 <img className="hero-logo" src={logo} alt="El Moultaqa logo" />
-                <h2>Organize sessions, speakers, and mobile access in one place.</h2>
+                <h2>
+                  Organize sessions, speakers, and mobile access in one place.
+                </h2>
                 <p>
-                  A conference platform designed for Algerian digital events, with
-                  powerful attendee journeys and modern admin controls.
+                  A conference platform designed for Algerian digital events,
+                  with powerful attendee journeys and modern admin controls.
                 </p>
                 <div className="hero-stats-grid">
                   <div>
@@ -323,7 +370,8 @@ export default function App() {
               <article>
                 <h3>Mobile app</h3>
                 <p>
-                  Native mobile experiences for attendees, sessions, and updates.
+                  Native mobile experiences for attendees, sessions, and
+                  updates.
                 </p>
               </article>
               <article>
@@ -335,7 +383,9 @@ export default function App() {
               </article>
               <article>
                 <h3>Admin panel</h3>
-                <p>Manage sessions, speakers, users, and conference settings.</p>
+                <p>
+                  Manage sessions, speakers, users, and conference settings.
+                </p>
               </article>
             </div>
           </section>
@@ -354,7 +404,8 @@ export default function App() {
               <div>
                 <strong>3. Go live</strong>
                 <p>
-                  Launch your admin panel, attendee webapp, and branded mobile app.
+                  Launch your admin panel, attendee webapp, and branded mobile
+                  app.
                 </p>
               </div>
             </div>
