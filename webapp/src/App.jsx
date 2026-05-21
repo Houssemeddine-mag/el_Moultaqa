@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { conferenceConfig } from "./conferenceConfig";
+import logo from "@logo";
 import HomePage from "./pages/HomePage.jsx";
 import ProgramPage from "./pages/ProgramPage.jsx";
 import DirectPage from "./pages/DirectPage.jsx";
@@ -48,7 +49,13 @@ function AppShell() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-logo">{conferenceConfig.brandInitials}</div>
+          <div className="brand-logo">
+            <img
+              src={logo}
+              alt="ElMoultaqa logo"
+              className="brand-logo-image"
+            />
+          </div>
           <div>
             <strong>{conferenceConfig.brand}</strong>
             <small>{conferenceConfig.tagline}</small>

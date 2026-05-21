@@ -26,18 +26,41 @@ const Topbar = () => {
 
   return (
     <header className="topbar">
-      <div className="topbar-logos">
-        <div className="logo-img">R</div>
-        <div className="logo-img">I</div>
-        <div className="logo-img">F</div>
-        <div className="logo-img">A</div>
-        <div className="logo-img">S</div>
+      <div className="topbar-left">
+        <div className="topbar-brand-block">
+          <div className="conference-logo">
+            {adminConfig.conferenceLogo ? (
+              <img src={adminConfig.conferenceLogo} alt="Conference logo" />
+            ) : (
+              <div className="conference-logo-placeholder">Logo</div>
+            )}
+          </div>
+          <div className="topbar-title">
+            {adminConfig.conferenceName || "Conference Name"}
+          </div>
+        </div>
       </div>
-      <div className="topbar-title">{adminConfig.brandTitle}</div>
-      <div className="topbar-user-section">
-        {adminUser && (
-          <div className="admin-info">
-            <span className="admin-email">{adminUser.email}</span>
+
+      <div className="topbar-right">
+        <div className="topbar-datetime">
+          <span className="topbar-time">
+            {dateTime.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })}
+          </span>
+          <span className="topbar-date">
+            {dateTime.toLocaleDateString(undefined, {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+        <div className="topbar-user-section">
+          {adminUser && (
             <button
               className="logout-btn"
               onClick={handleLogout}
@@ -56,25 +79,8 @@ const Topbar = () => {
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             </button>
-          </div>
-        )}
-      </div>
-      <div className="topbar-datetime">
-        <span className="topbar-time">
-          {dateTime.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })}
-        </span>
-        <span className="topbar-date">
-          {dateTime.toLocaleDateString(undefined, {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </span>
+          )}
+        </div>
       </div>
     </header>
   );

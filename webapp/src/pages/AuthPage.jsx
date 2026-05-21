@@ -5,7 +5,7 @@ import { signInWithGoogle } from "../firebase.js";
 import { conferenceConfig } from "../conferenceConfig";
 
 export default function AuthPage() {
-  const { login, register } = useAuth();
+  const { login, register, user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -13,14 +13,13 @@ export default function AuthPage() {
   const [formLoading, setFormLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
   const from = location.state?.from?.pathname || "/home";
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!authLoading && user) {
       navigate(from, { replace: true });
     }
-  }, [user, loading, navigate, from]);
+  }, [user, authLoading, navigate, from]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

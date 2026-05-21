@@ -1,10 +1,10 @@
 export const adminConfig = {
-  brandTitle: "ElMoultaqa Admin Panel",
-  conferenceName: "ElMoultaqa Conference",
-  themeColor: "#4f8cff",
-  brandAcronym: "EM",
-  welcomeMessage:
-    "Manage the conference, attendees, sessions and live app content.",
+  brandTitle: "Conference Admin Panel",
+  conferenceName: "",
+  conferenceLogo: "",
+  themeColor: "#0d7e52",
+  brandAcronym: "",
+  welcomeMessage: "",
   navItems: [
     { path: "/app/dashboard", label: "Dashboard" },
     { path: "/app/program", label: "Program" },

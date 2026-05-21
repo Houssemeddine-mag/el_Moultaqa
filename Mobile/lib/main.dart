@@ -23,8 +23,38 @@ class ElMoultaqaMobileApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: MobileConfig.appName,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: themeColor),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: themeColor,
+          primary: themeColor,
+          secondary: const Color(0xFF1FB69A),
+        ),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFEEFCF4),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: themeColor,
+          iconTheme: IconThemeData(color: themeColor),
+          elevation: 0,
+          titleTextStyle: TextStyle(
+            color: themeColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: themeColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: themeColor,
+          ),
+        ),
       ),
       initialRoute: '/auth',
       routes: {

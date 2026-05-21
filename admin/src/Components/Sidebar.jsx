@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { adminConfig } from "../adminConfig";
+import logo from "@logo";
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -12,10 +13,8 @@ const Sidebar = () => {
   return (
     <nav className="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-brand">{adminConfig.brandAcronym}</div>
-        <div>
-          <h2>{adminConfig.conferenceName}</h2>
-          <p>{adminConfig.welcomeMessage}</p>
+        <div className="sidebar-brand">
+          <img src={logo} alt="Conference logo" />
         </div>
       </div>
 

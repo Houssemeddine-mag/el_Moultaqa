@@ -1,6 +1,6 @@
 class MobileConfig {
   static const String appName = 'ElMoultaqa Mobile';
-  static const String themeColor = '0xFF614F96';
+  static const String themeColor = '0xFF0D7E52';
   static const String heroTitle = 'ElMoultaqa Conference';
   static const String heroSubtitle =
       'A premium hybrid conference experience for every event organizer and attendee.';
