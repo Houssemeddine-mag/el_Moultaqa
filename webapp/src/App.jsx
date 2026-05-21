@@ -107,7 +107,14 @@ function AppShell() {
       <main>
         <Routes>
           <Route path="/" element={<Navigate replace to="/home" />} />
-          <Route path="/home" element={<HomePage />} />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/program"
             element={

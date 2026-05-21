@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { signInWithGoogle } from "../firebase.js";
 import { conferenceConfig } from "../conferenceConfig";
 
 export default function AuthPage() {
@@ -9,10 +10,17 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const from = location.state?.from?.pathname || "/home";
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, loading, navigate, from]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -21,7 +29,7 @@ export default function AuthPage() {
       setError("Please provide both email and password.");
       return;
     }
-    setLoading(true);
+    setFormLoading(true);
     try {
       if (isCreatingAccount) {
         await register(email, password);
@@ -30,9 +38,22 @@ export default function AuthPage() {
       }
       navigate(from, { replace: true });
     } catch (err) {
-      setError("Authentication failed. Please try again.");
+      setError(err.message || "Authentication failed. Please try again.");
     } finally {
-      setLoading(false);
+      setFormLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setFormLoading(true);
+    try {
+      await signInWithGoogle();
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err.message || "Google sign-in failed.");
+    } finally {
+      setFormLoading(false);
     }
   };
 
@@ -60,13 +81,24 @@ export default function AuthPage() {
               {isCreatingAccount ? "Register for ElMoultaqa" : "Welcome back"}
             </h3>
           </div>
-          <div className={`auth-pill ${loading ? "offline" : "online"}`}>
-            {loading
+          <div className={`auth-pill ${formLoading ? "offline" : "online"}`}>
+            {formLoading
               ? "Loading"
               : isCreatingAccount
                 ? "New account"
                 : "Returning user"}
           </div>
+        </div>
+
+        <div className="auth-social-row">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={formLoading}
+          >
+            Continue with Google
+          </button>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -92,7 +124,11 @@ export default function AuthPage() {
           </label>
           {error && <div className="auth-error">{error}</div>}
           <div className="auth-actions">
-            <button className="primary-button" type="submit" disabled={loading}>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={formLoading}
+            >
               {isCreatingAccount ? "Create account" : "Sign in"}
             </button>
             <button

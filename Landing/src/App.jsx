@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./styles.css";
 import logo from "@logo";
 import icon from "@icon";
+import {
+  onAuthStateChanged,
+  loginUser,
+  registerUser,
+  logoutUser,
+  signInWithGoogle,
+  saveConferenceConfig,
+} from "./firebase.js";
 
 const offers = [
   {
@@ -43,12 +51,13 @@ const feedbacks = [
 const initialConference = {
   name: "",
   shortName: "",
-  themeColor: "#614F96",
+  themeColor: "#0d7e52",
   logo: "",
   startDate: "2026-12-12",
   endDate: "2026-12-14",
   collaborators: [""],
   sponsors: [""],
+  attendees: [""],
   offer: offers[0].id,
 };
 
@@ -62,16 +71,10 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
     onChange({ ...config, [key]: value });
   };
 
-  const addCollaborator = () =>
+  const addArrayItem = (key) =>
     onChange({
       ...config,
-      collaborators: [...config.collaborators, ""],
-    });
-
-  const addSponsor = () =>
-    onChange({
-      ...config,
-      sponsors: [...config.sponsors, ""],
+      [key]: [...config[key], ""],
     });
 
   const updateArrayValue = (key, index, value) => {
@@ -187,31 +190,27 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
 
         {step === 3 && (
           <section className="builder-step">
-            <h2>Collaborators and sponsors</h2>
+            <h2>Invite attendees and sponsors</h2>
             <div className="form-grid">
               <div>
-                <p className="field-title">Collaborators</p>
-                {config.collaborators.map((collaborator, index) => (
+                <p className="field-title">Attendee emails</p>
+                {config.attendees.map((attendee, index) => (
                   <input
                     key={index}
-                    type="text"
-                    value={collaborator}
+                    type="email"
+                    value={attendee}
                     onChange={(event) =>
-                      updateArrayValue(
-                        "collaborators",
-                        index,
-                        event.target.value,
-                      )
+                      updateArrayValue("attendees", index, event.target.value)
                     }
-                    placeholder={`Collaborator ${index + 1}`}
+                    placeholder={`Attendee email ${index + 1}`}
                   />
                 ))}
                 <button
                   type="button"
                   className="link-button"
-                  onClick={addCollaborator}
+                  onClick={() => addArrayItem("attendees")}
                 >
-                  + Add collaborator
+                  + Add attendee
                 </button>
               </div>
               <div>
@@ -230,7 +229,7 @@ function ConferenceBuilder({ config, onChange, onBack, onFinish }) {
                 <button
                   type="button"
                   className="link-button"
-                  onClick={addSponsor}
+                  onClick={() => addArrayItem("sponsors")}
                 >
                   + Add sponsor
                 </button>
@@ -297,6 +296,81 @@ export default function App() {
   const [mode, setMode] = useState("home");
   const [conference, setConference] = useState(initialConference);
   const [completed, setCompleted] = useState(false);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+      if (currentUser && mode === "auth") {
+        setMode("home");
+      }
+    });
+    return unsubscribe;
+  }, [mode]);
+
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    setAuthError("");
+
+    if (!authEmail || !authPassword) {
+      setAuthError("Please enter email and password.");
+      return;
+    }
+
+    try {
+      if (authMode === "register") {
+        await registerUser(authEmail, authPassword);
+      } else {
+        await loginUser(authEmail, authPassword);
+      }
+      setMode("home");
+    } catch (error) {
+      setAuthError(error.message || "Authentication failed. Please try again.");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError("");
+    try {
+      await signInWithGoogle();
+      setMode("home");
+    } catch (error) {
+      setAuthError(error.message || "Google authentication failed.");
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setMode("home");
+  };
+
+  const handleFinish = async () => {
+    setSaveError("");
+    setSaving(true);
+
+    try {
+      const conferenceId = await saveConferenceConfig({
+        ...conference,
+        ownerId: user?.uid,
+        ownerEmail: user?.email,
+      });
+      setConference({ ...conference, id: conferenceId });
+      setCompleted(true);
+      setMode("builder");
+    } catch (error) {
+      setSaveError(error.message || "Unable to save conference configuration.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="landing-shell">
@@ -308,12 +382,92 @@ export default function App() {
             <span className="brand-subtitle">الملتقى</span>
           </div>
         </div>
-        <button className="landing-cta" onClick={() => setMode("builder")}>
-          Create your conference
-        </button>
+        <div className="nav-actions">
+          {user ? (
+            <>
+              <span className="nav-user-email">{user.email}</span>
+              <button className="secondary-button" onClick={handleLogout}>
+                Sign out
+              </button>
+              <button
+                className="landing-cta"
+                onClick={() => setMode("builder")}
+              >
+                Create your conference
+              </button>
+            </>
+          ) : (
+            <button className="landing-cta" onClick={() => setMode("auth")}>
+              Sign in to create
+            </button>
+          )}
+        </div>
       </header>
 
-      {mode === "home" ? (
+      {mode === "auth" ? (
+        <main className="landing-main auth-shell">
+          <div className="auth-card">
+            <h2>
+              {authMode === "register"
+                ? "Create your account"
+                : "Sign in to El Moultaqa"}
+            </h2>
+            <p>
+              Authenticate to build and publish your custom conference system.
+            </p>
+
+            <div className="auth-social-row">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleGoogleSignIn}
+              >
+                Continue with Google
+              </button>
+            </div>
+
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  placeholder="your@email.com"
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  placeholder="Choose a strong password"
+                />
+              </label>
+              {authError && <div className="auth-error">{authError}</div>}
+              <div className="auth-actions">
+                <button type="submit" className="hero-button">
+                  {authMode === "register" ? "Create account" : "Sign in"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    setAuthMode((current) =>
+                      current === "register" ? "login" : "register",
+                    )
+                  }
+                >
+                  {authMode === "register"
+                    ? "Already have an account?"
+                    : "Create a new account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </main>
+      ) : mode === "home" ? (
         <main className="landing-main">
           <section className="hero-panel">
             <div className="hero-copy">
@@ -328,15 +482,15 @@ export default function App() {
               <div className="hero-actions">
                 <button
                   className="hero-button"
-                  onClick={() => setMode("builder")}
+                  onClick={() => setMode(user ? "builder" : "auth")}
                 >
-                  Create your conference
+                  {user ? "Create your conference" : "Sign in to create"}
                 </button>
                 <button
                   className="secondary-button"
-                  onClick={() => setMode("builder")}
+                  onClick={() => setMode(user ? "builder" : "auth")}
                 >
-                  Start with a demo
+                  {user ? "Start with a demo" : "Try the landing"}
                 </button>
               </div>
             </div>
@@ -428,10 +582,7 @@ export default function App() {
           config={conference}
           onChange={setConference}
           onBack={() => setMode("home")}
-          onFinish={() => {
-            setCompleted(true);
-            setMode("builder");
-          }}
+          onFinish={handleFinish}
         />
       )}
 
