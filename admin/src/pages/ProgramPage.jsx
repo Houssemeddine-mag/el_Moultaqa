@@ -64,10 +64,12 @@ const Program = () => {
           error.message.includes("security rules")
         ) {
           console.warn(
-            "Backend permission issue or security restrictions may apply."
+            "Backend permission issue or security restrictions may apply.",
           );
         }
-        console.log("Using fallback example data due to backend connection issues");
+        console.log(
+          "Using fallback example data due to backend connection issues",
+        );
         const exampleData = [
           {
             id: "example-1",
@@ -216,8 +218,8 @@ const Program = () => {
         await FirebaseAdminService.updateProgram(editingId, sessionData);
         setSessions((prev) =>
           prev.map((session) =>
-            session.id === editingId ? updatedSession : session
-          )
+            session.id === editingId ? updatedSession : session,
+          ),
         );
         console.log("Program updated successfully");
       } else {
@@ -616,7 +618,7 @@ const Program = () => {
                 Keynote speaker gives a conference
               </label>
             </div>
-              {formData.keynoteHasConference && (
+            {formData.keynoteHasConference && (
               <div
                 className="form-row"
                 style={{
@@ -882,7 +884,7 @@ const Program = () => {
                           setFormData((prev) => ({
                             ...prev,
                             conferences: prev.conferences.filter(
-                              (_, i) => i !== idx
+                              (_, i) => i !== idx,
                             ),
                           }));
                           if (editingConferenceIdx === idx) {
@@ -907,9 +909,7 @@ const Program = () => {
                   ))}
                 </ul>
                 {editingConferenceIdx !== null && (
-                  <div
-                    style={{ marginTop: 4, color: "#a259ff", fontSize: 13 }}
-                  >
+                  <div style={{ marginTop: 4, color: "#a259ff", fontSize: 13 }}>
                     Editing conference #{editingConferenceIdx + 1}
                     <button
                       type="button"
@@ -1040,9 +1040,14 @@ const Program = () => {
                       {session.room || "Not specified"}
                     </div>
                     <div
-                      style={{ color: "var(--accent)", fontSize: 14, marginTop: 4 }}
+                      style={{
+                        color: "var(--accent)",
+                        fontSize: 14,
+                        marginTop: 4,
+                      }}
                     >
-                      Chairs: {session.chairs && session.chairs.length > 0 ? (
+                      Chairs:{" "}
+                      {session.chairs && session.chairs.length > 0 ? (
                         session.chairs.join(", ")
                       ) : (
                         <span style={{ color: "#aaa" }}>None</span>
@@ -1107,12 +1112,14 @@ const Program = () => {
                           </div>
                         )}
                         {session.keynote?.affiliation && (
-                            <div style={{ color: "var(--primary)", fontSize: 15 }}>
+                          <div
+                            style={{ color: "var(--primary)", fontSize: 15 }}
+                          >
                             {session.keynote.affiliation}
                           </div>
                         )}
                         {session.keynote?.bio && (
-                            <div style={{ color: "var(--muted)", fontSize: 14 }}>
+                          <div style={{ color: "var(--muted)", fontSize: 14 }}>
                             {session.keynote.bio}
                           </div>
                         )}

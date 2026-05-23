@@ -98,7 +98,8 @@ class ProgramPage extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => PresentationFeedbackPage(title: session['title'] ?? 'Feedback'),
+                                builder: (context) => PresentationFeedbackPage(
+                                    title: session['title'] ?? 'Feedback'),
                               ),
                             );
                           },

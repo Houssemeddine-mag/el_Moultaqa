@@ -71,7 +71,7 @@ const KeynoteInApp = () => {
 
       if (!allowedTypes.includes(file.type)) {
         alert(
-          "Please select a valid image file (JPEG, PNG, GIF, WebP, BMP, SVG, or TIFF)"
+          "Please select a valid image file (JPEG, PNG, GIF, WebP, BMP, SVG, or TIFF)",
         );
         return;
       }
@@ -247,7 +247,7 @@ const KeynoteInApp = () => {
     (speaker) =>
       speaker.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       speaker.institution?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      speaker.title?.toLowerCase().includes(searchTerm.toLowerCase())
+      speaker.title?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const sortedSpeakers = [...filteredSpeakers].sort((a, b) => {
@@ -421,7 +421,9 @@ const KeynoteInApp = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="institution">Institution/Organization *</label>
+                  <label htmlFor="institution">
+                    Institution/Organization *
+                  </label>
                   <input
                     type="text"
                     id="institution"
@@ -458,7 +460,8 @@ const KeynoteInApp = () => {
                     className="file-input"
                   />
                   <div className="file-input-help">
-                    Supported formats: JPEG, PNG, GIF, WebP, BMP, SVG, TIFF (Max 5MB)
+                    Supported formats: JPEG, PNG, GIF, WebP, BMP, SVG, TIFF (Max
+                    5MB)
                   </div>
                   {imagePreview && (
                     <div className="image-preview">

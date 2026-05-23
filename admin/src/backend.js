@@ -24,7 +24,8 @@ const write = (key, data) => {
   }
 };
 
-const generateId = () => `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+const generateId = () =>
+  `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
 const backend = {
   async initialize() {
@@ -59,7 +60,11 @@ const backend = {
     const programs = read(STORAGE_KEYS.PROGRAMS);
     const idx = programs.findIndex((p) => p.id === id);
     if (idx === -1) throw new Error("Program not found");
-    programs[idx] = { ...programs[idx], ...data, updatedAt: new Date().toISOString() };
+    programs[idx] = {
+      ...programs[idx],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
     write(STORAGE_KEYS.PROGRAMS, programs);
     return true;
   },

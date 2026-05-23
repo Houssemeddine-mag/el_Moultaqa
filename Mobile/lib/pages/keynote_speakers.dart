@@ -59,7 +59,8 @@ class KeynoteSpeakersPage extends StatelessWidget {
             backgroundColor: themeColor.withOpacity(0.12),
             child: const Icon(Icons.person, color: Colors.grey),
           ),
-          title: Text(s['name'] ?? 'Unknown', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
+          title: Text(s['name'] ?? 'Unknown',
+              style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
           subtitle: Text('${s['title']} · ${s['institution']}'),
           trailing: const Icon(Icons.chevron_right),
         ),
@@ -88,15 +89,23 @@ class KeynoteSpeakersPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(radius: 44, backgroundColor: themeColor.withOpacity(0.12), child: const Icon(Icons.person, size: 44)),
+                CircleAvatar(
+                    radius: 44,
+                    backgroundColor: themeColor.withOpacity(0.12),
+                    child: const Icon(Icons.person, size: 44)),
                 const SizedBox(height: 16),
-                Text(speaker['name'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(speaker['name'] ?? '',
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text(speaker['title'] ?? '', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                Text(speaker['title'] ?? '',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey)),
                 const SizedBox(height: 16),
                 Text(speaker['biography'] ?? '', textAlign: TextAlign.justify),
                 const SizedBox(height: 12),
-                ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close')),
               ],
             ),
           ),
@@ -132,7 +141,8 @@ class KeynoteSpeakersPage extends StatelessWidget {
             ? const Center(child: Text('No keynote speakers found.'))
             : ListView.builder(
                 itemCount: speakers.length,
-                itemBuilder: (context, index) => _buildSpeakerCard(speakers[index], context),
+                itemBuilder: (context, index) =>
+                    _buildSpeakerCard(speakers[index], context),
               ),
       ),
     );

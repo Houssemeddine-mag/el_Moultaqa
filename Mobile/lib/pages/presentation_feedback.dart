@@ -6,7 +6,8 @@ class PresentationFeedbackPage extends StatefulWidget {
   const PresentationFeedbackPage({super.key, required this.title});
 
   @override
-  State<PresentationFeedbackPage> createState() => _PresentationFeedbackPageState();
+  State<PresentationFeedbackPage> createState() =>
+      _PresentationFeedbackPageState();
 }
 
 class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
@@ -16,8 +17,11 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
   final List<Map<String, dynamic>> _ratings = [];
 
   void _submit() {
-    if (_presenterRating == 0 && _presentationRating == 0 && _commentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a rating or comment')));
+    if (_presenterRating == 0 &&
+        _presentationRating == 0 &&
+        _commentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please provide a rating or comment')));
       return;
     }
 
@@ -33,7 +37,8 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
       _commentController.clear();
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thank you for your feedback')));
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thank you for your feedback')));
   }
 
   Widget _stars(double value, Function(double) onChanged) {
@@ -43,7 +48,8 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
         final filled = idx <= value;
         return IconButton(
           onPressed: () => onChanged(idx.toDouble()),
-          icon: Icon(filled ? Icons.star : Icons.star_border, color: Colors.amber),
+          icon: Icon(filled ? Icons.star : Icons.star_border,
+              color: Colors.amber),
         );
       }),
     );
@@ -63,7 +69,11 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
     final themeColor = Color(int.parse(hex));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), backgroundColor: Colors.white, foregroundColor: themeColor, elevation: 0),
+      appBar: AppBar(
+          title: Text(widget.title),
+          backgroundColor: Colors.white,
+          foregroundColor: themeColor,
+          elevation: 0),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -74,19 +84,30 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Rate the presenter', style: TextStyle(fontWeight: FontWeight.bold)),
-                    _stars(_presenterRating, (v) => setState(() => _presenterRating = v)),
+                    const Text('Rate the presenter',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    _stars(_presenterRating,
+                        (v) => setState(() => _presenterRating = v)),
                     const SizedBox(height: 8),
-                    const Text('Rate the presentation', style: TextStyle(fontWeight: FontWeight.bold)),
-                    _stars(_presentationRating, (v) => setState(() => _presentationRating = v)),
+                    const Text('Rate the presentation',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    _stars(_presentationRating,
+                        (v) => setState(() => _presentationRating = v)),
                     const SizedBox(height: 8),
-                    TextField(controller: _commentController, maxLines: 3, decoration: const InputDecoration(hintText: 'Add an optional comment')),
+                    TextField(
+                        controller: _commentController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                            hintText: 'Add an optional comment')),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        ElevatedButton(onPressed: _submit, child: const Text('Submit')),
+                        ElevatedButton(
+                            onPressed: _submit, child: const Text('Submit')),
                         const SizedBox(width: 12),
-                        OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                        OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Close')),
                       ],
                     ),
                   ],
@@ -94,7 +115,10 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const Align(alignment: Alignment.centerLeft, child: Text('Recent feedback', style: TextStyle(fontWeight: FontWeight.bold))),
+            const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Recent feedback',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
             const SizedBox(height: 8),
             Expanded(
               child: _ratings.isEmpty
@@ -106,9 +130,14 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: ListTile(
-                            title: Text('Presenter: ${r['presenter']} · Presentation: ${r['presentation']}'),
-                            subtitle: r['comment'] != null && r['comment'].toString().isNotEmpty ? Text(r['comment']) : null,
-                            trailing: Text('${(r['time'] as DateTime).hour}:${(r['time'] as DateTime).minute.toString().padLeft(2, '0')}'),
+                            title: Text(
+                                'Presenter: ${r['presenter']} · Presentation: ${r['presentation']}'),
+                            subtitle: r['comment'] != null &&
+                                    r['comment'].toString().isNotEmpty
+                                ? Text(r['comment'])
+                                : null,
+                            trailing: Text(
+                                '${(r['time'] as DateTime).hour}:${(r['time'] as DateTime).minute.toString().padLeft(2, '0')}'),
                           ),
                         );
                       },

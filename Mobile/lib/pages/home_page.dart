@@ -220,7 +220,8 @@ class HomePage extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const KeynoteSpeakersPage(),
+                                    builder: (context) =>
+                                        const KeynoteSpeakersPage(),
                                   ),
                                 );
                               },
