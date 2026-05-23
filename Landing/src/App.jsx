@@ -1,5 +1,11 @@
 ﻿import { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
 import "./styles.css";
 import icon from "@icon";
 import {
@@ -9,7 +15,7 @@ import {
   logoutUser,
   signInWithGoogle,
   saveConferenceConfig,
-} from "./firebase.js";
+} from "./backend.js";
 import HomePage from "./pages/HomePage.jsx";
 import ConferenceBuilderPage from "./pages/ConferenceBuilderPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
@@ -93,7 +99,7 @@ function AppRoutes({
               </button>
             </>
           ) : (
-            <button className="landing-cta" onClick={() => navigate("/auth")}> 
+            <button className="landing-cta" onClick={() => navigate("/auth")}>
               Sign in to create
             </button>
           )}
@@ -187,11 +193,11 @@ export default function App() {
     }
 
     try {
-      if (authMode === "register") {
-        await registerUser(authEmail, authPassword);
-      } else {
-        await loginUser(authEmail, authPassword);
-      }
+      const userData =
+        authMode === "register"
+          ? await registerUser(authEmail, authPassword)
+          : await loginUser(authEmail, authPassword);
+      setUser(userData);
       return true;
     } catch (error) {
       setAuthError(error.message || "Authentication failed. Please try again.");
@@ -202,7 +208,8 @@ export default function App() {
   const handleGoogleSignIn = async () => {
     setAuthError("");
     try {
-      await signInWithGoogle();
+      const userData = await signInWithGoogle();
+      setUser(userData);
       return true;
     } catch (error) {
       setAuthError(error.message || "Google authentication failed.");
@@ -212,6 +219,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await logoutUser();
+    setUser(null);
   };
 
   const handleFinish = async () => {

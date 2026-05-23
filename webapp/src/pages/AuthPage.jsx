@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
-import { signInWithGoogle } from "../firebase.js";
+import { signInWithGoogle } from "../backend.js";
 import { conferenceConfig } from "../conferenceConfig";
 
 export default function AuthPage() {

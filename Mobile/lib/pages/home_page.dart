@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../mobile_config.dart';
 import 'notification_page.dart';
+import 'keynote_speakers.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -12,7 +13,7 @@ class HomePage extends StatelessWidget {
           (session) => DateTime.parse(
             session['date']! + ' ' + session['time']!,
           ).isAfter(DateTime.now()),
-          orElse: () => {},
+          orElse: () => <String, String>{},
         );
 
     if (nextSession.isEmpty) {
@@ -34,7 +35,17 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Color(int.parse(MobileConfig.themeColor));
+    // Parse theme color safely (accepts "#RRGGBB", "0xAARRGGBB" or "RRGGBB")
+    String raw = MobileConfig.themeColor ?? "#0d7e52";
+    String hex;
+    if (raw.startsWith('#')) {
+      hex = '0xff' + raw.substring(1);
+    } else if (raw.startsWith('0x')) {
+      hex = raw;
+    } else {
+      hex = '0xff' + raw;
+    }
+    final themeColor = Color(int.parse(hex));
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -170,6 +181,7 @@ class HomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Container(
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -181,7 +193,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -199,6 +210,33 @@ class HomePage extends StatelessWidget {
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Quick actions row
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const KeynoteSpeakersPage(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.mic),
+                              label: const Text('Keynotes'),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                // placeholder for program navigation
+                                // user already has Program tab in bottom nav
+                              },
+                              icon: const Icon(Icons.schedule),
+                              label: const Text('Program'),
+                            ),
+                          ],
                         ),
                       ],
                     ),

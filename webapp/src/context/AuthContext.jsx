@@ -1,11 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  auth,
   onAuthStateChanged,
   loginUser,
   registerUser,
   logoutUser,
-} from "../firebase.js";
+} from "../backend.js";
 
 const AuthContext = createContext(null);
 

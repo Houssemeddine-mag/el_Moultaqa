@@ -17,7 +17,16 @@ class ElMoultaqaMobileApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Color(int.parse(MobileConfig.themeColor));
+    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String hex;
+    if (raw.startsWith('#')) {
+      hex = '0xff' + raw.substring(1);
+    } else if (raw.startsWith('0x')) {
+      hex = raw;
+    } else {
+      hex = '0xff' + raw;
+    }
+    final themeColor = Color(int.parse(hex));
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -96,7 +105,16 @@ class _MobileShellState extends State<MobileShell> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Color(int.parse(MobileConfig.themeColor));
+    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String hex;
+    if (raw.startsWith('#')) {
+      hex = '0xff' + raw.substring(1);
+    } else if (raw.startsWith('0x')) {
+      hex = raw;
+    } else {
+      hex = '0xff' + raw;
+    }
+    final themeColor = Color(int.parse(hex));
 
     return Scaffold(
       key: _scaffoldKey,

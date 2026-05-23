@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import '../mobile_config.dart';
+import 'presentation_feedback.dart';
 
 class ProgramPage extends StatelessWidget {
   const ProgramPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Color(int.parse(MobileConfig.themeColor));
+    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String hex;
+    if (raw.startsWith('#')) {
+      hex = '0xff' + raw.substring(1);
+    } else if (raw.startsWith('0x')) {
+      hex = raw;
+    } else {
+      hex = '0xff' + raw;
+    }
+    final themeColor = Color(int.parse(hex));
     final scheduleDays = MobileConfig.scheduleDays;
 
     return SafeArea(
@@ -83,6 +93,15 @@ class ProgramPage extends StatelessWidget {
                               style: const TextStyle(color: Color(0xFF6B7280)),
                             ),
                           ),
+                          onTap: () {
+                            // Open feedback for this session
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PresentationFeedbackPage(title: session['title'] ?? 'Feedback'),
+                              ),
+                            );
+                          },
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
