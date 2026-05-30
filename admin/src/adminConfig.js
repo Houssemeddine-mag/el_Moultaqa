@@ -12,5 +12,7 @@ export const adminConfig = {
     { path: "/app/users", label: "Users" },
     { path: "/app/database", label: "Database" },
     { path: "/app/keynote-in-app", label: "Keynote in App" },
+    { path: "/app/sponsors", label: "Sponsors" },
+    { path: "/app/settings", label: "Settings" },
   ],
 };

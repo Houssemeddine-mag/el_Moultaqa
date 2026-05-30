@@ -68,50 +68,9 @@ const Program = () => {
           );
         }
         console.log(
-          "Using fallback example data due to backend connection issues",
+          "No backend programs available; starting with empty template state.",
         );
-        const exampleData = [
-          {
-            id: "example-1",
-            title: "Artificial Intelligence and Healthcare",
-            date: "2025-12-08",
-            chairs: ["Pr Nawres Khlifa", "Pr Faiza Belala"],
-            keynote: {
-              name: "Pr Nawres Khlifa",
-              affiliation: "El Manar University, Tunisia",
-              bio: "Expert in AI and healthcare innovation.",
-              image: "https://randomuser.me/api/portraits/men/1.jpg",
-            },
-            conferences: [
-              {
-                title:
-                  "CoMediC: Empowering Collaborative and Participatory Medical Multimodal Data Collection Projects",
-                presenter: "Wafia Abada, Abdelkrim Bouraoumol, and Asma Ayari",
-                affiliation: "Constantine",
-                start: "10:15",
-                end: "10:35",
-              },
-              {
-                title:
-                  "A Novel Ensemble Learning Approach for Diabetes Prediction in Imbalanced Datasets",
-                presenter:
-                  "Djalila Boughareb, Said Bouteldja, and Hamid Seridi",
-                affiliation: "Guelma",
-                start: "10:35",
-                end: "10:55",
-              },
-              {
-                title: "Detection of Atherosclerosis using Deep Learning",
-                presenter:
-                  "Zahia Guessoum, Juliet C Moso, Stephane Cormier and Mohamed Tahar Bennai",
-                affiliation: "France",
-                start: "10:55",
-                end: "11:15",
-              },
-            ],
-          },
-        ];
-        setSessions(exampleData);
+        setSessions([]);
       } finally {
         setLoading(false);
       }
@@ -357,25 +316,17 @@ const Program = () => {
 
   return (
     <div className="program-container">
-      <h1>Program Management</h1>
-      <p className="subtitle">Manage conference schedule and sessions</p>
-
-      <div style={{ marginBottom: "20px", textAlign: "center" }}>
+      <div className="program-header">
+        <h1>Program Management</h1>
         <button
+          className="test-connection-button"
           onClick={testFirebaseConnection}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "var(--primary)",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
+          aria-label="Test backend connection"
         >
-          Test Connection
+          Test
         </button>
       </div>
+      <p className="subtitle">Manage conference schedule and sessions</p>
 
       <div className="form-section">
         <h2>{editingId ? "Edit Session" : "Add New Session"}</h2>
@@ -909,7 +860,13 @@ const Program = () => {
                   ))}
                 </ul>
                 {editingConferenceIdx !== null && (
-                  <div style={{ marginTop: 4, color: "#a259ff", fontSize: 13 }}>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      color: "var(--primary)",
+                      fontSize: 13,
+                    }}
+                  >
                     Editing conference #{editingConferenceIdx + 1}
                     <button
                       type="button"
@@ -1007,7 +964,7 @@ const Program = () => {
                   marginBottom: 40,
                   background: "#fff",
                   borderRadius: 16,
-                  boxShadow: "0 2px 12px rgba(79,140,255,0.07)",
+                  boxShadow: "0 2px 12px rgba(13,126,82,0.07)",
                   padding: 24,
                 }}
               >
@@ -1023,7 +980,7 @@ const Program = () => {
                       style={{
                         fontWeight: 700,
                         fontSize: 20,
-                        color: "#4f8cff",
+                        color: "var(--primary)",
                       }}
                     >
                       {session.title}

@@ -22,6 +22,14 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void _submit() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (!_isRegister && email == 'admin' && password == 'admin') {
+      Navigator.of(context).pushReplacementNamed('/admin-notif');
+      return;
+    }
+
     if (_formKey.currentState?.validate() ?? false) {
       Navigator.of(context).pushReplacementNamed('/main');
     }
@@ -52,7 +60,9 @@ class _AuthPageState extends State<AuthPage> {
                 Icon(Icons.event, size: 64, color: themeColor),
                 const SizedBox(height: 20),
                 Text(
-                  _isRegister ? 'Create an account' : 'Welcome back',
+                  _isRegister
+                      ? MobileConfig.authRegister
+                      : MobileConfig.authWelcome,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -62,10 +72,20 @@ class _AuthPageState extends State<AuthPage> {
                 const SizedBox(height: 10),
                 Text(
                   _isRegister
-                      ? 'Register to access your ElMoultaqa conference dashboard.'
+                      ? 'Register to access your ${MobileConfig.appName} conference dashboard.'
                       : 'Sign in to continue to your conference experience.',
                   style: const TextStyle(color: Color(0xFF6B7280), height: 1.5),
                 ),
+                if (!_isRegister) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Admin access: admin / admin',
+                    style: TextStyle(
+                      color: themeColor.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -93,6 +113,11 @@ class _AuthPageState extends State<AuthPage> {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your email';
                             }
+                            if (!_isRegister &&
+                                value.trim() == 'admin' &&
+                                _passwordController.text.trim() == 'admin') {
+                              return null;
+                            }
                             if (!value.contains('@')) {
                               return 'Enter a valid email';
                             }
@@ -109,6 +134,11 @@ class _AuthPageState extends State<AuthPage> {
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your password';
+                            }
+                            if (!_isRegister &&
+                                _emailController.text.trim() == 'admin' &&
+                                value.trim() == 'admin') {
+                              return null;
                             }
                             if (value.length < 6) {
                               return 'Password must be at least 6 characters';

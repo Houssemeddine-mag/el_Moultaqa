@@ -1,20 +1,16 @@
-export const conferenceConfig = {
+export const defaultConferenceConfig = {
   brand: "ElMoultaqa",
   brandInitials: "EM",
   tagline: "Conference platform for modern hybrid events",
-  name: "ElMoultaqa Conference 2026",
-  primaryColor: "#614F96",
+  name: "",
+  primaryColor: "#0d7e52",
+  themeColor: "#0d7e52",
   logoUrl: "",
   streamUrl: "https://example.com/stream.m3u8",
   dates: "December 12-14, 2026",
   location: "Algiers · Hybrid",
   description:
     "ElMoultaqa brings together attendees, speakers, and organizers in one polished conference experience.",
-  sponsors: [
-    { label: "Global Events", color: "#9b4d9e" },
-    { label: "LiveStream Pro", color: "#6d2a85" },
-    { label: "Hybrid Works", color: "#8f5da8" },
-  ],
   schedule: [
     {
       label: "Day 1",

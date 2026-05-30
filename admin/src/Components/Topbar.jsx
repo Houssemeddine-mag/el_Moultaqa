@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminConfig } from "../adminConfig";
+import { getConferenceConfig } from "../sharedConfig";
 
 const Topbar = () => {
   const [dateTime, setDateTime] = useState(new Date());
   const [adminUser, setAdminUser] = useState(null);
+  const [conferenceConfig, setConferenceConfig] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,6 +18,10 @@ const Topbar = () => {
     const userInfo = localStorage.getItem("rifAdminUser");
     if (userInfo) {
       setAdminUser(JSON.parse(userInfo));
+    }
+    const storedConfig = getConferenceConfig();
+    if (storedConfig) {
+      setConferenceConfig(storedConfig);
     }
   }, []);
 
@@ -29,14 +35,19 @@ const Topbar = () => {
       <div className="topbar-left">
         <div className="topbar-brand-block">
           <div className="conference-logo">
-            {adminConfig.conferenceLogo ? (
-              <img src={adminConfig.conferenceLogo} alt="Conference logo" />
+            {conferenceConfig?.logo || adminConfig.conferenceLogo ? (
+              <img
+                src={conferenceConfig?.logo || adminConfig.conferenceLogo}
+                alt="Conference logo"
+              />
             ) : (
               <div className="conference-logo-placeholder">Logo</div>
             )}
           </div>
           <div className="topbar-title">
-            {adminConfig.conferenceName || "Conference Name"}
+            {conferenceConfig?.name ||
+              adminConfig.conferenceName ||
+              "Conference Name"}
           </div>
         </div>
       </div>

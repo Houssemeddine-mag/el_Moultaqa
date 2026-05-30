@@ -2,6 +2,7 @@
 const STORAGE_KEYS = {
   PROGRAMS: "elm_programs",
   KEYNOTES: "elm_keynote_speakers",
+  SPONSORS: "elm_sponsors",
 };
 
 const wait = (ms = 100) => new Promise((r) => setTimeout(r, ms));
@@ -107,6 +108,40 @@ const backend = {
     await wait(80);
     const list = read(STORAGE_KEYS.KEYNOTES).filter((s) => s.id !== id);
     write(STORAGE_KEYS.KEYNOTES, list);
+    return true;
+  },
+
+  // Sponsors
+  async getSponsors() {
+    await wait(60);
+    return read(STORAGE_KEYS.SPONSORS);
+  },
+
+  async addSponsor(data) {
+    await wait(80);
+    const list = read(STORAGE_KEYS.SPONSORS);
+    const id = generateId();
+    const now = new Date().toISOString();
+    const newItem = { id, ...data, createdAt: now, updatedAt: now };
+    list.push(newItem);
+    write(STORAGE_KEYS.SPONSORS, list);
+    return newItem;
+  },
+
+  async updateSponsor(id, data) {
+    await wait(80);
+    const list = read(STORAGE_KEYS.SPONSORS);
+    const idx = list.findIndex((s) => s.id === id);
+    if (idx === -1) throw new Error("Sponsor not found");
+    list[idx] = { ...list[idx], ...data, updatedAt: new Date().toISOString() };
+    write(STORAGE_KEYS.SPONSORS, list);
+    return true;
+  },
+
+  async deleteSponsor(id) {
+    await wait(80);
+    const list = read(STORAGE_KEYS.SPONSORS).filter((s) => s.id !== id);
+    write(STORAGE_KEYS.SPONSORS, list);
     return true;
   },
 };

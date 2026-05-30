@@ -9,6 +9,8 @@ import PresentationsPage from "./pages/PresentationsPage.jsx";
 import UsersPage from "./pages/UsersPage.jsx";
 import DatabaseManagerPage from "./pages/DatabaseManagerPage.jsx";
 import KeynoteInApp from "./pages/KeynoteInApp.jsx";
+import SponsorsPage from "./pages/SponsorsPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 import "./styles.css";
 
@@ -104,6 +106,26 @@ const App = () => {
                 element={
                   isAuthenticated ? (
                     <KeynoteInApp />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="sponsors"
+                element={
+                  isAuthenticated ? (
+                    <SponsorsPage />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  isAuthenticated ? (
+                    <SettingsPage />
                   ) : (
                     <Navigate to="/login" replace />
                   )

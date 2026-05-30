@@ -1,100 +1,7 @@
 import { useMemo, useState } from "react";
 
-const samplePresentations = [
-  {
-    id: "presentation-1",
-    title: "Designing Inclusive AI",
-    presenter: "Amina B.",
-    affiliation: "Tech Equity Lab",
-    track: "Innovation",
-    status: "Pending Review",
-    start: "10:00",
-    end: "10:35",
-    programDate: "2026-07-12",
-    isKeynote: false,
-    resume:
-      "A practical roadmap for building inclusive AI systems that serve broad audiences and avoid bias.",
-    presentationRating: 4.4,
-    presenterRating: 4.6,
-    ratingCount: 24,
-    commentCount: 8,
-    comments: [
-      {
-        id: "comment-1",
-        userName: "Rania",
-        presentationRating: 5,
-        presenterRating: 5,
-        comment:
-          "Excellent material and a strong framework for inclusive systems design.",
-        date: "2026-07-11",
-      },
-      {
-        id: "comment-2",
-        userName: "Selim",
-        presentationRating: 4,
-        presenterRating: 4,
-        comment: "Great examples, would love more on deployment patterns.",
-        date: "2026-07-11",
-      },
-    ],
-  },
-  {
-    id: "presentation-2",
-    title: "Rating Systems in Practice",
-    presenter: "Karim D.",
-    affiliation: "Data Strategy Hub",
-    track: "Data",
-    status: "Approved",
-    start: "11:00",
-    end: "11:40",
-    programDate: "2026-07-12",
-    isKeynote: false,
-    resume:
-      "A hands-on session on designing rating and review systems for conferences and mobile apps.",
-    presentationRating: 4.8,
-    presenterRating: 4.7,
-    ratingCount: 31,
-    commentCount: 12,
-    comments: [
-      {
-        id: "comment-3",
-        userName: "Imen",
-        presentationRating: 5,
-        presenterRating: 5,
-        comment: "Very clear and immediately useful for our evaluation flow.",
-        date: "2026-07-11",
-      },
-    ],
-  },
-  {
-    id: "presentation-3",
-    title: "Future of Event Experience",
-    presenter: "Leila R.",
-    affiliation: "Conference Labs",
-    track: "Strategy",
-    status: "In Progress",
-    start: "14:00",
-    end: "14:45",
-    programDate: "2026-07-13",
-    isKeynote: true,
-    resume:
-      "Exploring immersive conference design, attendee journeys, and hybrid participation models.",
-    presentationRating: 4.3,
-    presenterRating: 4.5,
-    ratingCount: 19,
-    commentCount: 6,
-    comments: [
-      {
-        id: "comment-4",
-        userName: "Imran",
-        presentationRating: 4,
-        presenterRating: 4,
-        comment: "Strong strategy insights for hybrid events.",
-        date: "2026-07-12",
-      },
-    ],
-  },
-];
+// Template: start with no presentations until the conference provides content
+const samplePresentations = [];
 
 const PresentationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -119,8 +26,10 @@ const PresentationsPage = () => {
         case "presenter":
           return a.presenter.localeCompare(b.presenter);
         case "date":
-          return a.programDate.localeCompare(b.programDate) ||
-            a.start.localeCompare(b.start);
+          return (
+            a.programDate.localeCompare(b.programDate) ||
+            a.start.localeCompare(b.start)
+          );
         case "rating":
         default:
           return (b.presentationRating || 0) - (a.presentationRating || 0);
@@ -150,7 +59,7 @@ const PresentationsPage = () => {
       stars.push(
         <span key={`star-${i}`} className="star filled">
           ★
-        </span>
+        </span>,
       );
     }
 
@@ -158,7 +67,7 @@ const PresentationsPage = () => {
       stars.push(
         <span key="star-half" className="star half">
           ☆
-        </span>
+        </span>,
       );
     }
 
@@ -167,7 +76,7 @@ const PresentationsPage = () => {
       stars.push(
         <span key={`star-empty-${i}`} className="star empty">
           ☆
-        </span>
+        </span>,
       );
     }
 
@@ -230,9 +139,13 @@ const PresentationsPage = () => {
                 <div className="presentation-card-top">
                   <div>
                     <h3>{presentation.title}</h3>
-                    <p>{presentation.presenter} • {presentation.affiliation}</p>
+                    <p>
+                      {presentation.presenter} • {presentation.affiliation}
+                    </p>
                   </div>
-                  <span className={`status-pill status-${presentation.status.replace(/\s+/g, "-").toLowerCase()}`}>
+                  <span
+                    className={`status-pill status-${presentation.status.replace(/\s+/g, "-").toLowerCase()}`}
+                  >
                     {presentation.status}
                   </span>
                 </div>
@@ -240,7 +153,9 @@ const PresentationsPage = () => {
                 <div className="presentation-meta">
                   <span>{presentation.track}</span>
                   <span>{formatDate(presentation.programDate)}</span>
-                  <span>{presentation.start} - {presentation.end}</span>
+                  <span>
+                    {presentation.start} - {presentation.end}
+                  </span>
                 </div>
 
                 <div className="presentation-rating">
@@ -271,16 +186,19 @@ const PresentationsPage = () => {
                   <strong>Presenter:</strong> {selectedPresentation.presenter}
                 </p>
                 <p>
-                  <strong>Affiliation:</strong> {selectedPresentation.affiliation}
+                  <strong>Affiliation:</strong>{" "}
+                  {selectedPresentation.affiliation}
                 </p>
                 <p>
                   <strong>Track:</strong> {selectedPresentation.track}
                 </p>
                 <p>
-                  <strong>Date:</strong> {formatDate(selectedPresentation.programDate)}
+                  <strong>Date:</strong>{" "}
+                  {formatDate(selectedPresentation.programDate)}
                 </p>
                 <p>
-                  <strong>Time:</strong> {selectedPresentation.start} - {selectedPresentation.end}
+                  <strong>Time:</strong> {selectedPresentation.start} -{" "}
+                  {selectedPresentation.end}
                 </p>
                 {selectedPresentation.isKeynote && (
                   <span className="badge">Keynote Presentation</span>

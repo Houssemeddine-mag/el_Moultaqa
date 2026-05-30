@@ -1,42 +1,160 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../mobile_config.dart';
-import 'notification_page.dart';
-import 'keynote_speakers.dart';
+import 'program_page.dart';
+import 'keynote_speakers_page.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final String userRole;
+  const HomePage({super.key, required this.userRole});
 
-  String _countdownText() {
-    final nextSession = MobileConfig.scheduleDays
-        .expand((day) => day['sessions'] as List<Map<String, String>>)
-        .firstWhere(
-          (session) => DateTime.parse(
-            session['date']! + ' ' + session['time']!,
-          ).isAfter(DateTime.now()),
-          orElse: () => <String, String>{},
-        );
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
 
-    if (nextSession.isEmpty) {
-      return 'Conference is underway';
+class _HomePageState extends State<HomePage> {
+  late Color themeColor;
+  DateTime ceremonyDate = DateTime(2025, 12, 8, 9, 0);
+  Duration remaining = Duration();
+  Timer? countdownTimer;
+  String conferenceStartDate = "";
+  String conferenceName = "";
+  String conferenceDescription = '';
+  String conferenceLocation = "";
+  int totalParticipants = 0;
+
+  // Placeholder stats
+  Map<String, int> programStats = {
+    'totalSessions': 0,
+    'totalConferences': 0,
+    'totalSpeakers': 0,
+    'keynoteSessions': 0,
+  };
+
+  List<Map<String, dynamic>> upcomingEvents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+    _loadConferenceData();
+  }
+
+  Future<void> _loadConferenceData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final config = prefs.getString('elm_conference_config');
+
+      setState(() {
+        // Use MobileConfig values as defaults
+        conferenceName = MobileConfig.heroTitle.isNotEmpty
+            ? MobileConfig.heroTitle
+            : 'Conference';
+        conferenceLocation = MobileConfig.location.isNotEmpty
+            ? MobileConfig.location
+            : 'Conference Venue';
+        conferenceStartDate = MobileConfig.conferenceDates.isNotEmpty
+            ? MobileConfig.conferenceDates
+            : 'Dates TBD';
+        conferenceDescription = MobileConfig.conferenceDescription.isNotEmpty
+            ? MobileConfig.conferenceDescription
+            : 'A premier conference experience.';
+        totalParticipants =
+            MobileConfig.participants > 0 ? MobileConfig.participants : 0;
+      });
+
+      // Override with localStorage data if available
+      if (config != null) {
+        setState(() {
+          // Parse conference name from elm_conference_config
+          final nameMatch =
+              RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(config);
+          if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
+            conferenceName = nameMatch.group(1)!;
+          }
+
+          // Parse description
+          final descMatch =
+              RegExp(r'"description"\s*:\s*"([^"]*)"').firstMatch(config);
+          if (descMatch != null && descMatch.group(1)!.isNotEmpty) {
+            conferenceDescription = descMatch.group(1) ?? conferenceDescription;
+          }
+        });
+      }
+    } catch (e) {
+      // Use MobileConfig defaults
     }
+  }
 
-    final dateTime = DateTime.parse(
-      nextSession['date']! + ' ' + nextSession['time']!,
-    );
-    final remaining = dateTime.difference(DateTime.now());
-    if (remaining.isNegative) return 'Happening now';
+  void _startCountdown() {
+    countdownTimer?.cancel();
+    countdownTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          remaining = ceremonyDate.difference(DateTime.now());
+          if (remaining.isNegative) {
+            countdownTimer?.cancel();
+            remaining = Duration.zero;
+          }
+        });
+      }
+    });
+  }
 
-    final days = remaining.inDays;
-    final hours = remaining.inHours % 24;
-    final minutes = remaining.inMinutes % 60;
+  String _formatDuration(Duration d) {
+    if (d.isNegative || d == Duration.zero) {
+      return "00d 00h 00m 00s";
+    }
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    return "${twoDigits(d.inDays)}d ${twoDigits(d.inHours % 24)}h ${twoDigits(d.inMinutes % 60)}m ${twoDigits(d.inSeconds % 60)}s";
+  }
 
-    return '${days}d ${hours}h ${minutes}m until ${nextSession['title']}';
+  String _getCountdownText() {
+    if (remaining.isNegative || remaining == Duration.zero) {
+      return "The conference is in progress!";
+    }
+    return "Starting in: ${_formatDuration(remaining)}";
+  }
+
+  Future<void> _launchURL(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Unable to open link: $url'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    countdownTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Parse theme color safely (accepts "#RRGGBB", "0xAARRGGBB" or "RRGGBB")
-    String raw = MobileConfig.themeColor ?? "#0d7e52";
+    // Parse theme color from config
+    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff' + raw.substring(1);
@@ -45,281 +163,313 @@ class HomePage extends StatelessWidget {
     } else {
       hex = '0xff' + raw;
     }
-    final themeColor = Color(int.parse(hex));
+    themeColor = Color(int.parse(hex));
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  MobileConfig.appName,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: themeColor,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: themeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: themeColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationPage(),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: themeColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(Icons.notifications, color: themeColor),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+          children: <Widget>[
+            // Hero Section - Full Width Responsive Card
             Container(
               width: double.infinity,
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    themeColor.withOpacity(0.18),
-                    themeColor.withOpacity(0.05),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: themeColor,
                 borderRadius: BorderRadius.circular(24),
               ),
-              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Text(
-                    MobileConfig.heroTitle,
-                    style: TextStyle(
-                      fontSize: 26,
+                    conferenceName.isNotEmpty ? conferenceName : 'Conference',
+                    style: const TextStyle(
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: themeColor,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    MobileConfig.heroSubtitle,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: themeColor.withOpacity(0.8),
-                      height: 1.5,
+                  if (conferenceDescription.isNotEmpty)
+                    Text(
+                      conferenceDescription,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
                   const SizedBox(height: 20),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _infoChip(
-                        Icons.calendar_today,
-                        MobileConfig.conferenceDates,
-                      ),
-                      _infoChip(Icons.location_on, MobileConfig.location),
-                      _infoChip(
-                        Icons.people,
-                        '${MobileConfig.participants}+ attendees',
-                      ),
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: <Widget>[
+                      if (conferenceStartDate.isNotEmpty)
+                        _iconText(Icons.calendar_today, conferenceStartDate),
+                      if (conferenceLocation.isNotEmpty)
+                        _iconText(Icons.location_on, conferenceLocation),
+                      if (totalParticipants > 0)
+                        _iconText(
+                            Icons.people, "${totalParticipants}+ Participants"),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Next session',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: themeColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _countdownText(),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // Quick actions row
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const KeynoteSpeakersPage(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.mic),
-                              label: const Text('Keynotes'),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                // placeholder for program navigation
-                                // user already has Program tab in bottom nav
-                              },
-                              icon: const Icon(Icons.schedule),
-                              label: const Text('Program'),
-                            ),
-                          ],
-                        ),
-                      ],
+                  const SizedBox(height: 20),
+                  Text(
+                    _getCountdownText(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.95),
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            // Quick Stats
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _statCard('28+', 'Sessions', themeColor),
-                _statCard('06', 'Keynotes', themeColor),
-                _statCard('18', 'Speakers', themeColor),
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                Expanded(
+                  child: _statCard(
+                      programStats['totalConferences']?.toString() ?? "0",
+                      "Sessions"),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _statCard(
+                      programStats['keynoteSessions']?.toString() ?? "0",
+                      "Keynotes"),
+                ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            // Upcoming Events
             Text(
-              'Upcoming sessions',
+              "Upcoming Sessions",
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            upcomingEvents.isEmpty
+                ? Container(
+                    height: 150,
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.event_busy,
+                            size: 48,
+                            color: themeColor,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "No upcoming sessions",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: themeColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            "Check the full program",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: upcomingEvents.map((event) {
+                      return _buildEventCard(event);
+                    }).toList(),
+                  ),
+            const SizedBox(height: 10),
+            // Navigation Buttons
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProgramPage(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text("View full program"),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => KeynoteSpeakersPage(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text("Keynote Speakers"),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // About Section
+            Text(
+              "About ${conferenceName.isNotEmpty ? conferenceName : 'Conference'}",
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: themeColor,
               ),
             ),
-            const SizedBox(height: 14),
-            Column(
-              children: MobileConfig.upcomingSessions.map((session) {
-                return _upcomingTile(session, themeColor);
-              }).toList(),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      conferenceDescription.isNotEmpty
+                          ? conferenceDescription
+                          : "A premier conference bringing together researchers, engineers and practitioners in ${conferenceName.isNotEmpty ? conferenceName : 'Conference'}. Promoting collaboration and innovation with a focus on emerging technologies.",
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                _launchURL('https://conference.example.com'),
+                            icon: const Icon(Icons.web, size: 18),
+                            label: const Text("Visit website"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: themeColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 20),
+            // Organizer Mode
+            if (widget.userRole == 'organizer')
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        "Organizer Mode",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: themeColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          _organizerButton("Manage Notifications"),
+                          _organizerButton("View Evaluations"),
+                          _organizerButton("Manage Live Chat"),
+                          _organizerButton("Analytics"),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _infoChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE6E6F0)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF6B7280)),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+  Widget _iconText(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: Colors.white),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.white),
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _statCard(String value, String label, Color themeColor) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
+  Widget _statCard(String value, String label) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: <Widget>[
             Text(
               value,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: themeColor,
               ),
@@ -327,7 +477,11 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -335,32 +489,38 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _upcomingTile(Map<String, String> session, Color themeColor) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+  Widget _buildEventCard(Map<String, dynamic> event) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      color: themeColor.withOpacity(0.1),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 12,
+        leading: CircleAvatar(
+          backgroundColor: themeColor,
+          child: const Icon(Icons.person, color: Colors.white),
         ),
         title: Text(
-          session['title']!,
-          style: TextStyle(fontWeight: FontWeight.bold, color: themeColor),
+          event['title'] ?? 'Session',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text('${session['time']} · ${session['speaker']}'),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: themeColor),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("By ${event['speaker'] ?? 'Speaker'}"),
+            Text(event['time'] ?? ''),
+          ],
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () {},
       ),
+    );
+  }
+
+  Widget _organizerButton(String label) {
+    return Chip(
+      label: Text(label),
+      backgroundColor: themeColor.withOpacity(0.1),
+      labelStyle: TextStyle(color: themeColor),
+      side: BorderSide(color: themeColor),
     );
   }
 }

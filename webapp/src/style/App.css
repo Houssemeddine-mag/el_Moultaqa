@@ -1,0 +1,247 @@
+:root {
+  --bg: #f7f2f8;
+  --surface: #ffffff;
+  --text: #2b2337;
+  --text-muted: #6f6077;
+  --accent: #aa6b94;
+  --accent-dark: #7f4f6b;
+  --border: rgba(128, 90, 127, 0.12);
+  --shadow: 0 20px 60px rgba(170, 107, 148, 0.12);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(170, 107, 148, 0.16),
+      transparent 32%
+    ),
+    linear-gradient(180deg, #faf4fb 0%, #f7f2f8 100%);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 32px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.brand-mark img.brand-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.brand strong {
+  font-size: 22px;
+}
+
+.brand small {
+  color: var(--accent-dark);
+  font-size: 13px;
+}
+
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.topnav-button {
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-muted);
+  padding: 8px 12px;
+  min-height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.topnav-button:hover {
+  background: rgba(170, 107, 148, 0.14);
+  color: var(--accent-dark);
+  transform: translateY(-1px);
+}
+
+.topnav-button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.topnav-profile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  min-height: 32px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(170, 107, 148, 0.14);
+  border-radius: 999px;
+  min-width: 0;
+}
+
+.topnav-avatar {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(170, 107, 148, 0.14);
+  border: 1px solid rgba(170, 107, 148, 0.2);
+  flex: none;
+}
+
+.topnav-avatar.photo {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.topnav-avatar.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex: none;
+}
+
+.topnav-profile .nav-text {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+main {
+  flex: 1;
+  width: min(1180px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 64px 32px 72px;
+}
+
+.page-shell {
+  display: grid;
+  gap: 28px;
+  padding: 0 10px;
+}
+
+.page-footer {
+  text-align: center;
+  padding: 26px 16px 40px;
+  color: var(--text-muted);
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.panel-title span {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.82rem;
+}
+
+.page-shell h1,
+.page-shell h2,
+.page-shell h3 {
+  color: var(--text);
+}
+
+@media (max-width: 980px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  main {
+    width: calc(100% - 48px);
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    padding: 20px 18px;
+  }
+
+  main {
+    padding: 36px 16px 48px;
+  }
+}

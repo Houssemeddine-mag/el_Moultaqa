@@ -7,6 +7,7 @@
   --primary: #0d7e52;
   --accent: #1fb69a;
   --border: rgba(13, 126, 82, 0.12);
+  --danger: #ef4444;
 }
 
 *,
@@ -50,12 +51,12 @@ input {
 }
 
 .sidebar {
-  width: 260px;
+  width: 220px; /* reduced sidebar width */
   background: linear-gradient(120deg, var(--primary) 40%, var(--accent) 100%);
   color: #fff;
   display: flex;
   flex-direction: column;
-  padding: 24px 0 0 0;
+  padding: 18px 0 0 0;
   height: 100vh;
   position: fixed;
   top: 0;
@@ -68,26 +69,37 @@ input {
 
 .sidebar-header {
   width: 100%;
-  padding: 0 24px 18px 24px;
+  padding: 12px 24px 18px 24px;
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.14);
   margin-bottom: 16px;
+  display: flex; /* center the logo */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-brand {
-  width: 120px;
-  height: 120px;
+  width: 140px; /* keep width */
+  height: 96px; /* reduce vertical size */
   display: grid;
   place-items: center;
   overflow: hidden;
-  margin-bottom: 14px;
-  background: #ffffff;
-  border-radius: 16px;
+  margin: 8px 0 14px 0;
+  background: transparent; /* removed white square */
+  border-radius: 12px;
 }
 
 .sidebar-brand img {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 86%;
+  max-height: 82%; /* make the image a bit smaller so it fits the reduced field */
   object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  transform: translateY(-6px); /* nudge the logo upwards */
+  /* force logo to render white where possible (best with monochrome or SVG logos) */
+  filter: brightness(0) invert(1);
 }
 
 .sidebar-header h2 {
@@ -152,7 +164,7 @@ input {
 }
 
 .sidebar-logout-btn:hover {
-  box-shadow: 0 10px 24px rgba(79, 140, 255, 0.18);
+  box-shadow: 0 10px 24px rgba(13, 126, 82, 0.16);
 }
 
 .content-wrapper {
@@ -160,7 +172,7 @@ input {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  margin-left: 260px;
+  margin-left: 220px; /* match reduced sidebar width */
 }
 
 .content-wrapper.auth-content {
@@ -169,21 +181,17 @@ input {
 
 .topbar {
   width: 100%;
-  min-height: 90px;
-  background: linear-gradient(
-    90deg,
-    rgba(15, 126, 82, 0.05) 0%,
-    rgba(31, 182, 154, 0.08) 100%
-  );
+  min-height: 64px;
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 16px rgba(13, 126, 82, 0.08);
-  padding: 16px 40px;
+  box-shadow: 0 2px 14px rgba(13, 126, 82, 0.06);
+  padding: 10px 28px;
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 2.5px solid rgba(13, 126, 82, 0.14);
+  border-bottom: 1px solid rgba(13, 126, 82, 0.08);
 }
 
 .topbar-left {
@@ -199,12 +207,12 @@ input {
 }
 
 .conference-logo {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  border-radius: 18px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
   background: #ffffff;
-  border: 1px solid rgba(13, 126, 82, 0.12);
+  border: 1px solid rgba(13, 126, 82, 0.10);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -217,7 +225,7 @@ input {
 }
 
 .conference-logo-placeholder {
-  color: rgba(35, 41, 70, 0.55);
+  color: rgba(13, 126, 82, 0.55);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -237,13 +245,13 @@ input {
 }
 
 .logo-img {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   background: #fff;
   display: grid;
   place-items: center;
-  box-shadow: 0 1px 10px rgba(13, 126, 82, 0.12);
+  box-shadow: 0 1px 8px rgba(13, 126, 82, 0.10);
 }
 
 .logo-img img {
@@ -254,9 +262,9 @@ input {
 }
 
 .topbar-title {
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #232946;
+  color: var(--text);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -316,9 +324,9 @@ input {
 
 .main-content {
   flex: 1;
-  padding: 40px 36px 60px;
+  padding: 28px 28px 48px;
   background: var(--bg);
-  min-height: calc(100vh - 90px);
+  min-height: calc(100vh - 64px);
 }
 
 .main-content.auth-page-main {
@@ -332,7 +340,7 @@ input {
 .table-card {
   background: rgba(255, 255, 255, 0.92);
   border-radius: 28px;
-  border: 1px solid rgba(79, 140, 255, 0.08);
+  border: 1px solid var(--border);
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.06);
   padding: 32px;
 }
@@ -362,7 +370,7 @@ input {
   justify-content: center;
   padding: 12px 18px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4f8cff 0%, #a259ff 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
   color: #fff;
   font-weight: 700;
 }
@@ -382,7 +390,7 @@ input {
     rgba(255, 255, 255, 0.95) 0%,
     #f7faff 100%
   );
-  border: 1px solid rgba(79, 140, 255, 0.12);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -393,7 +401,7 @@ input {
   display: grid;
   place-items: center;
   margin-bottom: 18px;
-  background: rgba(79, 140, 255, 0.1);
+  background: rgba(13, 126, 82, 0.06);
 }
 
 .stat-card h3 {
@@ -426,18 +434,18 @@ input {
 .data-table td {
   text-align: left;
   padding: 16px 14px;
-  border-bottom: 1px solid rgba(79, 140, 255, 0.08);
+  border-bottom: 1px solid rgba(13, 126, 82, 0.06);
 }
 
 .data-table th {
   font-size: 0.95rem;
-  color: #5d648e;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .data-table tbody tr:hover {
-  background: rgba(79, 140, 255, 0.08);
+  background: rgba(13, 126, 82, 0.06);
 }
 
 .login-page {
@@ -445,7 +453,7 @@ input {
   place-items: center;
   min-height: 100vh;
   padding: 24px;
-  background: linear-gradient(180deg, #eef6ff 0%, #f7f4ff 100%);
+  background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-strong) 100%);
 }
 
 .login-panel {
@@ -465,7 +473,7 @@ input {
   justify-content: center;
   padding: 12px 18px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4f8cff 0%, #a259ff 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
   color: #fff;
   font-weight: 700;
   margin-bottom: 18px;
@@ -496,7 +504,7 @@ input {
 .login-form input {
   width: 100%;
   padding: 16px 18px;
-  border: 1px solid rgba(79, 140, 255, 0.18);
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: #fff;
   outline: none;
@@ -504,7 +512,7 @@ input {
 
 .login-form input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.1);
+  box-shadow: 0 0 0 4px rgba(13, 126, 82, 0.08);
 }
 
 .login-error {
@@ -517,7 +525,7 @@ input {
   padding: 16px 20px;
   border: none;
   border-radius: 16px;
-  background: linear-gradient(90deg, #4f8cff 0%, #a259ff 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
 }
 
 /* Page-specific layout */
@@ -709,7 +717,7 @@ input {
 }
 
 .secondary-button {
-  background: #eef5ff;
+  background: var(--surface-strong);
   color: var(--text);
 }
 
@@ -745,13 +753,13 @@ input {
 }
 
 .users-page .status-chip.complete {
-  background: #d1fae5;
-  color: #065f46;
+  background: rgba(13, 126, 82, 0.12);
+  color: var(--primary);
 }
 
 .users-page .status-chip.incomplete {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
 }
 
 .database-page .status-banner {
@@ -837,7 +845,7 @@ input {
 
 .info-list li {
   padding: 16px 18px;
-  background: #f8fbff;
+  background: var(--surface-strong);
   border-radius: 18px;
 }
 
@@ -847,7 +855,7 @@ input {
   justify-content: center;
   padding: 14px 22px;
   border-radius: 14px;
-  border: 1px solid rgba(79, 140, 255, 0.2);
+  border: 1px solid var(--border);
   background: #fff;
   color: var(--text);
   font-weight: 700;

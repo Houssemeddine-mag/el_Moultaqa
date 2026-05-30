@@ -1,54 +1,31 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  onAuthStateChanged,
-  loginUser,
-  registerUser,
-  logoutUser,
-} from "../backend.js";
+import { createContext, useContext, useEffect, useState } from "react";
+import { subscribeAuthState } from "../services/localService";
 
-const AuthContext = createContext(null);
+const AuthContext = createContext({
+  user: null,
+  loading: true,
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged((currentUser) => {
+    const unsubscribe = subscribeAuthState((currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
+
     return unsubscribe;
   }, []);
 
-  const login = async (email, password) => {
-    const result = await loginUser(email, password);
-    setUser(result.user);
-    return result.user;
-  };
-
-  const register = async (email, password) => {
-    const result = await registerUser(email, password);
-    setUser(result.user);
-    return result.user;
-  };
-
-  const logout = async () => {
-    await logoutUser();
-    setUser(null);
-  };
-
-  const value = useMemo(
-    () => ({ user, loading, login, register, logout }),
-    [user, loading],
+  return (
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
+  return useContext(AuthContext);
 }

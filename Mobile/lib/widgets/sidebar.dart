@@ -1,27 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class Sidebar extends StatelessWidget {
+class Sidebar extends StatefulWidget {
   final Function(int) onItemSelected;
   final int selectedIndex;
-  final VoidCallback onLogout;
+  final VoidCallback? onDisconnectRequested;
 
   const Sidebar({
-    super.key,
+    Key? key,
     required this.onItemSelected,
     required this.selectedIndex,
-    required this.onLogout,
-  });
+    this.onDisconnectRequested,
+  }) : super(key: key);
+
+  @override
+  State<Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<Sidebar> {
+  String _conferenceName = 'ElMoultaqa';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConferenceName();
+  }
+
+  Future<void> _loadConferenceName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final config = prefs.getString('elm_conference_config');
+    if (config != null) {
+      try {
+        // Parse JSON to extract name
+        final jsonStr = config;
+        final nameMatch = RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
+        if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
+          setState(() {
+            _conferenceName = nameMatch.group(1)!;
+          });
+          return;
+        }
+      } catch (e) {
+        // Fallback to default
+      }
+    }
+    setState(() {
+      _conferenceName = 'ElMoultaqa';
+    });
+  }
+
+  void _launchWebApp() async {
+    const url = 'https://elmoultaqa.com'; // Replace with actual webapp URL
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
       backgroundColor: const Color(0xFFFDFDFD),
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF614f96), Color(0xFF7862ab)],
+                colors: [Color(0xFF0D7E52), Color(0xFF1FB69A)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -29,12 +75,26 @@ class Sidebar extends StatelessWidget {
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.event, size: 64, color: Colors.white),
-                  SizedBox(height: 12),
+                children: [
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.event,
+                          size: 64,
+                          color: Colors.white,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text(
-                    'ElMoultaqa',
-                    style: TextStyle(
+                    _conferenceName,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -53,13 +113,13 @@ class Sidebar extends StatelessWidget {
           _buildNavItem(
             context,
             icon: Icons.calendar_month_outlined,
-            title: 'Schedule',
+            title: 'Program',
             index: 1,
           ),
           _buildNavItem(
             context,
             icon: Icons.videocam_outlined,
-            title: 'Live',
+            title: 'Live Stream',
             index: 2,
           ),
           _buildNavItem(
@@ -68,7 +128,6 @@ class Sidebar extends StatelessWidget {
             title: 'Profile',
             index: 3,
           ),
-          const Spacer(),
           const Divider(),
           _buildNavItem(
             context,
@@ -77,11 +136,17 @@ class Sidebar extends StatelessWidget {
             index: 4,
           ),
           ListTile(
-            leading: const Icon(Icons.logout_outlined, color: Colors.grey),
-            title: const Text('Logout', style: TextStyle(color: Colors.grey)),
+            leading: const Icon(Icons.language, color: Color(0xFF0D7E52)),
+            title: const Text(
+              'Visit WebApp',
+              style: TextStyle(
+                color: Color(0xFF0D7E52),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             onTap: () {
+              _launchWebApp();
               Navigator.pop(context);
-              onLogout();
             },
           ),
           const SizedBox(height: 20),
@@ -96,24 +161,23 @@ class Sidebar extends StatelessWidget {
     required String title,
     required int index,
   }) {
-    final isSelected = selectedIndex == index;
+    final isSelected = widget.selectedIndex == index;
     return ListTile(
       leading: Icon(
         icon,
-        color: isSelected ? const Color(0xFF614f96) : Colors.grey,
+        color: isSelected ? const Color(0xFF0D7E52) : Colors.grey,
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: isSelected ? const Color(0xFF614f96) : Colors.grey,
+          color: isSelected ? const Color(0xFF0D7E52) : Colors.grey,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
       selected: isSelected,
-      selectedTileColor: const Color(0xFFE6DFF2).withOpacity(0.2),
+      selectedTileColor: const Color(0xFF0D7E52).withOpacity(0.1),
       onTap: () {
-        onItemSelected(index);
-        Navigator.pop(context);
+        widget.onItemSelected(index);
       },
     );
   }

@@ -1,11 +1,25 @@
+import { useEffect, useState } from "react";
+import { fetchNotifications } from "../services/localService";
+
 export default function NotificationsPage() {
-  const notifications = [
-    { title: "Session update", message: "The keynote has moved to 10:00 AM." },
-    {
-      title: "New speaker added",
-      message: "A new panelist has joined the strategy session.",
-    },
-  ];
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      const items = await fetchNotifications(50);
+      if (mounted) {
+        setNotifications(items);
+      }
+    }
+
+    loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="page-shell">
@@ -15,7 +29,7 @@ export default function NotificationsPage() {
       </div>
       <div className="list-grid">
         {notifications.map((item) => (
-          <article key={item.title} className="card">
+          <article key={item.id || item.title} className="card">
             <h3>{item.title}</h3>
             <p>{item.message}</p>
           </article>

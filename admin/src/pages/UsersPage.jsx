@@ -1,67 +1,7 @@
 import { useMemo, useState } from "react";
 
-const sampleUsers = [
-  {
-    id: "user-1",
-    displayName: "Amira Haddad",
-    email: "amira.haddad@example.com",
-    university: "University of Algiers",
-    schoolLevel: "Graduate",
-    country: "Algeria",
-    province: "Algiers",
-    gender: "Female",
-    role: "Event Director",
-    isProfileComplete: true,
-  },
-  {
-    id: "user-2",
-    displayName: "Yacine Zemmouri",
-    email: "yacine.z@example.com",
-    university: "Oran Tech",
-    schoolLevel: "Undergraduate",
-    country: "Algeria",
-    province: "Oran",
-    gender: "Male",
-    role: "Program Manager",
-    isProfileComplete: true,
-  },
-  {
-    id: "user-3",
-    displayName: "Meriem Bensalah",
-    email: "meriem.b@example.com",
-    university: "Constantine Institute",
-    schoolLevel: "Postgraduate",
-    country: "Algeria",
-    province: "Constantine",
-    gender: "Female",
-    role: "Speaker Coordinator",
-    isProfileComplete: false,
-  },
-  {
-    id: "user-4",
-    displayName: "Nabil Ouh",
-    email: "nabil.ouh@example.com",
-    university: "Annaba University",
-    schoolLevel: "Graduate",
-    country: "Algeria",
-    province: "Annaba",
-    gender: "Male",
-    role: "Technical Support",
-    isProfileComplete: true,
-  },
-  {
-    id: "user-5",
-    displayName: "Dina Saad",
-    email: "dina.saad@example.com",
-    university: "Blida College",
-    schoolLevel: "Undergraduate",
-    country: "Algeria",
-    province: "Blida",
-    gender: "Female",
-    role: "Volunteer Coordinator",
-    isProfileComplete: false,
-  },
-];
+// Template: start with empty user list until the conference provides data
+const sampleUsers = [];
 
 const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -86,11 +26,13 @@ const UsersPage = () => {
 
   const stats = {
     totalUsers: sampleUsers.length,
-    completeProfiles: sampleUsers.filter((user) => user.isProfileComplete).length,
-    incompleteProfiles: sampleUsers.filter((user) => !user.isProfileComplete).length,
+    completeProfiles: sampleUsers.filter((user) => user.isProfileComplete)
+      .length,
+    incompleteProfiles: sampleUsers.filter((user) => !user.isProfileComplete)
+      .length,
   };
 
-  const roles = ["All", ...Array.from(new Set(sampleUsers.map((user) => user.role)))];
+  const roles = ["All"];
 
   return (
     <div className="page-card users-page">
@@ -168,7 +110,9 @@ const UsersPage = () => {
                 <td>{user.province}</td>
                 <td>{user.role}</td>
                 <td>
-                  <span className={`status-chip ${user.isProfileComplete ? "complete" : "incomplete"}`}>
+                  <span
+                    className={`status-chip ${user.isProfileComplete ? "complete" : "incomplete"}`}
+                  >
                     {user.isProfileComplete ? "Complete" : "Incomplete"}
                   </span>
                 </td>
