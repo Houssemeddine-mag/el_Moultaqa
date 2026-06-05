@@ -1,4 +1,4 @@
-import { loginUser as backendLoginUser } from "../backend";
+import { queryOrgTable } from "@global/supabase";
 
 const AUTH_STORAGE_KEY = "elm_webapp_auth_user";
 const PROFILE_STORAGE_KEY = "elm_webapp_profiles";
@@ -10,6 +10,14 @@ const SPONSORS_STORAGE_KEY = "elm_sponsors";
 const CONFERENCE_CONFIG_STORAGE_KEY = "elm_conference_config";
 
 const authListeners = new Set();
+let activeSupabase = null;
+let activeSchemaName = null;
+
+export function initializeService(supabase, schemaName) {
+  activeSupabase = supabase;
+  activeSchemaName = schemaName;
+  console.log("[localService] Initialized with schema:", schemaName);
+}
 
 function readJson(key, fallback) {
   if (typeof window === "undefined") return fallback;
@@ -138,6 +146,27 @@ function readConferenceConfig() {
 }
 
 export async function fetchConferenceConfig() {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+      if (events && events.length > 0) {
+        const ev = events[0];
+        return {
+          name: ev.title,
+          shortName: ev.short_name,
+          themeColor: ev.settings?.themeColor || "#0d7e52",
+          logo: ev.cover_image_url || ev.settings?.logo_url || "",
+          startDate: ev.start_date,
+          endDate: ev.end_date,
+          sponsors: ev.settings?.sponsors || [],
+          collaborators: ev.settings?.collaborators || [],
+          attendees: ev.settings?.attendees || [],
+        };
+      }
+    } catch (e) {
+      console.error("[localService.fetchConferenceConfig] Supabase query failed:", e);
+    }
+  }
   return readConferenceConfig();
 }
 
@@ -165,93 +194,126 @@ function readSponsors() {
 }
 
 export async function fetchSponsors() {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const config = await fetchConferenceConfig();
+      if (config && config.sponsors) {
+        return config.sponsors.map((name, index) => ({
+          id: `sponsor-${index}`,
+          name,
+          tier: "partner",
+        }));
+      }
+    } catch (e) {
+      console.error("[localService.fetchSponsors] failed:", e);
+    }
+  }
   return readSponsors();
 }
 
-export function subscribeAuthState(listener) {
-  const currentUser = getStoredUser();
-  listener(currentUser);
-  authListeners.add(listener);
-  return () => {
-    authListeners.delete(listener);
-  };
+export async function getOrgPublicInfo(supabase, slug) {
+  if (!supabase || !slug) return null;
+  const { data, error } = await supabase.rpc("get_org_public_info", { p_slug: slug });
+  if (error) {
+    console.error("[localService.getOrgPublicInfo] RPC failed:", error);
+    throw error;
+  }
+  return data;
 }
 
-export async function signInWithGooglePopup() {
-  const user = {
-    uid: "template-google-user",
-    email: "a@a.a",
-    displayName: "Template User",
-    providerData: [{ providerId: "google.com" }],
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString(),
-    },
-  };
-  setStoredUser(user);
-  ensureProfile(user);
-  return { user };
+export async function registerAttendee(supabase, slug, clerkUserId, email, fullName = "", code = null) {
+  if (!supabase || !slug || !clerkUserId || !email) {
+    throw new Error("Missing required parameters for registration");
+  }
+  const { data, error } = await supabase.rpc("register_attendee", {
+    p_slug: slug,
+    p_clerk_user_id: clerkUserId,
+    p_email: email,
+    p_full_name: fullName,
+    p_registration_code: code
+  });
+  if (error) {
+    console.error("[localService.registerAttendee] RPC failed:", error);
+    throw error;
+  }
+  return data;
 }
 
-export async function signInWithGithubPopup() {
-  const user = {
-    uid: "template-github-user",
-    email: "a@a.a",
-    displayName: "Template User",
-    providerData: [{ providerId: "github.com" }],
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString(),
-    },
-  };
-  setStoredUser(user);
-  ensureProfile(user);
-  return { user };
+export async function checkUserMembership(supabase, schemaName, clerkUserId) {
+  if (!supabase || !schemaName || !clerkUserId) return false;
+  try {
+    const users = await queryOrgTable(supabase, schemaName, "users", {
+      filters: { clerk_user_id: clerkUserId }
+    });
+    return users && users.length > 0;
+  } catch (e) {
+    console.error("[localService.checkUserMembership] failed:", e);
+    return false;
+  }
 }
 
-export async function signInWithEmailPassword(email, password) {
-  const result = await backendLoginUser(email, password);
-  const user = {
-    uid: result.user.uid,
-    email: result.user.email,
-    displayName: result.user.email?.split("@")[0] || "Template User",
-    providerData: [{ providerId: "password" }],
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString(),
-    },
-  };
-  setStoredUser(user);
-  ensureProfile(user);
-  return { user };
-}
 
-export async function createUserWithEmailAndPasswordAuth(email) {
-  const user = {
-    uid: `template-${Date.now()}`,
-    email,
-    displayName: email?.split("@")[0] || "Template User",
-    providerData: [{ providerId: "password" }],
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString(),
-    },
-  };
-  setStoredUser(user);
-  ensureProfile(user);
-  return { user };
-}
-
-export async function sendPasswordResetEmailAuth() {
-  return;
-}
-
-export async function signOutUser() {
-  setStoredUser(null);
-}
-
-export async function fetchUserProfile(uid) {
+export async function fetchUserProfile(uid, email, displayName) {
   if (!uid) return null;
+
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const users = await queryOrgTable(activeSupabase, activeSchemaName, "users", {
+        filters: { clerk_user_id: uid }
+      });
+      let u;
+      if (users && users.length > 0) {
+        u = users[0];
+      } else {
+        console.log("[localService.fetchUserProfile] User not found in schema. Auto-inserting...");
+        const insertPayload = {
+          clerk_user_id: uid,
+          email: email || "",
+          full_name: displayName || "",
+          role: "attendee"
+        };
+        const { data, error } = await activeSupabase.rpc("org_insert", {
+          p_schema_name: activeSchemaName,
+          p_table_name: "users",
+          p_data: insertPayload
+        });
+        if (error) {
+          console.error("[localService.fetchUserProfile] Failed to auto-insert user:", error);
+        } else {
+          u = data;
+        }
+      }
+
+      if (u) {
+        return {
+          id: u.id,
+          uid: u.clerk_user_id,
+          email: u.email,
+          displayName: u.full_name || u.email?.split("@")[0] || "User",
+          university: u.institution || "",
+          schoolLevel: u.metadata?.schoolLevel || "Master's Degree",
+          role: u.role,
+          avatar: u.avatar_url,
+          photoURL: u.avatar_url,
+          createdAt: u.created_at,
+          lastSignedIn: u.updated_at,
+          gender: u.metadata?.gender || "male",
+          country: u.metadata?.country || "Algeria",
+          province: u.metadata?.province || "Constantine",
+          phone: u.phone || "",
+          phoneNumber: u.phone || "",
+          jobTitle: u.bio || "",
+          organization: u.institution || "",
+          bio: u.bio || "",
+          isProfileComplete: true,
+        };
+      }
+    } catch (e) {
+      console.error("[localService.fetchUserProfile] Supabase query/insert failed:", e);
+    }
+  }
+
+  // Fallback to local storage
   const profiles = getProfileStore();
   const existing = profiles[uid];
   if (existing) return existing;
@@ -265,24 +327,90 @@ export async function fetchUserProfile(uid) {
 }
 
 export async function fetchAllPrograms() {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const sessions = await queryOrgTable(activeSupabase, activeSchemaName, "sessions");
+      const speakers = await queryOrgTable(activeSupabase, activeSchemaName, "speakers");
+      const speakerMap = new Map(speakers.map((s) => [s.id, s]));
+
+      const programs = sessions.map((session) => {
+        const sp = session.speaker_id ? speakerMap.get(session.speaker_id) : null;
+        const startDt = session.start_time ? new Date(session.start_time) : null;
+        const endDt = session.end_time ? new Date(session.end_time) : null;
+
+        const dateStr = startDt ? startDt.toISOString().split("T")[0] : "";
+        const startStr = startDt ? startDt.toTimeString().slice(0, 5) : "";
+        const endStr = endDt ? endDt.toTimeString().slice(0, 5) : "";
+
+        return {
+          id: session.id,
+          type: session.session_type,
+          title: session.title,
+          date: dateStr,
+          start: startStr,
+          end: endStr,
+          room: session.room || "",
+          chairs: session.metadata?.chairs || [],
+          keynote: sp ? {
+            name: sp.full_name,
+            title: sp.title || "",
+            company: sp.company || "",
+            photo: sp.photo_url || "",
+            bio: sp.bio || "",
+          } : null,
+          keynoteDescription: session.description || "",
+          keynoteHasConference: false,
+          conferences: [],
+          createdAt: session.created_at,
+          updatedAt: session.updated_at,
+        };
+      });
+      return sortByDateThenTime(programs);
+    } catch (e) {
+      console.error("[localService.fetchAllPrograms] Supabase query failed:", e);
+    }
+  }
   return sortByDateThenTime(readPrograms());
 }
 
 export async function fetchUpcomingPrograms(limitCount = 2) {
-  return sortByDateThenTime(readPrograms()).slice(0, limitCount);
+  const list = await fetchAllPrograms();
+  return list.slice(0, limitCount);
 }
 
 export async function fetchKeynotePrograms() {
-  return sortByDateThenTime(readPrograms()).filter(
-    (program) => program.keynote && program.keynote.name,
-  );
+  const list = await fetchAllPrograms();
+  return list.filter((program) => program.keynote && program.keynote.name);
 }
 
 export async function fetchKeynoteSpeakers() {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const speakers = await queryOrgTable(activeSupabase, activeSchemaName, "speakers");
+      return speakers.map((sp) => ({
+        id: sp.id,
+        name: sp.full_name,
+        title: sp.title || "",
+        company: sp.company || "",
+        photo: sp.photo_url || "",
+        bio: sp.bio || "",
+        socials: sp.social_links || {},
+      }));
+    } catch (e) {
+      console.error("[localService.fetchKeynoteSpeakers] Supabase query failed:", e);
+    }
+  }
   return readKeynotes();
 }
 
 export function subscribePrograms(onUpdate, onError) {
+  if (activeSupabase && activeSchemaName) {
+    fetchAllPrograms()
+      .then(onUpdate)
+      .catch(onError);
+    return () => {};
+  }
+
   if (typeof window === "undefined") {
     return () => {};
   }
@@ -322,4 +450,101 @@ export async function submitStreamQuestion({ author, message }) {
   };
   writeJson(STREAM_QUESTIONS_STORAGE_KEY, [question, ...current]);
   return question;
+}
+
+export async function updateUserProfile(uid, profileId, updatedData) {
+  if (activeSupabase && activeSchemaName) {
+    let dbId = profileId;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId || "");
+
+    if (!isUuid) {
+      console.log("[localService.updateUserProfile] profileId is not a UUID. Resolving from database...");
+      try {
+        const users = await queryOrgTable(activeSupabase, activeSchemaName, "users", {
+          filters: { clerk_user_id: uid }
+        });
+        if (users && users.length > 0) {
+          dbId = users[0].id;
+        } else {
+          console.log("[localService.updateUserProfile] User not found in schema. Auto-inserting...");
+          const insertPayload = {
+            clerk_user_id: uid,
+            email: updatedData.email || "",
+            full_name: updatedData.displayName || "",
+            role: "attendee"
+          };
+          const { data, error: insertError } = await activeSupabase.rpc("org_insert", {
+            p_schema_name: activeSchemaName,
+            p_table_name: "users",
+            p_data: insertPayload
+          });
+          if (insertError) {
+            console.error("[localService.updateUserProfile] Auto-insert failed:", insertError);
+            throw insertError;
+          }
+          dbId = data.id;
+        }
+      } catch (err) {
+        console.error("[localService.updateUserProfile] Failed to resolve user database UUID:", err);
+        throw err;
+      }
+    }
+
+    const payload = {
+      full_name: updatedData.displayName,
+      institution: updatedData.university,
+      phone: updatedData.phone,
+      bio: updatedData.bio,
+      metadata: {
+        schoolLevel: updatedData.schoolLevel,
+        gender: updatedData.gender,
+        country: updatedData.country,
+        province: updatedData.province,
+      }
+    };
+
+    const { data, error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "users",
+      p_id: dbId,
+      p_data: payload
+    });
+
+    if (error) {
+      console.error("[localService.updateUserProfile] failed:", error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      uid: data.clerk_user_id,
+      email: data.email,
+      displayName: data.full_name || data.email.split("@")[0] || "User",
+      university: data.institution || "",
+      schoolLevel: data.metadata?.schoolLevel || "Master's Degree",
+      role: data.role,
+      avatar: data.avatar_url,
+      photoURL: data.avatar_url,
+      createdAt: data.created_at,
+      lastSignedIn: data.updated_at,
+      gender: data.metadata?.gender || "male",
+      country: data.metadata?.country || "Algeria",
+      province: data.metadata?.province || "Constantine",
+      phone: data.phone || "",
+      phoneNumber: data.phone || "",
+      jobTitle: data.bio || "",
+      organization: data.institution || "",
+      bio: data.bio || "",
+      isProfileComplete: true,
+    };
+  }
+  
+  // Fallback to local storage
+  const profiles = getProfileStore();
+  profiles[uid] = {
+    ...profiles[uid],
+    ...updatedData,
+  };
+  setProfileStore(profiles);
+  return profiles[uid];
 }

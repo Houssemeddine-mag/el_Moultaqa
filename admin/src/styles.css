@@ -526,6 +526,9 @@ input {
   border: none;
   border-radius: 16px;
   background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* Page-specific layout */
@@ -824,10 +827,6 @@ input {
   }
 }
 
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-}
 
 .login-note {
   margin: 0;

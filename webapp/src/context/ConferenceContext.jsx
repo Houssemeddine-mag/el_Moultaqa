@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { defaultConferenceConfig } from "../conferenceConfig";
-import {
-  fetchConferenceConfig,
-  subscribeConferenceConfig,
-} from "../services/localService";
+import { fetchConferenceConfig, initializeService } from "../services/localService";
+import { useClerkSupabase, resolveOrgSlug } from "@global/supabase";
 
 const ConferenceContext = createContext(defaultConferenceConfig);
 
@@ -66,26 +65,42 @@ function applyThemeVariables(config) {
 
 export function ConferenceProvider({ children }) {
   const [config, setConfig] = useState(defaultConferenceConfig);
+  const supabase = useClerkSupabase();
+  const location = useLocation();
+
+  // Parse the slug from the URL pathname, e.g. /c/algeria-tech/home -> algeria-tech
+  const match = location.pathname.match(/^\/c\/([^\/]+)/);
+  const orgSlug = match ? match[1] : null;
 
   useEffect(() => {
     let active = true;
 
     async function loadConfig() {
+      if (!orgSlug) {
+        console.log("[ConferenceProvider] No org slug found in path.");
+        return;
+      }
+
       try {
-        const storedConfig = await fetchConferenceConfig();
+        console.log("[ConferenceProvider] Resolving org slug:", orgSlug);
+        const orgDetails = await resolveOrgSlug(supabase, orgSlug);
         if (!active) return;
-        if (storedConfig) {
+
+        if (orgDetails) {
+          console.log("[ConferenceProvider] Resolved schema:", orgDetails.schema_name);
+          initializeService(supabase, orgDetails.schema_name);
+
+          const storedConfig = await fetchConferenceConfig();
+          if (!active) return;
+
           setConfig({
             ...defaultConferenceConfig,
-            ...storedConfig,
-            brand: storedConfig.shortName || defaultConferenceConfig.brand,
-            brandInitials:
-              storedConfig.brandInitials ||
-              getInitials(
-                storedConfig.shortName || defaultConferenceConfig.brand,
-              ),
-            name: storedConfig.name || defaultConferenceConfig.name,
-            logoUrl: storedConfig.logo || defaultConferenceConfig.logoUrl,
+            id: orgSlug,
+            brand: orgDetails.name || defaultConferenceConfig.brand,
+            brandInitials: getInitials(orgDetails.name || defaultConferenceConfig.brand),
+            name: storedConfig?.name || orgDetails.name || defaultConferenceConfig.name,
+            themeColor: storedConfig?.themeColor || orgDetails.themeColor || defaultConferenceConfig.primaryColor,
+            logoUrl: storedConfig?.logo || orgDetails.logo_url || defaultConferenceConfig.logoUrl,
           });
         }
       } catch (error) {
@@ -93,27 +108,15 @@ export function ConferenceProvider({ children }) {
       }
     }
 
-    loadConfig();
-
-    const unsubscribe = subscribeConferenceConfig((storedConfig) => {
-      if (!active || !storedConfig) return;
-      setConfig({
-        ...defaultConferenceConfig,
-        ...storedConfig,
-        brand: storedConfig.shortName || defaultConferenceConfig.brand,
-        brandInitials:
-          storedConfig.brandInitials ||
-          getInitials(storedConfig.shortName || defaultConferenceConfig.brand),
-        name: storedConfig.name || defaultConferenceConfig.name,
-        logoUrl: storedConfig.logo || defaultConferenceConfig.logoUrl,
-      });
-    });
+    if (supabase) {
+      loadConfig();
+    }
 
     return () => {
       active = false;
-      unsubscribe();
     };
-  }, []);
+  }, [supabase, orgSlug]);
+
 
   useEffect(() => {
     applyThemeVariables(config);

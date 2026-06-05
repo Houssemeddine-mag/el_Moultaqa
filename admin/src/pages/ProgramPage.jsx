@@ -1,13 +1,13 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "../styles/program.css";
 import "../styles/program-form-restore.css";
-import FirebaseAdminService from "../services/FirebaseAdminService";
+import backend from "../backend.js";
 
 const Program = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    type: "session",
+    type: "talk",
     title: "",
     date: "",
     start: "",
@@ -47,9 +47,9 @@ const Program = () => {
       try {
         setLoading(true);
         console.log("Initializing Admin backend...");
-        await FirebaseAdminService.initialize();
+        await backend.initialize();
         console.log("Fetching programs from backend...");
-        const programs = await FirebaseAdminService.getPrograms();
+        const programs = await backend.getPrograms();
         console.log("Fetched programs:", programs);
         const sortedPrograms = programs.sort((a, b) => {
           const dateComparison = a.date.localeCompare(b.date);
@@ -174,7 +174,7 @@ const Program = () => {
 
       if (editingId) {
         const updatedSession = { ...sessionData, id: editingId };
-        await FirebaseAdminService.updateProgram(editingId, sessionData);
+        await backend.updateProgram(editingId, sessionData);
         setSessions((prev) =>
           prev.map((session) =>
             session.id === editingId ? updatedSession : session,
@@ -182,13 +182,13 @@ const Program = () => {
         );
         console.log("Program updated successfully");
       } else {
-        const newSession = await FirebaseAdminService.addProgram(sessionData);
+        const newSession = await backend.addProgram(sessionData);
         setSessions((prev) => [...prev, newSession]);
         console.log("Program added successfully");
       }
 
       setFormData({
-        type: "session",
+        type: "talk",
         title: "",
         date: "",
         start: "",
@@ -277,7 +277,7 @@ const Program = () => {
     if (window.confirm("Are you sure you want to delete this session?")) {
       setLoading(true);
       try {
-        await FirebaseAdminService.deleteProgram(id);
+        await backend.deleteProgram(id);
         setSessions((prev) => prev.filter((session) => session.id !== id));
         console.log("Program deleted successfully");
       } catch (error) {
@@ -303,10 +303,10 @@ const Program = () => {
     return <div className="loading">Loading program data...</div>;
   }
 
-  const testFirebaseConnection = async () => {
+  const testBackendConnection = async () => {
     try {
       console.log("Testing backend connection...");
-      await FirebaseAdminService.testConnection();
+      await backend.testConnection();
       alert("✅ Backend connection successful!");
     } catch (error) {
       console.error("Backend connection test failed:", error);
@@ -320,7 +320,7 @@ const Program = () => {
         <h1>Program Management</h1>
         <button
           className="test-connection-button"
-          onClick={testFirebaseConnection}
+          onClick={testBackendConnection}
           aria-label="Test backend connection"
         >
           Test
@@ -374,6 +374,22 @@ const Program = () => {
                 onChange={handleInputChange}
                 required
               />
+            </div>
+            <div className="form-group">
+              <label>Session Type</label>
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="talk">Talk</option>
+                <option value="workshop">Workshop</option>
+                <option value="panel">Panel Discussion</option>
+                <option value="keynote">Keynote</option>
+                <option value="break">Break</option>
+                <option value="networking">Networking</option>
+              </select>
             </div>
           </div>
 

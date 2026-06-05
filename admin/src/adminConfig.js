@@ -7,6 +7,7 @@ export const adminConfig = {
   welcomeMessage: "",
   navItems: [
     { path: "/app/dashboard", label: "Dashboard" },
+    { path: "/app/events", label: "Events" },
     { path: "/app/program", label: "Program" },
     { path: "/app/presentations", label: "Presentations" },
     { path: "/app/users", label: "Users" },

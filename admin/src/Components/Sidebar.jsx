@@ -1,13 +1,20 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
+import { useClerk } from "@clerk/clerk-react";
 import { adminConfig } from "../adminConfig";
 import logo from "@logo";
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const { signOut } = useClerk();
+  const { orgSlug } = useParams();
 
-  const handleLogout = () => {
-    localStorage.removeItem("rifAdminUser");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate(`/c/${orgSlug}/admin/login`);
+    } catch (error) {
+      console.error("[Sidebar Logout] Error:", error);
+    }
   };
 
   return (
@@ -22,7 +29,7 @@ const Sidebar = () => {
         {adminConfig.navItems.map((item) => (
           <li key={item.path}>
             <NavLink
-              to={item.path}
+              to={`/c/${orgSlug}/admin${item.path}`}
               className={({ isActive }) => (isActive ? "active" : undefined)}
             >
               {item.label}

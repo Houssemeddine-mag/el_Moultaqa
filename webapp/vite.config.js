@@ -8,6 +8,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@global": path.resolve(__dirname, "../global"),
+      "@supabase/supabase-js": path.resolve(__dirname, "./node_modules/@supabase/supabase-js"),
+      "@clerk/clerk-react": path.resolve(__dirname, "./node_modules/@clerk/clerk-react"),
+      "react": path.resolve(__dirname, "./node_modules/react"),
     },
   },
   server: {

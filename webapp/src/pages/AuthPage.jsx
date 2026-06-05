@@ -1,85 +1,118 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+// ============================================================================
+// AuthPage — Clerk-backed authentication (custom UI)
+// ============================================================================
+// Uses Clerk's useSignIn() and useSignUp() hooks to handle auth flows
+// while keeping your existing UI completely intact.
+// Adds registration gate for multi-tenancy.
+// ============================================================================
+
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useSignIn, useSignUp, useClerk } from "@clerk/clerk-react";
 import "../style/AuthPage.css";
-import {
-  createUserWithEmailAndPasswordAuth,
-  fetchUserProfile,
-  sendPasswordResetEmailAuth,
-  signInWithEmailPassword,
-  signInWithGithubPopup,
-  signInWithGooglePopup,
-  signOutUser,
-  subscribeAuthState,
-} from "../services/localService";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useConferenceConfig } from "../context/ConferenceContext.jsx";
+import { useClerkSupabase, resolveOrgSlug } from "@global/supabase";
+import { getOrgPublicInfo, registerAttendee, checkUserMembership } from "../services/localService";
 
 export default function AuthPage() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const { user } = useAuth();
+  const { signIn, isLoaded: signInLoaded, setActive } = useSignIn();
+  const { signUp, isLoaded: signUpLoaded } = useSignUp();
+  const { signOut } = useClerk();
+  const supabase = useClerkSupabase();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { orgSlug } = useParams();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [infoMessage, setInfoMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const navigate = useNavigate();
-  const location = useLocation();
-  const redirectTo = location.state?.from?.pathname || "/profile";
+  // Gated registration states
+  const [registrationStep, setRegistrationStep] = useState("auth"); // 'auth' | 'checking' | 'code_required' | 'registering' | 'done'
+  const [registrationCode, setRegistrationCode] = useState("");
+  const [orgPublicInfo, setOrgPublicInfo] = useState(null);
+  const [orgSchemaName, setOrgSchemaName] = useState(null);
 
+  const getOrgSlugFromPath = (path) => {
+    if (!path) return null;
+    const match = path.match(/^\/c\/([^\/]+)/);
+    return match ? match[1] : null;
+  };
+
+  const redirectTo = location.state?.from?.pathname || `/c/${orgSlug || "demo"}/profile`;
+
+  // Check registration status when user is authenticated
   useEffect(() => {
-    const unsubscribe = subscribeAuthState(async (currentUser) => {
+    if (!user || !supabase || !orgSlug) {
+      setRegistrationStep("auth");
+      return;
+    }
+
+    let isSubscribed = true;
+
+    async function checkRegistration() {
+      setRegistrationStep("checking");
       setError("");
-      setUser(currentUser);
-      setLoading(true);
-
-      if (currentUser) {
-        try {
-          const profileDoc = await fetchUserProfile(currentUser.uid);
-          setProfile(profileDoc);
-        } catch (err) {
-          console.error(err);
-          setError("Unable to load template profile data.");
+      try {
+        const publicInfo = await getOrgPublicInfo(supabase, orgSlug);
+        const orgDetails = await resolveOrgSlug(supabase, orgSlug);
+        if (!orgDetails) {
+          throw new Error(`Conference '${orgSlug}' not found.`);
         }
-      } else {
-        setProfile(null);
+        if (!isSubscribed) return;
+
+        setOrgPublicInfo(publicInfo);
+        setOrgSchemaName(orgDetails.schema_name);
+
+        const isMember = await checkUserMembership(supabase, orgDetails.schema_name, user.uid);
+        if (!isSubscribed) return;
+
+        if (isMember) {
+          setRegistrationStep("done");
+          navigate(redirectTo, { replace: true });
+        } else {
+          if (publicInfo.registration_mode === "public") {
+            setRegistrationStep("registering");
+            await registerAttendee(
+              supabase,
+              orgSlug,
+              user.uid,
+              user.email,
+              user.displayName || user.email.split("@")[0],
+              null
+            );
+            if (!isSubscribed) return;
+            setRegistrationStep("done");
+            navigate(redirectTo, { replace: true });
+          } else {
+            setRegistrationStep("code_required");
+          }
+        }
+      } catch (err) {
+        console.error("Registration check failed:", err);
+        if (isSubscribed) {
+          setError(err.message || "An error occurred checking registration status.");
+          setRegistrationStep("auth");
+        }
       }
-
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [redirectTo]);
-
-  async function handleGoogleSignIn() {
-    setError("");
-    setInfoMessage("");
-    setLoading(true);
-    try {
-      await signInWithGooglePopup();
-      navigate(redirectTo, { replace: true });
-    } catch (err) {
-      console.error(err);
-      setError("Google sign-in failed. Please try again.");
-      setLoading(false);
     }
-  }
 
-  async function handleGithubSignIn() {
-    setError("");
-    setInfoMessage("");
-    setLoading(true);
-    try {
-      await signInWithGithubPopup();
-      navigate(redirectTo, { replace: true });
-    } catch (err) {
-      console.error(err);
-      setError("GitHub sign-in failed. Please try again.");
-      setLoading(false);
-    }
-  }
+    checkRegistration();
 
+    return () => {
+      isSubscribed = false;
+    };
+  }, [user, supabase, orgSlug, navigate, redirectTo]);
+
+  // ---------------------------------------------------------------------------
+  // Email/Password: Sign In or Create Account
+  // ---------------------------------------------------------------------------
   async function handleEmailAction() {
     setError("");
     setInfoMessage("");
@@ -89,24 +122,100 @@ export default function AuthPage() {
       return;
     }
 
+    if (!signInLoaded || !signUpLoaded) {
+      setError("Authentication is still loading. Please wait.");
+      return;
+    }
+
     setLoading(true);
     try {
       if (isCreatingAccount) {
-        await createUserWithEmailAndPasswordAuth(email, password);
+        // --- Sign Up ---
+        const result = await signUp.create({
+          emailAddress: email,
+          password: password,
+        });
+
+        if (result.status === "complete") {
+          // Will be caught by user useEffect
+        } else {
+          // May need email verification — check Clerk dashboard settings
+          setInfoMessage(
+            "Account created! Please check your email to verify your address."
+          );
+        }
       } else {
-        await signInWithEmailPassword(email, password);
+        // --- Sign In ---
+        const result = await signIn.create({
+          identifier: email,
+          password: password,
+        });
+
+        if (result.status === "complete") {
+          // Will be caught by user useEffect
+        } else {
+          // Multi-factor or other verification step required
+          setInfoMessage("Please complete the verification step.");
+        }
       }
-      navigate(redirectTo, { replace: true });
     } catch (err) {
-      console.error(err);
-      const message = err?.code || err?.message || "Authentication failed.";
-      setError(
-        typeof message === "string" ? message : "Authentication failed.",
-      );
+      console.error("[AuthPage]", err);
+      const clerkMessage =
+        err?.errors?.[0]?.longMessage ||
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        "Authentication failed.";
+      setError(clerkMessage);
+    } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Social: Google OAuth
+  // ---------------------------------------------------------------------------
+  async function handleGoogleSignIn() {
+    setError("");
+    setInfoMessage("");
+
+    if (!signInLoaded) return;
+
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: window.location.origin + `/c/${orgSlug || "demo"}/auth/sso-callback`,
+        redirectUrlComplete: redirectTo,
+      });
+    } catch (err) {
+      console.error("[AuthPage] Google sign-in error:", err);
+      setError("Google sign-in failed. Please try again.");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Social: GitHub OAuth
+  // ---------------------------------------------------------------------------
+  async function handleGithubSignIn() {
+    setError("");
+    setInfoMessage("");
+
+    if (!signInLoaded) return;
+
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_github",
+        redirectUrl: window.location.origin + `/c/${orgSlug || "demo"}/auth/sso-callback`,
+        redirectUrlComplete: redirectTo,
+      });
+    } catch (err) {
+      console.error("[AuthPage] GitHub sign-in error:", err);
+      setError("GitHub sign-in failed. Please try again.");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Password Reset
+  // ---------------------------------------------------------------------------
   async function handlePasswordReset() {
     setError("");
     setInfoMessage("");
@@ -116,55 +225,101 @@ export default function AuthPage() {
       return;
     }
 
+    if (!signInLoaded) return;
+
     setLoading(true);
     try {
-      await sendPasswordResetEmailAuth(email);
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: email,
+      });
       setInfoMessage("Password reset link sent to your email.");
     } catch (err) {
-      console.error(err);
-      const message = err?.code || err?.message || "Password reset failed.";
-      setError(
-        typeof message === "string" ? message : "Password reset failed.",
-      );
+      console.error("[AuthPage] Password reset error:", err);
+      const clerkMessage =
+        err?.errors?.[0]?.longMessage ||
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        "Password reset failed.";
+      setError(clerkMessage);
     } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Sign Out
+  // ---------------------------------------------------------------------------
   async function handleSignOut() {
     setError("");
     try {
-      await signOutUser();
-      setProfile(null);
-      setUser(null);
+      await signOut();
+      setRegistrationStep("auth");
     } catch (err) {
-      console.error(err);
+      console.error("[AuthPage] Sign out error:", err);
       setError("Sign out failed. Please try again.");
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Gated Access Join
+  // ---------------------------------------------------------------------------
+  async function handleJoinWithCode() {
+    setError("");
+    if (!registrationCode.trim()) {
+      setError("Please enter the registration code.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await registerAttendee(
+        supabase,
+        orgSlug,
+        user.uid,
+        user.email,
+        user.displayName || user.email.split("@")[0],
+        registrationCode.trim()
+      );
+      setRegistrationStep("done");
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      console.error("[AuthPage] registerAttendee failed:", err);
+      setError(err.message || "Invalid registration code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Derived display values
+  // ---------------------------------------------------------------------------
   const conferenceConfig = useConferenceConfig();
   const displayName =
-    profile?.displayName ||
-    user?.displayName ||
-    user?.email?.split("@")[0] ||
-    "Guest";
-  const userEmail = profile?.email || user?.email || "guest@elmoultaqa.com";
-  const university =
-    profile?.university || profile?.school || "No university set";
-  const statusText = user
-    ? profile
-      ? "Signed in and ready to access your conference data."
-      : "Signed in; your profile record was not found in the template store."
-    : "Use the template credentials a@a.a / aaaaaa to continue.";
+    user?.displayName || user?.email?.split("@")[0] || "Guest";
+  const userEmail = user?.email || "guest@elmoultaqa.com";
+
+  let statusText = "Sign in with your email and password or use a social provider.";
+  if (user) {
+    if (registrationStep === "checking") {
+      statusText = "Checking your registration status...";
+    } else if (registrationStep === "registering") {
+      statusText = "Registering you for this conference...";
+    } else if (registrationStep === "code_required") {
+      statusText = "Registration code required.";
+    } else {
+      statusText = "Signed in and ready to access your conference data.";
+    }
+  }
 
   const profileFields = [
-    { label: "University", value: university },
     { label: "Email", value: userEmail },
-    { label: "Role", value: profile?.schoolLevel || "Not set" },
-    { label: "Country", value: profile?.country || "Not set" },
+    { label: "Name", value: displayName },
   ];
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <div className="page-shell auth-page">
       <div className="auth-grid">
@@ -177,23 +332,21 @@ export default function AuthPage() {
           <span>ElMoultaqa login</span>
           <h1>Sign in to your conference account</h1>
           <p>
-            Use the template email/password or a social sign-in button to access
-            the same attendee profile and program data as the mobile
-            application.
+            Use your email and password or a social sign-in button to access
+            your conference profile, program, and live features.
           </p>
           <div className="auth-features">
             <div>
               <strong>Shared backend</strong>
               <p>
-                Your user profile is stored in the local template backend and is
-                visible across web and mobile.
+                Your user profile is synced across web and mobile via Supabase.
               </p>
             </div>
             <div>
               <strong>Secure sign-in</strong>
               <p>
-                Authentication uses the template auth adapter with the same
-                component flow.
+                Authentication is managed by Clerk with enterprise-grade
+                security and session management.
               </p>
             </div>
             <div>
@@ -204,7 +357,6 @@ export default function AuthPage() {
               </p>
             </div>
           </div>
-          {/* cooperation logos removed — ElMoultaqa brand used site-wide */}
         </section>
 
         <section className="auth-panel">
@@ -222,7 +374,54 @@ export default function AuthPage() {
             {error && <div className="auth-error">{error}</div>}
             {infoMessage && <div className="auth-info">{infoMessage}</div>}
 
-            {!user ? (
+            {registrationStep === "checking" || registrationStep === "registering" ? (
+              <div className="auth-checking-state" style={{ padding: "2rem 0", textAlign: "center" }}>
+                <div className="spinner" style={{ margin: "0 auto 1rem", border: "4px solid #f3f3f3", borderTop: "4px solid #0d7e52", borderRadius: "50%", width: "40px", height: "40px", animation: "spin 1s linear infinite" }}></div>
+                <p>{registrationStep === "checking" ? "Checking details..." : "Registering..."}</p>
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </div>
+            ) : registrationStep === "code_required" ? (
+              <>
+                <div className="auth-form">
+                  <div style={{ marginBottom: "1.5rem", fontSize: "0.95rem", color: "#666" }}>
+                    This conference is private and requires a registration code to join. Please enter it below.
+                  </div>
+                  <label>
+                    Registration Code
+                    <input
+                      type="text"
+                      value={registrationCode}
+                      onChange={(event) => setRegistrationCode(event.target.value)}
+                      placeholder="e.g. XK7-M9Q"
+                      className="auth-input"
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </label>
+                </div>
+                <div className="auth-actions" style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={handleJoinWithCode}
+                    disabled={loading}
+                  >
+                    Join Conference
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            ) : !user ? (
               <>
                 <div className="auth-form">
                   <label>
@@ -231,7 +430,7 @@ export default function AuthPage() {
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="a@a.a"
+                      placeholder="your@email.com"
                       className="auth-input"
                     />
                   </label>
@@ -242,7 +441,7 @@ export default function AuthPage() {
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
-                        placeholder="aaaaaa"
+                        placeholder="Enter your password"
                         className="auth-input"
                       />
                       <button

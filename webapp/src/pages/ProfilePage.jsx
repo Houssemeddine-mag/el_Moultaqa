@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import "../style/ProfilePage.css";
-import {
-  fetchUserProfile,
-  signInWithGooglePopup,
-  signOutUser,
-  subscribeAuthState,
-} from "../services/localService";
+import { fetchUserProfile, updateUserProfile } from "../services/localService";
+import { useAuth } from "../context/AuthContext.jsx";
+import { useClerk } from "@clerk/clerk-react";
 
 function formatDate(value) {
   if (!value) return null;
@@ -47,15 +44,15 @@ function getInitials(name) {
 }
 
 function getProviderLabel(user) {
-  if (!user?.providerData?.length) return "Email";
-  return user.providerData
-    .map((item) => {
-      if (item.providerId === "google.com") return "Google";
-      if (item.providerId === "password") return "Email";
-      if (item.providerId === "phone") return "Phone";
-      return item.providerId;
-    })
-    .join(", ");
+  if (!user?._clerk) return "Email";
+  const verifiedExternalAccounts = user._clerk.externalAccounts || [];
+  if (verifiedExternalAccounts.length > 0) {
+    return verifiedExternalAccounts.map(acc => {
+      const provider = acc.provider || "";
+      return provider.charAt(0).toUpperCase() + provider.slice(1);
+    }).join(", ");
+  }
+  return "Email";
 }
 
 function formatProfileValue(key, value) {
@@ -106,9 +103,7 @@ function computeCompletion(profile) {
     profile.province,
     profile.gender,
     profile.phoneNumber || profile.phone,
-    profile.jobTitle || profile.occupation,
-    profile.organization || profile.company,
-    profile.bio || profile.about,
+    profile.bio,
   ];
   const filled = fields.filter(
     (value) => value && value.toString().trim() !== "",
@@ -117,55 +112,114 @@ function computeCompletion(profile) {
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading } = useAuth();
+  const { signOut } = useClerk();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formValues, setFormValues] = useState({
+    displayName: "",
+    university: "",
+    schoolLevel: "",
+    phone: "",
+    gender: "male",
+    country: "Algeria",
+    province: "",
+    bio: ""
+  });
 
   useEffect(() => {
-    const unsubscribe = subscribeAuthState(async (currentUser) => {
-      setUser(currentUser);
-      setLoading(true);
-      setError("");
+    if (profile) {
+      setFormValues({
+        displayName: profile.displayName || "",
+        university: profile.university || "",
+        schoolLevel: profile.schoolLevel || "",
+        phone: profile.phone || profile.phoneNumber || "",
+        gender: profile.gender || "male",
+        country: profile.country || "Algeria",
+        province: profile.province || "",
+        bio: profile.bio || ""
+      });
+    }
+  }, [profile]);
 
-      if (currentUser) {
-        try {
-          const profileRecord = await fetchUserProfile(currentUser.uid);
-          setProfile(profileRecord);
-        } catch (err) {
-          console.error(err);
-          setError("Unable to load profile data from the template backend.");
-        }
-      } else {
-        setProfile(null);
-      }
-
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  async function handleSignIn() {
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!profile) return;
+    setSaving(true);
+    setError("");
+    setSuccessMessage("");
+    const userEmail = profile?.email || user?.email || "";
     try {
-      setLoading(true);
-      await signInWithGooglePopup();
+      const updated = await updateUserProfile(user.uid, profile.id, { ...formValues, email: userEmail });
+      setProfile(updated);
+      setIsEditing(false);
+      setSuccessMessage("Profile updated successfully!");
+      setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error(err);
-      setError("Google sign-in failed.");
-      setLoading(false);
+      setError("Failed to save profile modifications.");
+    } finally {
+      setSaving(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    async function loadProfile() {
+      setLoading(true);
+      setError("");
+      try {
+        const profileRecord = await fetchUserProfile(user.uid, user.email, user.displayName);
+        if (!active) return;
+        setProfile(profileRecord);
+      } catch (err) {
+        console.error(err);
+        if (active) {
+          setError("Unable to load profile data.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [user, authLoading]);
 
   async function handleSignOut() {
     try {
-      await signOutUser();
-      setProfile(null);
-      setUser(null);
+      await signOut();
     } catch (err) {
       console.error(err);
       setError("Sign out failed.");
     }
+  }
+
+  if (authLoading || (loading && !profile)) {
+    return (
+      <div className="page-shell">
+        <div className="status-panel">Loading profile…</div>
+      </div>
+    );
   }
 
   const displayName =
@@ -177,12 +231,9 @@ export default function ProfilePage() {
   const university =
     profile?.university ||
     profile?.school ||
-    "University of Constantine 2 Abdelhamid Mehri";
-  const role = profile?.schoolLevel || "Master's Degree";
-  const completion = profile?.isProfileComplete
-    ? 100
-    : computeCompletion(profile);
-  const providerName = getProviderLabel(user);
+    "Not set";
+  const role = profile?.schoolLevel || "Not set";
+  const completion = computeCompletion(profile);
   const photoUrl =
     profile?.photoURL ||
     user?.photoURL ||
@@ -192,21 +243,9 @@ export default function ProfilePage() {
   const createdAt =
     formatDate(profile?.createdAt || profile?.created_at) ||
     formatDate(user?.metadata?.creationTime);
-  const lastSignIn =
-    formatDate(user?.metadata?.lastSignInTime) ||
-    formatDate(profile?.lastSignedIn);
-  const profileStatus = profile
-    ? "Synced with the template backend"
-    : user
-      ? "Missing backend record"
-      : "Not signed in";
 
   const contactPhone =
     profile?.phoneNumber || profile?.phone || profile?.mobile || "Not set";
-  const jobTitle =
-    profile?.jobTitle || profile?.occupation || profile?.position || "Not set";
-  const organization =
-    profile?.organization || profile?.company || profile?.school || "Not set";
   const aboutText =
     profile?.bio ||
     profile?.about ||
@@ -246,6 +285,8 @@ export default function ProfilePage() {
               "created_at",
               "updatedAt",
               "lastSignedIn",
+              "isProfileComplete",
+              "role"
             ].includes(key),
         )
         .map(([key, value]) => ({
@@ -255,8 +296,14 @@ export default function ProfilePage() {
     : [];
 
   const profileFields = [
-    { label: "Email", value: email },
+    { label: "Email Address", value: email },
+    { label: "Phone Number", value: contactPhone },
+    { label: "Institution / University", value: university },
+    { label: "Degree / School Level", value: role },
+    { label: "Gender", value: profile?.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "Not set" },
+    { label: "Country", value: profile?.country || "Algeria" },
     { label: "Province", value: profile?.province || "Not set" },
+    { label: "Member Since", value: createdAt || "Not set" }
   ];
 
   return (
@@ -279,47 +326,49 @@ export default function ProfilePage() {
                   Loading…
                 </button>
               ) : user ? (
-                <button
-                  className="secondary-button small-button"
-                  onClick={handleSignOut}
-                >
-                  Sign out
-                </button>
-              ) : (
-                <button
-                  className="primary-button small-button"
-                  onClick={handleSignIn}
-                >
-                  Sign in
-                </button>
-              )}
+                <>
+                  <button
+                    className="primary-button small-button edit-toggle-btn"
+                    onClick={() => setIsEditing(!isEditing)}
+                  >
+                    {isEditing ? "Cancel" : "Edit Profile"}
+                  </button>
+                  <button
+                    className="secondary-button small-button signout-btn"
+                    onClick={handleSignOut}
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
 
           <div className="hero-content">
-            <span>Conference profile</span>
+            <span className="hero-badge">Attendee profile</span>
             <h1>{displayName}</h1>
             <p className="hero-subtitle">
-              {role} · {organization}
+              {role !== "Not set" ? role : "Attendee"} · {university !== "Not set" ? university : "No Institution"}
             </p>
             <div className="hero-overview-tags">
               <span>{email}</span>
+              {profile?.province && <span>{profile.province}, {profile.country || "Algeria"}</span>}
             </div>
             <div className="hero-summary">
               <p>{aboutText}</p>
             </div>
             <div className="hero-detail-grid">
               <div className="hero-detail-item">
-                <span>Role:</span>
+                <span>Degree:</span>
                 <strong>{role}</strong>
               </div>
               <div className="hero-detail-item">
-                <span>University:</span>
+                <span>Institution:</span>
                 <strong>{university}</strong>
               </div>
               <div className="hero-detail-item">
                 <span>Gender:</span>
-                <strong>{profile?.gender || "male"}</strong>
+                <strong>{profile?.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "Not set"}</strong>
               </div>
               <div className="hero-detail-item">
                 <span>Country:</span>
@@ -331,45 +380,185 @@ export default function ProfilePage() {
       </div>
 
       {error && <div className="profile-error">{error}</div>}
+      {successMessage && <div className="profile-success">{successMessage}</div>}
 
-      <div className="profile-details-grid">
-        <section className="profile-info-panel">
-          <div className="panel-title">
-            <span>Profile details</span>
-            <h2>All stored attendee information</h2>
-          </div>
-          <div className="profile-data-grid">
-            {profileFields.map((item) => (
-              <div key={item.label} className="profile-data-item">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
+      {isEditing ? (
+        <form onSubmit={handleSave} className="profile-details-grid edit-form-container">
+          <section className="profile-info-panel edit-form-panel">
+            <div className="panel-title">
+              <span className="panel-eyebrow">Complete Profile</span>
+              <h2>Update your personal information</h2>
+            </div>
+            
+            <div className="form-fields-grid">
+              <label className="form-label">
+                Full Name
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={formValues.displayName}
+                  onChange={(e) => setFormValues({ ...formValues, displayName: e.target.value })}
+                />
+              </label>
 
-        <section className="profile-extra-panel">
-          <div className="panel-title">
-            <span>Additional data</span>
-            <h2>Other profile values</h2>
-          </div>
-          {extraProfileFields.length ? (
-            <div className="profile-extra-list">
-              {extraProfileFields.map((item) => (
+              <label className="form-label">
+                University / Institution
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formValues.university}
+                  onChange={(e) => setFormValues({ ...formValues, university: e.target.value })}
+                />
+              </label>
+
+              <label className="form-label">
+                School Level / Degree
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formValues.schoolLevel}
+                  onChange={(e) => setFormValues({ ...formValues, schoolLevel: e.target.value })}
+                  placeholder="Master's Degree, PhD, etc."
+                />
+              </label>
+
+              <label className="form-label">
+                Phone Number
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formValues.phone}
+                  onChange={(e) => setFormValues({ ...formValues, phone: e.target.value })}
+                />
+              </label>
+
+              <label className="form-label">
+                Gender
+                <select
+                  className="form-select"
+                  value={formValues.gender}
+                  onChange={(e) => setFormValues({ ...formValues, gender: e.target.value })}
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </label>
+
+              <label className="form-label">
+                Country
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formValues.country}
+                  onChange={(e) => setFormValues({ ...formValues, country: e.target.value })}
+                />
+              </label>
+
+              <label className="form-label">
+                Province
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formValues.province}
+                  onChange={(e) => setFormValues({ ...formValues, province: e.target.value })}
+                />
+              </label>
+            </div>
+
+            <label className="form-label bio-label">
+              Bio / About You
+              <textarea
+                className="form-textarea"
+                value={formValues.bio}
+                onChange={(e) => setFormValues({ ...formValues, bio: e.target.value })}
+                rows="4"
+              />
+            </label>
+
+            <div className="form-actions">
+              <button className="primary-button" type="submit" disabled={saving}>
+                {saving ? "Saving Details..." : "Save Details"}
+              </button>
+              <button 
+                className="secondary-button" 
+                type="button" 
+                onClick={() => setIsEditing(false)}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </div>
+          </section>
+        </form>
+      ) : (
+        <div className="profile-details-grid">
+          <section className="profile-info-panel">
+            <div className="panel-title">
+              <span>Profile details</span>
+              <h2>All stored attendee information</h2>
+            </div>
+            <div className="profile-data-grid">
+              {profileFields.map((item) => (
                 <div key={item.label} className="profile-data-item">
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="profile-note">
-              No extra profile metadata was found. Everything available is shown
-              in the main details panel.
-            </p>
-          )}
-        </section>
-      </div>
+          </section>
+
+          <div className="profile-sidebar-panels">
+            <section className="profile-completion-panel">
+              <div className="panel-title">
+                <span>Completeness</span>
+                <h2>Profile Progress</h2>
+              </div>
+              <div className="progress-bar-container">
+                <div className="progress-bar-label">
+                  <span>Progress</span>
+                  <strong>{completion}%</strong>
+                </div>
+                <div className="progress-bar-track">
+                  <div className="progress-bar-fill" style={{ width: `${completion}%` }} />
+                </div>
+                {completion < 100 ? (
+                  <p className="progress-recommendation">
+                    Tip: Complete your profile by filling all details in the editor.
+                  </p>
+                ) : (
+                  <p className="progress-recommendation complete">
+                    🎉 Your profile is 100% complete!
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="profile-extra-panel">
+              <div className="panel-title">
+                <span>Additional data</span>
+                <h2>Other profile values</h2>
+              </div>
+              {extraProfileFields.length ? (
+                <div className="profile-extra-list">
+                  {extraProfileFields.map((item) => (
+                    <div key={item.label} className="profile-data-item">
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="profile-note">
+                  No extra profile metadata was found. Everything available is shown
+                  in the main details panel.
+                </p>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

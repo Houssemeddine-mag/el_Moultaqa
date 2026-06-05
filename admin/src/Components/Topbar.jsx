@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useClerk, useUser } from "@clerk/clerk-react";
 import { adminConfig } from "../adminConfig";
 import { getConferenceConfig } from "../sharedConfig";
 
-const Topbar = () => {
+const Topbar = ({ orgDetails }) => {
   const [dateTime, setDateTime] = useState(new Date());
-  const [adminUser, setAdminUser] = useState(null);
   const [conferenceConfig, setConferenceConfig] = useState(null);
   const navigate = useNavigate();
+  const { signOut } = useClerk();
+  const { user: clerkUser } = useUser();
+  const { orgSlug } = useParams();
+
+  const adminUser = clerkUser
+    ? {
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+      }
+    : null;
 
   useEffect(() => {
     const timer = setInterval(() => setDateTime(new Date()), 1000);
@@ -15,20 +24,23 @@ const Topbar = () => {
   }, []);
 
   useEffect(() => {
-    const userInfo = localStorage.getItem("rifAdminUser");
-    if (userInfo) {
-      setAdminUser(JSON.parse(userInfo));
-    }
     const storedConfig = getConferenceConfig();
     if (storedConfig) {
       setConferenceConfig(storedConfig);
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("rifAdminUser");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate(`/c/${orgSlug}/admin/login`);
+    } catch (error) {
+      console.error("[Topbar Logout] Error:", error);
+    }
   };
+
+  // Use orgDetails name if available, otherwise fall back to conferenceConfig or default
+  const displayName = orgDetails?.name || conferenceConfig?.name || adminConfig.conferenceName || "Conference";
 
   return (
     <header className="topbar">
@@ -45,9 +57,7 @@ const Topbar = () => {
             )}
           </div>
           <div className="topbar-title">
-            {conferenceConfig?.name ||
-              adminConfig.conferenceName ||
-              "Conference Name"}
+            {displayName}
           </div>
         </div>
       </div>
@@ -75,7 +85,7 @@ const Topbar = () => {
             <button
               className="logout-btn"
               onClick={handleLogout}
-              title="Logout"
+              title={`Logout (${adminUser.email})`}
             >
               <svg
                 width="16"

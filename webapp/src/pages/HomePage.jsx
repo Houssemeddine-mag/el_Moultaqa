@@ -122,7 +122,7 @@ export default function HomePage() {
               <button
                 className="primary-button"
                 type="button"
-                onClick={() => navigate("/program")}
+                onClick={() => navigate(`/c/${conferenceConfig.id || "demo"}/program`)}
               >
                 Explore the program
               </button>

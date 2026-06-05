@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.8",
+    "@supabase/supabase-js": "^2.107.0",
     "hls.js": "^1.6.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

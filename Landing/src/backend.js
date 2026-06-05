@@ -1,24 +1,3 @@
-export function onAuthStateChanged(listener) {
-  listener(null);
-  return () => {};
-}
-
-export async function registerUser(email, password) {
-  return { uid: `guest-${Date.now()}`, email };
-}
-
-export async function loginUser(email, password) {
-  return { uid: `guest-${Date.now()}`, email };
-}
-
-export async function signInWithGoogle() {
-  return { uid: `guest-${Date.now()}`, email: "guest@example.com" };
-}
-
-export async function logoutUser() {
-  return;
-}
-
 function readJson(key, fallback) {
   if (typeof window === "undefined") return fallback;
   try {
@@ -36,7 +15,7 @@ function writeJson(key, value) {
 
 const CONFERENCE_CONFIG_STORAGE_KEY = "elm_conference_config";
 
-export async function saveConferenceConfig(conference) {
+export async function saveConferenceConfig(supabase, conference) {
   const payload = {
     ...conference,
     sponsors: (conference.sponsors || []).filter(Boolean),
@@ -48,6 +27,25 @@ export async function saveConferenceConfig(conference) {
   const slug = conference.shortName
     ? conference.shortName.trim().toLowerCase().replace(/\s+/g, "-")
     : `conf-${Date.now()}`;
+    
+  console.log("[saveConferenceConfig] Call database to create initial event record in schema...");
+  const { data, error } = await supabase.rpc("create_initial_event", {
+    p_clerk_org_id: conference.clerkOrgId,
+    p_title: conference.name,
+    p_short_name: conference.shortName,
+    p_theme_color: conference.themeColor,
+    p_logo_url: conference.logo,
+    p_start_date: conference.startDate,
+    p_end_date: conference.endDate,
+    p_sponsors: payload.sponsors,
+  });
+
+  if (error) {
+    console.error("[saveConferenceConfig] RPC failed:", error);
+    throw new Error(error.message || "Failed to write database config");
+  }
+
+  console.log("[saveConferenceConfig] Event created in schema successfully. ID:", data);
   return slug;
 }
 

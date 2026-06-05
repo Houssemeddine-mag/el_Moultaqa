@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { getConferenceConfig, saveConferenceConfig } from "../sharedConfig";
+import backend from "../backend.js";
 
 const defaultConfig = {
   conferenceName: "ElMoultaqa Conference",
@@ -11,10 +13,16 @@ const defaultConfig = {
 };
 
 export default function SettingsPage() {
+  const { orgSlug } = useParams();
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState("");
 
+  // Registration & Access states
+  const [registrationMode, setRegistrationMode] = useState("public");
+  const [registrationCode, setRegistrationCode] = useState("");
+
   useEffect(() => {
+    // 1. Load theme config
     const stored = getConferenceConfig();
     if (stored) {
       setConfig({
@@ -27,7 +35,21 @@ export default function SettingsPage() {
           stored.description || defaultConfig.conferenceDescription,
       });
     }
-  }, []);
+
+    // 2. Load registration settings from Supabase
+    if (orgSlug) {
+      async function loadRegSettings() {
+        try {
+          const data = await backend.getRegistrationSettings(orgSlug);
+          setRegistrationMode(data.registrationMode);
+          setRegistrationCode(data.registrationCode || "");
+        } catch (err) {
+          console.error("Failed to load registration settings:", err);
+        }
+      }
+      loadRegSettings();
+    }
+  }, [orgSlug]);
 
   const handleChange = (key, value) => {
     setConfig((current) => ({ ...current, [key]: value }));
@@ -36,6 +58,7 @@ export default function SettingsPage() {
   const handleSave = async (event) => {
     event.preventDefault();
     try {
+      // 1. Save theme config locally
       saveConferenceConfig({
         name: config.conferenceName,
         shortName: config.conferenceName,
@@ -45,12 +68,20 @@ export default function SettingsPage() {
         tagline: config.tagline,
         description: config.conferenceDescription,
       });
-      setStatus("Saved conference theme and brand settings.");
+
+      // 2. Save registration settings in organizations table
+      if (orgSlug) {
+        await backend.updateRegistrationSettings(orgSlug, registrationMode, registrationCode);
+      }
+
+      setStatus("Saved conference theme, brand, and registration settings.");
     } catch (error) {
       console.error(error);
       setStatus("Unable to save settings.");
     }
   };
+
+  const inviteUrl = `${import.meta.env.VITE_WEBAPP_URL || (window.location.origin.includes("localhost") ? "http://localhost:5173" : window.location.origin.replace("admin", "webapp"))}/c/${orgSlug}/auth`;
 
   return (
     <div className="page-card">
@@ -123,6 +154,101 @@ export default function SettingsPage() {
             rows="4"
           />
         </label>
+
+        <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.1)", margin: "2.5rem 0 1.5rem" }} />
+
+        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.25rem", color: "var(--brand-primary, #0d7e52)" }}>Attendee Registration</h2>
+        <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
+          Control how attendees register for your conference and get access to the webapp.
+        </p>
+
+        <div className="registration-mode-selector" style={{ marginBottom: "1.5rem" }}>
+          <span style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", fontSize: "0.9rem" }}>Registration Mode</span>
+          <div style={{ display: "flex", gap: "2rem" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+              <input
+                type="radio"
+                name="registrationMode"
+                value="public"
+                checked={registrationMode === "public"}
+                onChange={() => setRegistrationMode("public")}
+              />
+              Public (anyone with the link can join)
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+              <input
+                type="radio"
+                name="registrationMode"
+                value="private"
+                checked={registrationMode === "private"}
+                onChange={() => setRegistrationMode("private")}
+              />
+              Private (requires a registration code)
+            </label>
+          </div>
+        </div>
+
+        {registrationMode === "private" && (
+          <label style={{ display: "block", marginBottom: "1.5rem" }}>
+            Registration Code
+            <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
+              <input
+                type="text"
+                value={registrationCode}
+                onChange={(event) => setRegistrationCode(event.target.value)}
+                placeholder="e.g. XK7-M9Q"
+                style={{ flex: 1, textTransform: "uppercase" }}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "pointer", background: "rgba(255, 255, 255, 0.08)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.15)" }}
+                onClick={() => {
+                  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // readable chars
+                  const genPart = () => Array.from({ length: 3 }, () => characters[Math.floor(Math.random() * characters.length)]).join("");
+                  setRegistrationCode(`${genPart()}-${genPart()}`);
+                }}
+              >
+                🔄 Generate
+              </button>
+            </div>
+            <small style={{ color: "rgba(255, 255, 255, 0.5)", marginTop: "0.25rem", display: "block" }}>
+              Attendees must enter this code manually after creating their account.
+            </small>
+          </label>
+        )}
+
+        <div style={{ marginBottom: "2rem" }}>
+          <span style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", fontSize: "0.9rem" }}>Invite Link</span>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <input
+              type="text"
+              readOnly
+              value={inviteUrl}
+              style={{ flex: 1, background: "rgba(255, 255, 255, 0.05)", cursor: "default" }}
+            />
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "pointer", background: "rgba(255, 255, 255, 0.08)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.15)" }}
+              onClick={() => {
+                navigator.clipboard.writeText(inviteUrl);
+                alert("Invite link copied to clipboard!");
+              }}
+            >
+              📋 Copy Link
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled
+              title="QR code generation coming soon"
+              style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "not-allowed", opacity: 0.5, background: "rgba(255, 255, 255, 0.04)", color: "rgba(255, 255, 255, 0.3)", border: "1px solid rgba(255, 255, 255, 0.08)" }}
+            >
+              📱 QR Code (soon)
+            </button>
+          </div>
+        </div>
 
         <button type="submit" className="btn-primary">
           Save settings
