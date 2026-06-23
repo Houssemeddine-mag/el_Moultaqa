@@ -1,124 +1,79 @@
-import { useMemo, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import backend from "../backend.js";
 
-// Start with empty collections for template admin — conference will populate real data
-const initialCollections = {
-  notifications: [],
-  programs: [],
-  ratings: [],
-  presentationAnalytics: [],
-  questions: [],
-  liveNotifications: [],
-  pushNotifications: [],
-  users: [],
-  userProfiles: [],
+const STAT_META = {
+  users:         { label: "Users",         icon: "👥", protected: true },
+  events:        { label: "Events",        icon: "📅", protected: true },
+  sessions:      { label: "Sessions",      icon: "🎙️", protected: false },
+  speakers:      { label: "Speakers",      icon: "🌟", protected: false },
+  tickets:       { label: "Tickets",       icon: "🎫", protected: true },
+  notifications: { label: "Notifications", icon: "🔔", protected: false },
+  questions:     { label: "Questions",     icon: "❓", protected: false },
 };
 
-const DatabaseManagerPage = () => {
-  const [collections, setCollections] = useState(initialCollections);
-  const [statusMessage, setStatusMessage] = useState(
-    "Ready to manage local database views.",
-  );
-  const [loading, setLoading] = useState(false);
+export default function DatabaseManagerPage() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("Loading database statistics…");
   const [confirmInput, setConfirmInput] = useState("");
 
-  const stats = useMemo(() => {
-    return {
-      notifications: collections.notifications.length,
-      programs: collections.programs.length,
-      ratings: collections.ratings.length,
-      presentationAnalytics: collections.presentationAnalytics.length,
-      questions: collections.questions.length,
-      liveNotifications: collections.liveNotifications.length,
-      pushNotifications: collections.pushNotifications.length,
-      users: collections.users.length,
-      userProfiles: collections.userProfiles.length,
-    };
-  }, [collections]);
+  const loadStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      setStatusMessage("Fetching live database statistics…");
+      const data = await backend.getDatabaseStats();
+      setStats(data);
+      setStatusMessage(
+        `Last refreshed at ${new Date().toLocaleTimeString()} — ${
+          Object.values(data).reduce((a, b) => a + b, 0)
+        } total records across all collections.`
+      );
+    } catch (err) {
+      console.error("[DatabaseManagerPage] error:", err);
+      setStatusMessage("Failed to load statistics: " + (err.message || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const actionLabels = {
-    notifications: "CLEAR_NOTIFICATIONS",
-    programs: "CLEAR_PROGRAMS",
-    ratings: "CLEAR_RATINGS",
-    presentationAnalytics: "CLEAR_ANALYTICS",
-    questions: "CLEAR_QUESTIONS",
-    liveNotifications: "CLEAR_LIVE_NOTIFICATIONS",
-    pushNotifications: "CLEAR_PUSH_NOTIFICATIONS",
-    all: "CLEAR_ALL_DATA",
-  };
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
-  const clearCollection = (collectionKey) => {
-    const expected = actionLabels[collectionKey];
-    if (confirmInput !== expected) {
-      setStatusMessage(`Type ${expected} to confirm the reset.`);
+  const handleClearNotifications = async () => {
+    if (confirmInput !== "CLEAR_NOTIFICATIONS") {
+      setStatusMessage("Type CLEAR_NOTIFICATIONS in the confirmation box to proceed.");
       return;
     }
-
-    setLoading(true);
-    setTimeout(() => {
-      setCollections((prev) => ({
-        ...prev,
-        [collectionKey]: [],
-      }));
-      setStatusMessage(`${collectionKey} cleared locally.`);
+    try {
+      setLoading(true);
+      const notifs = await backend.getNotifications();
+      await Promise.all(notifs.map((n) => backend.deleteNotification(n.id)));
       setConfirmInput("");
+      setStatusMessage(`Deleted ${notifs.length} notification(s) from the database.`);
+      await loadStats();
+    } catch (err) {
+      setStatusMessage("Clear failed: " + err.message);
       setLoading(false);
-    }, 300);
+    }
   };
 
-  const clearAllCollections = () => {
-    if (confirmInput !== actionLabels.all) {
-      setStatusMessage(`Type ${actionLabels.all} to confirm full cleanup.`);
+  const handleClearQuestions = async () => {
+    if (confirmInput !== "CLEAR_QUESTIONS") {
+      setStatusMessage("Type CLEAR_QUESTIONS in the confirmation box to proceed.");
       return;
     }
-
-    setLoading(true);
-    setTimeout(() => {
-      setCollections({
-        ...collections,
-        notifications: [],
-        programs: [],
-        ratings: [],
-        presentationAnalytics: [],
-        questions: [],
-        liveNotifications: [],
-        pushNotifications: [],
-      });
-      setStatusMessage("All non-protected local collections cleared.");
+    try {
+      setLoading(true);
+      const qs = await backend.getQuestions();
+      await Promise.all(qs.map((q) => backend.deleteQuestion(q.id)));
       setConfirmInput("");
+      setStatusMessage(`Deleted ${qs.length} question(s) from the database.`);
+      await loadStats();
+    } catch (err) {
+      setStatusMessage("Clear failed: " + err.message);
       setLoading(false);
-    }, 300);
-  };
-
-  const refreshStats = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setCollections(initialCollections);
-      setStatusMessage("Local collection view refreshed.");
-      setLoading(false);
-    }, 300);
-  };
-
-  const exportToJSON = (data, filename) => {
-    const payload = JSON.stringify(data, null, 2);
-    const blob = new Blob([payload], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setStatusMessage(`Exported ${filename} locally.`);
-  };
-
-  const exportCollection = (collectionKey) => {
-    const data = collections[collectionKey] || [];
-    if (data.length === 0) {
-      setStatusMessage(`No local records available for ${collectionKey}.`);
-      return;
     }
-    exportToJSON(data, collectionKey);
   };
 
   return (
@@ -126,131 +81,119 @@ const DatabaseManagerPage = () => {
       <div className="page-header">
         <div>
           <h1>Database Manager</h1>
-          <p className="subtitle">
-            Local collection overview for conference data management.
-          </p>
+          <p className="subtitle">Live row counts from Supabase across all org schema tables.</p>
         </div>
+        <button
+          type="button"
+          className="landing-cta"
+          onClick={loadStats}
+          disabled={loading}
+          style={{ background: "var(--surface-strong)", border: "1px solid var(--border)", color: "var(--text)" }}
+        >
+          {loading ? "Loading…" : "↻ Refresh Stats"}
+        </button>
       </div>
 
       <div className="status-banner">
         <span>{statusMessage}</span>
       </div>
 
-      <div className="stats-grid compact">
-        {Object.entries(stats).map(([key, value]) => (
+      {/* Live stats grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, margin: "24px 0" }}>
+        {Object.entries(STAT_META).map(([key, { label, icon, protected: prot }]) => (
           <div
             key={key}
-            className={`stat-card ${key.startsWith("user") ? "preserved" : ""}`}
+            style={{
+              padding: "20px 16px",
+              borderRadius: 14,
+              background: prot ? "rgba(13,126,82,.06)" : "var(--surface)",
+              border: `1px solid ${prot ? "rgba(13,126,82,.2)" : "var(--border)"}`,
+              textAlign: "center",
+              position: "relative",
+            }}
           >
-            <div className="stat-number">{value}</div>
-            <div className="stat-label">{key.replace(/([A-Z])/g, " $1")}</div>
-            {key.startsWith("user") && (
-              <div className="stat-note">Protected</div>
+            <div style={{ fontSize: "1.8rem", marginBottom: 6 }}>{icon}</div>
+            <div style={{ fontSize: "2rem", fontWeight: 800, lineHeight: 1 }}>
+              {loading ? "…" : (stats?.[key] ?? 0)}
+            </div>
+            <div style={{ fontSize: ".82rem", opacity: .7, marginTop: 6 }}>{label}</div>
+            {prot && (
+              <div style={{
+                position: "absolute", top: 8, right: 8,
+                fontSize: ".65rem", fontWeight: 700,
+                background: "rgba(13,126,82,.15)", color: "#0d7e52",
+                padding: "2px 6px", borderRadius: 4,
+              }}>
+                Protected
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      <div className="controls-row database-controls">
-        <button
-          type="button"
-          className="primary-button"
-          onClick={refreshStats}
-          disabled={loading}
-        >
-          Refresh Local View
-        </button>
-        <input
-          type="text"
-          value={confirmInput}
-          onChange={(event) => setConfirmInput(event.target.value)}
-          placeholder="Type confirmation code here"
-          className="confirm-input"
-        />
-      </div>
+      {/* Danger zone — only clearable collections */}
+      <div style={{ marginTop: 32 }}>
+        <h2 style={{ fontSize: "1.1rem", marginBottom: 6 }}>Danger Zone</h2>
+        <p style={{ fontSize: ".85rem", opacity: .65, marginBottom: 16 }}>
+          These actions permanently delete records from the database. Protected collections (users, events, tickets) cannot be cleared here.
+        </p>
 
-      <div className="export-grid">
-        <div className="export-card">
-          <h3>Notifications</h3>
-          <p>Export or clear the local notifications collection.</p>
-          <div className="button-row">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => exportCollection("notifications")}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="danger-button"
-              onClick={() => clearCollection("notifications")}
-              disabled={loading}
-            >
-              Clear
-            </button>
-          </div>
+        {/* Confirm input */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", fontSize: ".85rem", fontWeight: 600, marginBottom: 6 }}>
+            Type the confirmation code below to enable dangerous actions:
+          </label>
+          <input
+            type="text"
+            value={confirmInput}
+            onChange={(e) => setConfirmInput(e.target.value)}
+            placeholder="e.g. CLEAR_NOTIFICATIONS"
+            style={{ maxWidth: 360 }}
+          />
         </div>
-        <div className="export-card">
-          <h3>Programs</h3>
-          <p>Export or clear the local program collection.</p>
-          <div className="button-row">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => exportCollection("programs")}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="danger-button"
-              onClick={() => clearCollection("programs")}
-              disabled={loading}
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-        <div className="export-card">
-          <h3>Ratings</h3>
-          <p>Export or clear the local ratings collection.</p>
-          <div className="button-row">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => exportCollection("ratings")}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="danger-button"
-              onClick={() => clearCollection("ratings")}
-              disabled={loading}
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div className="export-grid">
-        <div className="export-card wide-card">
-          <h3>Clear All Local Data</h3>
-          <p>This action clears all non-protected local collections.</p>
-          <button
-            type="button"
-            className="danger-button"
-            onClick={clearAllCollections}
-            disabled={loading}
-          >
-            Clear All
-          </button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+          {/* Clear notifications */}
+          <div style={{ padding: "18px", borderRadius: 12, border: "1px solid rgba(239,68,68,.2)", background: "rgba(239,68,68,.04)" }}>
+            <h3 style={{ margin: "0 0 6px" }}>🔔 Notifications</h3>
+            <p style={{ fontSize: ".85rem", opacity: .7, margin: "0 0 12px" }}>
+              Delete all {stats?.notifications ?? "?"} notification(s) from the database.
+            </p>
+            <button
+              type="button"
+              onClick={handleClearNotifications}
+              disabled={loading}
+              style={{
+                padding: "8px 18px", background: "rgba(239,68,68,.12)", color: "#ef4444",
+                border: "1px solid rgba(239,68,68,.25)", borderRadius: 8, cursor: "pointer",
+                fontWeight: 700, fontSize: ".85rem",
+              }}
+            >
+              Clear Notifications
+            </button>
+          </div>
+
+          {/* Clear questions */}
+          <div style={{ padding: "18px", borderRadius: 12, border: "1px solid rgba(239,68,68,.2)", background: "rgba(239,68,68,.04)" }}>
+            <h3 style={{ margin: "0 0 6px" }}>❓ Questions</h3>
+            <p style={{ fontSize: ".85rem", opacity: .7, margin: "0 0 12px" }}>
+              Delete all {stats?.questions ?? "?"} attendee question(s) from the database.
+            </p>
+            <button
+              type="button"
+              onClick={handleClearQuestions}
+              disabled={loading}
+              style={{
+                padding: "8px 18px", background: "rgba(239,68,68,.12)", color: "#ef4444",
+                border: "1px solid rgba(239,68,68,.25)", borderRadius: 8, cursor: "pointer",
+                fontWeight: 700, fontSize: ".85rem",
+              }}
+            >
+              Clear Questions
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default DatabaseManagerPage;
+}

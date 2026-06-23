@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import backend from "../backend.js";
 
-// Fetches real user data from the organization's users table
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,49 +8,87 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("All");
 
-  // Load users on component mount
   useEffect(() => {
+    let active = true;
     const fetchUsers = async () => {
       try {
         setLoading(true);
         setError("");
         const userData = await backend.getUsers();
-        setUsers(userData || []);
+        if (active) {
+          setUsers(userData || []);
+        }
       } catch (err) {
         console.error("Error fetching users:", err);
-        setError("Failed to load users. " + (err.message || ""));
+        if (active) {
+          setError("Failed to load users: " + (err.message || ""));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
-
     fetchUsers();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      await backend.updateUserRole(userId, newRole);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
+    } catch (err) {
+      console.error("Error updating user role:", err);
+      alert("Failed to update user role: " + (err.message || "Unknown error"));
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const query = searchTerm.toLowerCase();
       const matchesSearch =
-        user.fullName.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query) ||
-        (user.clerkUserId && user.clerkUserId.toLowerCase().includes(query));
+        (user.displayName || "").toLowerCase().includes(query) ||
+        (user.email || "").toLowerCase().includes(query) ||
+        (user.university || "").toLowerCase().includes(query) ||
+        (user.country || "").toLowerCase().includes(query) ||
+        (user.province || "").toLowerCase().includes(query);
 
       const matchesRole =
         filterRole === "All" ? true : user.role === filterRole;
 
       return matchesSearch && matchesRole;
     });
-  }, [searchTerm, filterRole, users]);
+  }, [users, searchTerm, filterRole]);
 
-  const stats = {
-    totalUsers: users.length,
-    attendees: users.filter((u) => u.role === "attendee").length,
-    speakers: users.filter((u) => u.role === "speaker").length,
-    moderators: users.filter((u) => u.role === "moderator").length,
-    admins: users.filter((u) => u.role === "admin").length,
-  };
+  const stats = useMemo(() => {
+    return {
+      totalUsers: users.length,
+      completeProfiles: users.filter((user) => user.isProfileComplete).length,
+      incompleteProfiles: users.filter((user) => !user.isProfileComplete).length,
+    };
+  }, [users]);
 
-  const roles = ["All", "attendee", "speaker", "moderator", "admin"];
+  const roles = useMemo(() => {
+    const unique = ["All", ...new Set(users.map((u) => u.role).filter(Boolean))];
+    return unique;
+  }, [users]);
+
+  if (loading && users.length === 0) {
+    return (
+      <div className="page-card users-page">
+        <div className="page-header">
+          <h1>User Accounts</h1>
+        </div>
+        <div style={{ padding: "40px", textAlign: "center" }}>
+          Loading registered user list...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-card users-page">
@@ -59,7 +96,7 @@ const UsersPage = () => {
         <div>
           <h1>User Accounts</h1>
           <p className="subtitle">
-            View and manage registered users in this organization.
+            View and manage registered users, profiles, and administrative roles.
           </p>
         </div>
       </div>
@@ -71,29 +108,26 @@ const UsersPage = () => {
             marginBottom: "16px",
             backgroundColor: "#fee",
             color: "#c33",
-            borderRadius: "4px",
+            borderRadius: "8px",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
           }}
         >
           {error}
         </div>
       )}
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-number">{stats.totalUsers}</div>
-          <div className="stat-label">Total Users</div>
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "24px" }}>
+        <div className="stat-card" style={{ padding: "20px", background: "rgba(255, 255, 255, 0.8)", border: "1px solid var(--border)", borderRadius: "16px" }}>
+          <div className="stat-value" style={{ fontSize: "2rem", fontWeight: "700" }}>{stats.totalUsers}</div>
+          <div className="stat-subtitle">Total Users</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.attendees}</div>
-          <div className="stat-label">Attendees</div>
+        <div className="stat-card" style={{ padding: "20px", background: "rgba(255, 255, 255, 0.8)", border: "1px solid var(--border)", borderRadius: "16px" }}>
+          <div className="stat-value" style={{ fontSize: "2rem", fontWeight: "700", color: "var(--primary)" }}>{stats.completeProfiles}</div>
+          <div className="stat-subtitle">Complete Profiles</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.speakers}</div>
-          <div className="stat-label">Speakers</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.admins}</div>
-          <div className="stat-label">Admins</div>
+        <div className="stat-card" style={{ padding: "20px", background: "rgba(255, 255, 255, 0.8)", border: "1px solid var(--border)", borderRadius: "16px" }}>
+          <div className="stat-value" style={{ fontSize: "2rem", fontWeight: "700", color: "#f59e0b" }}>{stats.incompleteProfiles}</div>
+          <div className="stat-subtitle">Incomplete Profiles</div>
         </div>
       </div>
 
@@ -103,7 +137,7 @@ const UsersPage = () => {
             type="text"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search users by name, email, or ID"
+            placeholder="Search users by name, email, university or location"
           />
         </div>
         <div className="filter-box">
@@ -123,13 +157,8 @@ const UsersPage = () => {
       </div>
 
       <div className="table-card users-table-card">
-        {loading ? (
+        {filteredUsers.length === 0 ? (
           <div style={{ padding: "20px", textAlign: "center" }}>
-            Loading users...
-          </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="empty-state">
-            <h3>No users found</h3>
             <p>
               {users.length === 0
                 ? "No users have registered yet."
@@ -142,45 +171,53 @@ const UsersPage = () => {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>University</th>
+                <th>Level</th>
+                <th>Location</th>
                 <th>Role</th>
-                <th>Joined</th>
-                <th>Last Updated</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
                 <tr key={user.id}>
-                  <td>{user.fullName || "N/A"}</td>
+                  <td>{user.displayName || "N/A"}</td>
                   <td>{user.email}</td>
+                  <td>{user.university || "—"}</td>
+                  <td>{user.schoolLevel || "—"}</td>
                   <td>
-                    <span
+                    {user.province && user.country
+                      ? `${user.province}, ${user.country}`
+                      : user.country || user.province || "—"}
+                  </td>
+                  <td>
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
                       style={{
-                        padding: "4px 8px",
-                        borderRadius: "3px",
-                        fontSize: "0.85em",
-                        backgroundColor:
-                          user.role === "admin"
-                            ? "#e8f4f8"
-                            : user.role === "speaker"
-                            ? "#f0e8f4"
-                            : user.role === "moderator"
-                            ? "#f4f0e8"
-                            : "#f0f0f0",
-                        color:
-                          user.role === "admin"
-                            ? "#0066aa"
-                            : user.role === "speaker"
-                            ? "#663399"
-                            : user.role === "moderator"
-                            ? "#996633"
-                            : "#333",
+                        padding: "6px 10px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(13, 126, 82, 0.15)",
+                        backgroundColor: "#fff",
+                        color: "var(--text)",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        outline: "none"
                       }}
                     >
-                      {user.role}
+                      <option value="attendee">attendee</option>
+                      <option value="speaker">speaker</option>
+                      <option value="moderator">moderator</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
+                  <td>
+                    <span
+                      className={`status-chip ${user.isProfileComplete ? "complete" : "incomplete"}`}
+                    >
+                      {user.isProfileComplete ? "Complete" : "Incomplete"}
                     </span>
                   </td>
-                  <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                  <td>{new Date(user.updatedAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>

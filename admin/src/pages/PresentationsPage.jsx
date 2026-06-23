@@ -1,21 +1,57 @@
-import { useMemo, useState } from "react";
-
-// Template: start with no presentations until the conference provides content
-const samplePresentations = [];
+import { useMemo, useState, useEffect } from "react";
+import backend from "../backend.js";
 
 const PresentationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("rating");
   const [selectedPresentation, setSelectedPresentation] = useState(null);
+  const [presentations, setPresentations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        setLoading(true);
+        const sessions = await backend.getPrograms();
+        // Map sessions to the presentation shape expected by this page
+        const mapped = (sessions || []).map((s) => ({
+          id: s.id,
+          title: s.title || "Untitled",
+          presenter: s.keynote?.name || "TBD",
+          affiliation: s.keynote?.company || "",
+          track: s.type || "session",
+          programDate: s.date || "",
+          start: s.start || "",
+          end: s.end || "",
+          room: s.room || "",
+          status: "scheduled",
+          resume: s.keynoteDescription || "",
+          isKeynote: s.type === "keynote",
+          presentationRating: null,
+          presenterRating: null,
+          commentCount: 0,
+          comments: [],
+        }));
+        if (active) setPresentations(mapped);
+      } catch (err) {
+        console.error("[PresentationsPage] Failed to load:", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
 
   const filteredPresentations = useMemo(() => {
-    const filtered = samplePresentations.filter((presentation) => {
+    const filtered = presentations.filter((presentation) => {
       const query = searchTerm.toLowerCase();
       return (
-        presentation.title.toLowerCase().includes(query) ||
-        presentation.presenter.toLowerCase().includes(query) ||
-        presentation.affiliation.toLowerCase().includes(query) ||
-        presentation.track.toLowerCase().includes(query)
+        (presentation.title || "").toLowerCase().includes(query) ||
+        (presentation.presenter || "").toLowerCase().includes(query) ||
+        (presentation.affiliation || "").toLowerCase().includes(query) ||
+        (presentation.track || "").toLowerCase().includes(query)
       );
     });
 
@@ -87,6 +123,20 @@ const PresentationsPage = () => {
       </span>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="page-card presentations-page">
+        <div className="page-header">
+          <div>
+            <h1>Presentations Management</h1>
+            <p className="subtitle">Browse presentations, sort by rating, and inspect session details.</p>
+          </div>
+        </div>
+        <div style={{ padding: "40px", textAlign: "center" }}>Loading sessions...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-card presentations-page">

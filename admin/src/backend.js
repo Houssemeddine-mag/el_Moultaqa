@@ -544,11 +544,25 @@ const backend = {
           id: u.id,
           clerkUserId: u.clerk_user_id,
           email: u.email,
-          fullName: u.full_name || "",
+          displayName: u.full_name || "",
           role: u.role || "attendee",
           createdAt: u.created_at,
           updatedAt: u.updated_at,
-          profileData: u.profile_data || {},
+          university: u.institution || "",
+          phone: u.phone || "",
+          bio: u.bio || "",
+          schoolLevel: u.metadata?.schoolLevel || "Master's Degree",
+          country: u.metadata?.country || "Algeria",
+          province: u.metadata?.province || "Constantine",
+          isProfileComplete: Boolean(
+            u.full_name && 
+            u.institution && 
+            u.metadata?.schoolLevel && 
+            u.metadata?.country && 
+            u.metadata?.province && 
+            u.phone && 
+            u.bio
+          ),
         }));
       } catch (e) {
         console.error("[admin backend] getUsers error:", e);
@@ -775,7 +789,183 @@ const backend = {
     }
     throw new Error("Supabase not initialized");
   },
+
+  // =========================================================================
+  // Notifications Management (admin sends, attendees read)
+  // =========================================================================
+
+  async getNotifications() {
+    if (activeSupabase && activeSchemaName) {
+      try {
+        const data = await queryOrgTable(activeSupabase, activeSchemaName, "notifications", {
+          orderBy: "created_at",
+          orderDir: "DESC",
+          limit: 100,
+        });
+        return data.map((n) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type || "info",
+          isPinned: n.is_pinned || false,
+          createdAt: n.created_at,
+        }));
+      } catch (e) {
+        console.error("[admin backend] getNotifications error:", e);
+        throw e;
+      }
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async addNotification(notification) {
+    if (activeSupabase && activeSchemaName) {
+      const dbPayload = {
+        title: notification.title,
+        message: notification.message,
+        type: notification.type || "info",
+        is_pinned: notification.isPinned || false,
+      };
+
+      const { data, error } = await activeSupabase.rpc("org_insert", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "notifications",
+        p_data: dbPayload,
+      });
+
+      if (error) throw error;
+      return {
+        id: data.id,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        isPinned: data.is_pinned,
+        createdAt: data.created_at,
+      };
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async deleteNotification(notificationId) {
+    if (activeSupabase && activeSchemaName) {
+      const { error } = await activeSupabase.rpc("org_delete", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "notifications",
+        p_id: notificationId,
+      });
+      if (error) throw error;
+      return true;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  // =========================================================================
+  // Questions Management (attendees submit, admins review)
+  // =========================================================================
+
+  async getQuestions() {
+    if (activeSupabase && activeSchemaName) {
+      try {
+        const data = await queryOrgTable(activeSupabase, activeSchemaName, "questions", {
+          orderBy: "created_at",
+          orderDir: "DESC",
+          limit: 200,
+        });
+        return data.map((q) => ({
+          id: q.id,
+          authorName: q.author_name || "Attendee",
+          message: q.message,
+          isAnswered: q.is_answered || false,
+          isPinned: q.is_pinned || false,
+          createdAt: q.created_at,
+        }));
+      } catch (e) {
+        console.error("[admin backend] getQuestions error:", e);
+        throw e;
+      }
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async markQuestionAnswered(questionId, answered = true) {
+    if (activeSupabase && activeSchemaName) {
+      const { data, error } = await activeSupabase.rpc("org_update", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "questions",
+        p_id: questionId,
+        p_data: { is_answered: answered },
+      });
+      if (error) throw error;
+      return { id: data.id, isAnswered: data.is_answered };
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async deleteQuestion(questionId) {
+    if (activeSupabase && activeSchemaName) {
+      const { error } = await activeSupabase.rpc("org_delete", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "questions",
+        p_id: questionId,
+      });
+      if (error) throw error;
+      return true;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  // =========================================================================
+  // Database Stats (real row counts for DatabaseManagerPage)
+  // =========================================================================
+
+  async getDatabaseStats() {
+    if (activeSupabase && activeSchemaName) {
+      try {
+        const [users, events, sessions, speakers, tickets, notifications, questions] =
+          await Promise.all([
+            queryOrgTable(activeSupabase, activeSchemaName, "users", { limit: 1 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "events", { limit: 1 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "sessions", { limit: 1 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "speakers", { limit: 1 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "tickets", { limit: 1 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "notifications", { limit: 1 })
+              .catch(() => []),
+            queryOrgTable(activeSupabase, activeSchemaName, "questions", { limit: 1 })
+              .catch(() => []),
+          ]);
+
+        // Fetch full counts
+        const [usersAll, eventsAll, sessionsAll, speakersAll, ticketsAll, notifsAll, questionsAll] =
+          await Promise.all([
+            queryOrgTable(activeSupabase, activeSchemaName, "users", { limit: 10000 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "events", { limit: 10000 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "sessions", { limit: 10000 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "speakers", { limit: 10000 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "tickets", { limit: 10000 }),
+            queryOrgTable(activeSupabase, activeSchemaName, "notifications", { limit: 10000 })
+              .catch(() => []),
+            queryOrgTable(activeSupabase, activeSchemaName, "questions", { limit: 10000 })
+              .catch(() => []),
+          ]);
+
+        return {
+          users: usersAll.length,
+          events: eventsAll.length,
+          sessions: sessionsAll.length,
+          speakers: speakersAll.length,
+          tickets: ticketsAll.length,
+          notifications: notifsAll.length,
+          questions: questionsAll.length,
+        };
+      } catch (e) {
+        console.error("[admin backend] getDatabaseStats error:", e);
+        return { users: 0, events: 0, sessions: 0, speakers: 0, tickets: 0, notifications: 0, questions: 0 };
+      }
+    }
+    return { users: 0, events: 0, sessions: 0, speakers: 0, tickets: 0, notifications: 0, questions: 0 };
+  },
 };
 
 
 export default backend;
+

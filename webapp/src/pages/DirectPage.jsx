@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import "../style/DirectPage.css";
 import { submitStreamQuestion } from "../services/localService";
+import { useAuth } from "../context/AuthContext";
 
-const STREAM_URL = "http://4.233.144.150/live/index.m3u8";
+const STREAM_URL = import.meta.env.VITE_STREAM_URL || "http://4.233.144.150/live/index.m3u8";
 
 export default function DirectPage() {
+  const { user } = useAuth();
   const videoRef = useRef(null);
   const [status, setStatus] = useState("Connecting to stream...");
   const [isLive, setIsLive] = useState(false);
@@ -97,7 +99,11 @@ export default function DirectPage() {
     const trimmed = question.trim();
     if (!trimmed) return;
 
-    await submitStreamQuestion({ author: "Web User", message: trimmed });
+    await submitStreamQuestion({
+      author: user?.displayName || "Web User",
+      clerkUserId: user?.uid || null,
+      message: trimmed
+    });
     setQuestion("");
     setQuestionStatus("Question sent to admins.");
     setTimeout(() => setQuestionStatus(""), 2500);

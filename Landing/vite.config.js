@@ -24,4 +24,19 @@ export default defineConfig({
       "@clerk/clerk-react": fileURLToPath(new URL("./node_modules/@clerk/clerk-react", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    // Exclude the shared @global module (outside node_modules) from pre-bundling.
+    // Vite cannot reliably cache files outside node_modules and generates stale
+    // "Outdated Optimize Dep" 504 errors when it tries to do so.
+    exclude: ["@global/supabase"],
+    // Explicitly include the npm packages that @global/supabase imports so Vite
+    // pre-bundles them correctly from THIS app's node_modules.
+    include: [
+      "@supabase/supabase-js",
+      "@clerk/clerk-react",
+      "react",
+      "react-dom",
+      "react-router-dom",
+    ],
+  },
 });

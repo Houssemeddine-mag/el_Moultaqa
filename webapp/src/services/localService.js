@@ -436,10 +436,59 @@ export function subscribePrograms(onUpdate, onError) {
 }
 
 export async function fetchNotifications(limitCount = 4) {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const data = await queryOrgTable(activeSupabase, activeSchemaName, "notifications", {
+        limit: limitCount,
+        orderBy: "created_at",
+        orderDir: "DESC"
+      });
+      return (data || []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        message: item.message,
+        type: item.type || "info",
+        isPinned: Boolean(item.is_pinned),
+        createdAt: item.created_at || item.createdAt,
+      }));
+    } catch (e) {
+      console.error("[localService.fetchNotifications] Supabase query failed:", e);
+    }
+  }
   return readNotifications().slice(0, limitCount);
 }
 
-export async function submitStreamQuestion({ author, message }) {
+export async function submitStreamQuestion({ author, message, clerkUserId = null }) {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const insertPayload = {
+        author_name: author || "Attendee",
+        clerk_user_id: clerkUserId,
+        message: message,
+        is_answered: false,
+        is_pinned: false
+      };
+      const { data, error } = await activeSupabase.rpc("org_insert", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "questions",
+        p_data: insertPayload
+      });
+      if (error) {
+        console.error("[localService.submitStreamQuestion] RPC failed:", error);
+        throw error;
+      }
+      return {
+        id: data.id,
+        author: data.author_name,
+        message: data.message,
+        createdAt: data.created_at,
+        isAnswered: data.is_answered,
+      };
+    } catch (e) {
+      console.error("[localService.submitStreamQuestion] failed:", e);
+    }
+  }
+
   const current = readStreamQuestions();
   const question = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -451,6 +500,7 @@ export async function submitStreamQuestion({ author, message }) {
   writeJson(STREAM_QUESTIONS_STORAGE_KEY, [question, ...current]);
   return question;
 }
+
 
 export async function updateUserProfile(uid, profileId, updatedData) {
   if (activeSupabase && activeSchemaName) {

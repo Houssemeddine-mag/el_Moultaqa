@@ -124,7 +124,16 @@ export default function ConferenceBuilderPage({
     );
   }
 
-  const orgSlug = config.id || (config.shortName || "").trim().toLowerCase().replace(/\s+/g, "-") || "conference";
+  const rawSlug = config.slug || config.id || config.shortName || config.name || "";
+  const orgSlug = rawSlug
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "") || "conference";
+
   const attendeeUrl = `https://web.elmoultaqa.com/c/${orgSlug}`;
   const adminUrl = `https://admin.elmoultaqa.com/c/${orgSlug}/admin`;
   const attendeeLocalUrl = `http://localhost:5174/c/${orgSlug}`;

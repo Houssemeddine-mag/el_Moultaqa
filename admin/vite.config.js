@@ -21,4 +21,15 @@ export default defineConfig({
       "@clerk/clerk-react": fileURLToPath(new URL("./node_modules/@clerk/clerk-react", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    exclude: ["@global/supabase"],
+    include: [
+      "@supabase/supabase-js",
+      "@clerk/clerk-react",
+      "react",
+      "react-dom",
+      "react-router-dom",
+    ],
+  },
 });
+

@@ -18,4 +18,16 @@ export default defineConfig({
       allow: [path.resolve(__dirname, "..")],
     },
   },
+  optimizeDeps: {
+    exclude: ["@global/supabase"],
+    include: [
+      "@supabase/supabase-js",
+      "@clerk/clerk-react",
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "hls.js",
+    ],
+  },
 });
+

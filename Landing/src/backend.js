@@ -24,9 +24,16 @@ export async function saveConferenceConfig(supabase, conference) {
     updatedAt: new Date().toISOString(),
   };
   writeJson(CONFERENCE_CONFIG_STORAGE_KEY, payload);
-  const slug = conference.shortName
-    ? conference.shortName.trim().toLowerCase().replace(/\s+/g, "-")
-    : `conf-${Date.now()}`;
+  const rawSlug = conference.shortName || conference.name || "";
+  const slug = rawSlug
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "") || `conf-${Date.now()}`;
+
     
   console.log("[saveConferenceConfig] Call database to create initial event record in schema...");
   const { data, error } = await supabase.rpc("create_initial_event", {

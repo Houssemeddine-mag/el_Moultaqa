@@ -282,9 +282,16 @@ export default function App() {
     setSaving(true);
 
     try {
-      const slug = conference.shortName
-        ? conference.shortName.trim().toLowerCase().replace(/\s+/g, "-")
-        : `conf-${Date.now()}`;
+      const rawSlug = conference.shortName || conference.name || "";
+      const slug = rawSlug
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9\-]/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "") || `conf-${Date.now()}`;
+
 
       console.log("[Landing App] Launching conference, creating Clerk organization:", conference.name, slug);
       const org = await clerk.createOrganization({
