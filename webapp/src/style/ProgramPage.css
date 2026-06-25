@@ -1,7 +1,7 @@
 .program-page {
   display: grid;
   gap: 24px;
-  padding: 0 18px;
+  padding: 0 8px;
 }
 
 .program-topbar {
@@ -9,7 +9,7 @@
   justify-content: center;
   align-items: center;
   gap: 18px;
-  margin-top: 18px;
+  margin-top: 4px;
 }
 
 .program-topbar span {
@@ -47,7 +47,7 @@
   gap: 16px;
   background: #fff;
   border-radius: 28px;
-  border: 1px solid rgba(13, 126, 82, 0.1);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
   box-shadow: var(--shadow);
 }
 
@@ -55,7 +55,7 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 4px solid rgba(13, 126, 82, 0.16);
+  border: 4px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.16);
   border-top-color: var(--accent-dark);
   animation: spin 1s linear infinite;
 }
@@ -113,7 +113,7 @@
 }
 
 .program-tab {
-  border: 1px solid rgba(13, 126, 82, 0.18);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
   background: #fff;
   color: var(--accent-dark);
   border-radius: 16px;
@@ -159,7 +159,7 @@
   padding: 20px;
   border-radius: 22px;
   background: #fff;
-  border: 1px solid rgba(13, 126, 82, 0.14);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.14);
   box-shadow: var(--shadow);
   transition: transform 0.2s ease;
 }
@@ -183,7 +183,7 @@
 .program-time-pill {
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(13, 126, 82, 0.1);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
   color: var(--accent-dark);
   font-weight: 700;
 }
@@ -230,8 +230,8 @@
   margin-top: 12px;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(13, 126, 82, 0.18);
-  background: rgba(13, 126, 82, 0.08);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
   color: var(--accent-dark);
   font-weight: 700;
   width: fit-content;
@@ -259,8 +259,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(13, 126, 82, 0.08);
-  color: rgba(13, 126, 82, 0.9);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
+  color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.9);
 }
 
 .program-keynote-row {
@@ -275,7 +275,7 @@
   height: 42px;
   border-radius: 16px;
   overflow: hidden;
-  background: rgba(13, 126, 82, 0.12);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12);
   display: grid;
   place-items: center;
 }
@@ -313,7 +313,7 @@
 
 .program-conference-list {
   margin-top: 16px;
-  border-top: 1px solid rgba(13, 126, 82, 0.14);
+  border-top: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.14);
   padding-top: 16px;
   display: grid;
   gap: 14px;
@@ -322,8 +322,8 @@
 .program-conference-item {
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(13, 126, 82, 0.05);
-  border: 1px solid rgba(13, 126, 82, 0.08);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.05);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
 }
 
 .program-conference-meta {
@@ -339,7 +339,7 @@
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(13, 126, 82, 0.12);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12);
   color: var(--accent-dark);
   font-size: 0.85rem;
   font-weight: 700;

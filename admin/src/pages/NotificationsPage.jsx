@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Pin } from "lucide-react";
 import backend from "../backend.js";
 
 // Notification type badge colours
@@ -178,7 +179,7 @@ export default function NotificationsPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                     {n.isPinned && (
                       <span style={{ fontSize: "0.75rem", fontWeight: 700, background: "rgba(255,255,255,.15)", padding: "2px 8px", borderRadius: 4, color: "var(--text)" }}>
-                        📌 Pinned
+                        <Pin size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> Pinned
                       </span>
                     )}
                     <span style={{ fontSize: "0.75rem", fontWeight: 700, color: colours.text, background: colours.bg, padding: "2px 10px", borderRadius: 20, border: `1px solid ${colours.text}40` }}>

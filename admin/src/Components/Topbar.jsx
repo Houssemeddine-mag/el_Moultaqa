@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import { adminConfig } from "../adminConfig";
 import { getConferenceConfig } from "../sharedConfig";
+import defaultLogo from "@logo";
 
-const Topbar = ({ orgDetails }) => {
+const Topbar = ({ orgDetails, eventLogo }) => {
   const [dateTime, setDateTime] = useState(new Date());
   const [conferenceConfig, setConferenceConfig] = useState(null);
   const navigate = useNavigate();
@@ -42,19 +43,14 @@ const Topbar = ({ orgDetails }) => {
   // Use orgDetails name if available, otherwise fall back to conferenceConfig or default
   const displayName = orgDetails?.name || conferenceConfig?.name || adminConfig.conferenceName || "Conference";
 
+  const logoSrc = eventLogo || conferenceConfig?.logo || orgDetails?.logo_url || adminConfig.conferenceLogo || defaultLogo;
+
   return (
     <header className="topbar">
       <div className="topbar-left">
         <div className="topbar-brand-block">
           <div className="conference-logo">
-            {conferenceConfig?.logo || adminConfig.conferenceLogo ? (
-              <img
-                src={conferenceConfig?.logo || adminConfig.conferenceLogo}
-                alt="Conference logo"
-              />
-            ) : (
-              <div className="conference-logo-placeholder">Logo</div>
-            )}
+            <img src={logoSrc} alt="Conference logo" />
           </div>
           <div className="topbar-title">
             {displayName}

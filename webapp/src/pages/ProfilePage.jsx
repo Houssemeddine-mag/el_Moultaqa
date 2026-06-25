@@ -4,6 +4,25 @@ import { fetchUserProfile, updateUserProfile } from "../services/localService";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useClerk } from "@clerk/clerk-react";
 
+const COUNTRIES = [
+  "Algeria", "Tunisia", "Libya", "France", "Italy",
+  "Germany", "Spain", "Russia", "USA", "Turkey",
+];
+
+const WILAYAS = [
+  "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa",
+  "Biskra", "Béchar", "Blida", "Bouïra", "Tamanrasset", "Tébessa",
+  "Tlemcen", "Tiaret", "Tizi Ouzou", "Algiers", "Djelfa", "Jijel",
+  "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma",
+  "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla",
+  "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès",
+  "El Tarf", "Tindouf", "Tissemsilt", "El Oued", "Khenchela",
+  "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma",
+  "Aïn Témouchent", "Ghardaïa", "Relizane",
+  "El M'Ghair", "El Meniaâ", "Ouled Djellal", "Bordj Badji Mokhtar",
+  "Béni Abbès", "Timimoun", "Touggourt", "Djanet", "In Guezzam", "In Salah",
+];
+
 function formatDate(value) {
   if (!value) return null;
   if (typeof value === "string" || typeof value === "number") {
@@ -41,55 +60,6 @@ function getInitials(name) {
     .slice(0, 2)
     .map((part) => part[0].toUpperCase())
     .join("");
-}
-
-function getProviderLabel(user) {
-  if (!user?._clerk) return "Email";
-  const verifiedExternalAccounts = user._clerk.externalAccounts || [];
-  if (verifiedExternalAccounts.length > 0) {
-    return verifiedExternalAccounts.map(acc => {
-      const provider = acc.provider || "";
-      return provider.charAt(0).toUpperCase() + provider.slice(1);
-    }).join(", ");
-  }
-  return "Email";
-}
-
-function formatProfileValue(key, value) {
-  if (value == null) return "Not set";
-  if (
-    typeof value === "object" &&
-    "seconds" in value &&
-    "nanoseconds" in value
-  ) {
-    return formatDate(
-      new Date(value.seconds * 1000 + Math.round(value.nanoseconds / 1e6)),
-    );
-  }
-  if (typeof value === "string") {
-    const timestampMatch = value.match(
-      /^Timestamp\(seconds=(\d+), nanoseconds=(\d+)\)$/,
-    );
-    if (timestampMatch) {
-      return formatDate(
-        new Date(
-          Number(timestampMatch[1]) * 1000 +
-            Math.round(Number(timestampMatch[2]) / 1e6),
-        ),
-      );
-    }
-    if (key.toLowerCase().includes("birth")) {
-      const date = new Date(value);
-      if (!Number.isNaN(date.getTime())) {
-        return date.toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        });
-      }
-    }
-  }
-  return value.toString();
 }
 
 function computeCompletion(profile) {
@@ -132,21 +102,6 @@ export default function ProfilePage() {
     bio: ""
   });
 
-  useEffect(() => {
-    if (profile) {
-      setFormValues({
-        displayName: profile.displayName || "",
-        university: profile.university || "",
-        schoolLevel: profile.schoolLevel || "",
-        phone: profile.phone || profile.phoneNumber || "",
-        gender: profile.gender || "male",
-        country: profile.country || "Algeria",
-        province: profile.province || "",
-        bio: profile.bio || ""
-      });
-    }
-  }, [profile]);
-
   const handleSave = async (e) => {
     e.preventDefault();
     if (!profile) return;
@@ -169,13 +124,7 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
+    if (authLoading || !user) return;
 
     let active = true;
 
@@ -214,7 +163,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading || (loading && !profile)) {
+  if (authLoading) {
     return (
       <div className="page-shell">
         <div className="status-panel">Loading profile…</div>
@@ -223,8 +172,8 @@ export default function ProfilePage() {
   }
 
   const displayName =
-    profile?.displayName ||
     user?.displayName ||
+    profile?.displayName ||
     user?.email?.split("@")[0] ||
     "Guest";
   const email = profile?.email || user?.email || "guest@elmoultaqa.com";
@@ -252,57 +201,17 @@ export default function ProfilePage() {
     profile?.summary ||
     "No personal summary has been provided yet.";
 
-  const extraProfileFields = profile
-    ? Object.entries(profile)
-        .filter(
-          ([key, value]) =>
-            value != null &&
-            ![
-              "displayName",
-              "email",
-              "university",
-              "school",
-              "schoolLevel",
-              "country",
-              "province",
-              "gender",
-              "phoneNumber",
-              "phone",
-              "jobTitle",
-              "occupation",
-              "position",
-              "organization",
-              "company",
-              "bio",
-              "about",
-              "summary",
-              "photoURL",
-              "avatar",
-              "photo",
-              "id",
-              "uid",
-              "createdAt",
-              "created_at",
-              "updatedAt",
-              "lastSignedIn",
-              "isProfileComplete",
-              "role"
-            ].includes(key),
-        )
-        .map(([key, value]) => ({
-          label: key,
-          value: formatProfileValue(key, value),
-        }))
-    : [];
+  const personalInfoFields = [
+    { label: "Gender", value: profile?.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "Not set" },
+    { label: "Country", value: profile?.country || "Algeria" },
+    { label: "Province", value: profile?.province || "Not set" },
+  ];
 
   const profileFields = [
     { label: "Email Address", value: email },
     { label: "Phone Number", value: contactPhone },
     { label: "Institution / University", value: university },
     { label: "Degree / School Level", value: role },
-    { label: "Gender", value: profile?.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "Not set" },
-    { label: "Country", value: profile?.country || "Algeria" },
-    { label: "Province", value: profile?.province || "Not set" },
     { label: "Member Since", value: createdAt || "Not set" }
   ];
 
@@ -321,15 +230,30 @@ export default function ProfilePage() {
               )}
             </div>
             <div className="hero-actions-avatar">
-              {loading ? (
-                <button className="primary-button small-button" disabled>
-                  Loading…
-                </button>
-              ) : user ? (
+              {user ? (
+                loading ? (
+                  <button className="primary-button small-button" disabled>
+                    Loading…
+                  </button>
+                ) : (
                 <>
                   <button
                     className="primary-button small-button edit-toggle-btn"
-                    onClick={() => setIsEditing(!isEditing)}
+                    onClick={() => {
+                      if (!isEditing && profile) {
+                        setFormValues({
+                          displayName: profile.displayName || "",
+                          university: profile.university || "",
+                          schoolLevel: profile.schoolLevel || "",
+                          phone: profile.phone || profile.phoneNumber || "",
+                          gender: profile.gender || "male",
+                          country: profile.country || "Algeria",
+                          province: profile.province || "",
+                          bio: profile.bio || ""
+                        });
+                      }
+                      setIsEditing(!isEditing);
+                    }}
                   >
                     {isEditing ? "Cancel" : "Edit Profile"}
                   </button>
@@ -340,7 +264,8 @@ export default function ProfilePage() {
                     Sign out
                   </button>
                 </>
-              ) : null}
+              )
+            ) : null}
             </div>
           </div>
 
@@ -447,22 +372,47 @@ export default function ProfilePage() {
 
               <label className="form-label">
                 Country
-                <input
-                  type="text"
-                  className="form-input"
+                <select
+                  className="form-select"
                   value={formValues.country}
-                  onChange={(e) => setFormValues({ ...formValues, country: e.target.value })}
-                />
+                  onChange={(e) => {
+                    const newCountry = e.target.value;
+                    setFormValues({
+                      ...formValues,
+                      country: newCountry,
+                      province: newCountry === "Algeria" ? "" : formValues.province,
+                    });
+                  }}
+                >
+                  <option value="">Select a country</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </label>
 
               <label className="form-label">
-                Province
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formValues.province}
-                  onChange={(e) => setFormValues({ ...formValues, province: e.target.value })}
-                />
+                {formValues.country === "Algeria" ? "Wilaya" : "Province"}
+                {formValues.country === "Algeria" ? (
+                  <select
+                    className="form-select"
+                    value={formValues.province}
+                    onChange={(e) => setFormValues({ ...formValues, province: e.target.value })}
+                  >
+                    <option value="">Select a wilaya</option>
+                    {WILAYAS.map((w) => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formValues.province}
+                    onChange={(e) => setFormValues({ ...formValues, province: e.target.value })}
+                    placeholder={formValues.country ? "Enter your province/region" : "Select a country first"}
+                  />
+                )}
               </label>
             </div>
 
@@ -536,24 +486,17 @@ export default function ProfilePage() {
 
             <section className="profile-extra-panel">
               <div className="panel-title">
-                <span>Additional data</span>
-                <h2>Other profile values</h2>
+                <span>Personal info</span>
+                <h2>Personal information</h2>
               </div>
-              {extraProfileFields.length ? (
-                <div className="profile-extra-list">
-                  {extraProfileFields.map((item) => (
-                    <div key={item.label} className="profile-data-item">
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="profile-note">
-                  No extra profile metadata was found. Everything available is shown
-                  in the main details panel.
-                </p>
-              )}
+              <div className="profile-extra-list">
+                {personalInfoFields.map((item) => (
+                  <div key={item.label} className="profile-data-item">
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
             </section>
           </div>
         </div>

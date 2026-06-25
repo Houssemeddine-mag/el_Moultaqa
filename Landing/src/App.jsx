@@ -5,8 +5,10 @@ import {
   Route,
   Navigate,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 import "./styles.css";
+import logo from "@logo";
 import icon from "@icon";
 import { useUser, useSignIn, useSignUp, useClerk, useOrganizationList, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { saveConferenceConfig } from "./backend.js";
@@ -14,6 +16,10 @@ import { useClerkSupabase, resolveOrgSlug, createClerkSupabaseClient } from "@gl
 import HomePage from "./pages/HomePage.jsx";
 import ConferenceBuilderPage from "./pages/ConferenceBuilderPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
+import DocumentationPage from "./pages/DocumentationPage.jsx";
+import LegalPage from "./pages/LegalPage.jsx";
+import AboutPage from "./pages/AboutPage.jsx";
+import OrgButton from "./components/OrgButton.jsx";
 
 const initialConference = {
   name: "",
@@ -49,6 +55,11 @@ function AppRoutes({
   handleReset,
 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   const onAuthSubmit = async (event) => {
     const success = await handleAuthSubmit(event);
@@ -72,18 +83,19 @@ function AppRoutes({
   return (
     <div className="landing-shell">
       <header className="landing-nav">
-        <div className="brand">
+        <a href="/" className="brand" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
           <img className="logo-image" src={icon} alt="El Moultaqa icon" />
           <div>
             <strong className="brand-title">El Moultaqa</strong>
             <span className="brand-subtitle">الملتقى</span>
           </div>
-        </div>
+        </a>
 
         <div className="nav-actions">
           {user ? (
             <>
               <span className="nav-user-email">{user.email}</span>
+              <OrgButton />
               <button className="secondary-button" onClick={logoutAndHome}>
                 Sign out
               </button>
@@ -91,7 +103,7 @@ function AppRoutes({
                 className="landing-cta"
                 onClick={() => navigate("/builder")}
               >
-                Create your conference
+                Create Conference
               </button>
             </>
           ) : (
@@ -151,18 +163,69 @@ function AppRoutes({
             />
           }
         />
+        <Route path="/docs" element={<DocumentationPage />} />
+        <Route path="/legal" element={<LegalPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/auth/sso-callback" element={<AuthenticateWithRedirectCallback />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <footer className="landing-footer">
-        <p>ElMoultaqa — conference software for modern events.</p>
+        <div className="footer-inner">
+          <div className="footer-logo-wrap">
+            <img className="footer-logo" src={logo} alt="El Moultaqa" />
+          </div>
+          <div className="footer-links">
+            <div className="footer-section">
+              <h3>Company</h3>
+              <ul>
+                <li><a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Home</a></li>
+                <li><a href="/docs" onClick={(e) => { e.preventDefault(); navigate("/docs"); }}>Documentation</a></li>
+                <li><a href="/about#about" onClick={(e) => { e.preventDefault(); navigate("/about#about"); }}>About us</a></li>
+                <li><a href="/about#contact" onClick={(e) => { e.preventDefault(); navigate("/about#contact"); }}>Contact</a></li>
+              </ul>
+            </div>
+            <div className="footer-section">
+              <h3>Legal</h3>
+              <ul>
+                <li><a href="/legal#privacy" onClick={(e) => { e.preventDefault(); navigate("/legal#privacy"); }}>Privacy Policy</a></li>
+                <li><a href="/legal#terms" onClick={(e) => { e.preventDefault(); navigate("/legal#terms"); }}>Terms of Service</a></li>
+                <li><a href="/legal#cookies" onClick={(e) => { e.preventDefault(); navigate("/legal#cookies"); }}>Cookie Policy</a></li>
+                <li><a href="/legal#disclaimer" onClick={(e) => { e.preventDefault(); navigate("/legal#disclaimer"); }}>Disclaimer</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <div className="footer-social">
+            <a href="#twitter" title="Twitter">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75-2.25 7-5 7-5s-1 1.5-3 2.5Z"></path></svg>
+            </a>
+            <a href="#linkedin" title="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"></path><circle cx="4" cy="4" r="2"></circle></svg>
+            </a>
+            <a href="#instagram" title="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"></path><circle cx="17.5" cy="6.5" r="1.5"></circle></svg>
+            </a>
+            <a href="#github" title="GitHub">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+            </a>
+          </div>
+          <p>© 2026 ElMoultaqa. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );
 }
 
 export default function App() {
+  useEffect(() => {
+    const link = document.querySelector("link[rel~='icon']") || document.createElement("link");
+    link.rel = "icon";
+    link.href = icon;
+    document.head.appendChild(link);
+  }, []);
+
   const { user: clerkUser, isLoaded } = useUser();
   const { signIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, isLoaded: signUpLoaded } = useSignUp();

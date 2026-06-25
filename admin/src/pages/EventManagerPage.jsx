@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Calendar, MapPin, Building2, X, Check, Edit3 } from "lucide-react";
 import backend from "../backend.js";
 
 const EMPTY_FORM = {
@@ -128,7 +129,7 @@ export default function EventManagerPage() {
           onClick={showForm ? closeForm : openCreateForm}
           style={{ background: showForm ? "var(--surface-strong)" : "var(--accent)", border: showForm ? "1px solid var(--border)" : "none", color: showForm ? "var(--text)" : "#fff" }}
         >
-          {showForm ? "✕ Cancel" : "+ New Event"}
+          {showForm ? <><X size={16} /> Cancel</> : "+ New Event"}
         </button>
       </div>
 
@@ -139,7 +140,7 @@ export default function EventManagerPage() {
       )}
       {success && (
         <div style={{ padding: "12px", marginBottom: "16px", background: "rgba(13,126,82,.08)", color: "#0d7e52", borderRadius: "8px", border: "1px solid rgba(13,126,82,.2)" }}>
-          ✓ {success}
+          <Check size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> {success}
         </div>
       )}
 
@@ -217,12 +218,12 @@ export default function EventManagerPage() {
               )}
               {event.start_date && (
                 <p style={{ fontSize: "0.9em", color: "#999" }}>
-                  📅 {new Date(event.start_date).toLocaleDateString()}
+                  <Calendar size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {new Date(event.start_date).toLocaleDateString()}
                   {event.end_date && event.end_date !== event.start_date ? ` - ${new Date(event.end_date).toLocaleDateString()}` : ""}
                 </p>
               )}
-              {event.location && <p style={{ fontSize: "0.9em", color: "#999" }}>📍 {event.location}</p>}
-              {event.venue && <p style={{ fontSize: "0.9em", color: "#999" }}>🏛️ {event.venue}</p>}
+              {event.location && <p style={{ fontSize: "0.9em", color: "#999" }}><MapPin size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {event.location}</p>}
+              {event.venue && <p style={{ fontSize: "0.9em", color: "#999" }}><Building2 size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {event.venue}</p>}
               <p style={{ marginTop: "8px" }}>
                 Status:{" "}
                 <span style={{ padding: "2px 8px", borderRadius: "3px", fontSize: "0.85em", backgroundColor: event.status === "published" ? "#e8f4e8" : "#f0f0f0", color: event.status === "published" ? "#0a6a0a" : "#333" }}>
@@ -234,7 +235,7 @@ export default function EventManagerPage() {
                   onClick={() => openEditForm(event)}
                   style={{ padding: "6px 14px", background: "rgba(13,126,82,.1)", color: "#0d7e52", border: "1px solid rgba(13,126,82,.25)", borderRadius: "6px", cursor: "pointer", fontSize: "0.85em", fontWeight: 600 }}
                 >
-                  ✏️ Edit
+                  <Edit3 size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> Edit
                 </button>
                 <button
                   onClick={() => handleDeleteEvent(event.id, event.title)}

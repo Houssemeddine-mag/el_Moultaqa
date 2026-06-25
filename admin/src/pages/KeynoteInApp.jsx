@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
+import { Plus, Mic, User, Edit3, Trash2 } from "lucide-react";
 import backend from "../backend.js";
 import "../styles/keynote-speakers.css";
 
@@ -278,7 +279,7 @@ const KeynoteInApp = () => {
             setShowModal(true);
           }}
         >
-          <i className="icon-plus"></i>
+          <Plus size={18} />
           Add New Speaker
         </button>
       </div>
@@ -316,7 +317,7 @@ const KeynoteInApp = () => {
         <div className="speakers-grid">
           {sortedSpeakers.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🎤</div>
+              <div className="empty-icon"><Mic size={48} /></div>
               <h3>No keynote speakers found</h3>
               <p>
                 {searchTerm
@@ -336,7 +337,7 @@ const KeynoteInApp = () => {
                     />
                   ) : (
                     <div className="speaker-placeholder">
-                      <i className="icon-user"></i>
+                      <User size={28} />
                     </div>
                   )}
                   <div className="speaker-order">#{speaker.order || 0}</div>
@@ -363,14 +364,14 @@ const KeynoteInApp = () => {
                     className="btn-secondary"
                     onClick={() => handleEdit(speaker)}
                   >
-                    <i className="icon-edit"></i>
+                    <Edit3 size={16} />
                     Edit
                   </button>
                   <button
                     className="btn-danger"
                     onClick={() => handleDelete(speaker)}
                   >
-                    <i className="icon-delete"></i>
+                    <Trash2 size={16} />
                     Delete
                   </button>
                 </div>

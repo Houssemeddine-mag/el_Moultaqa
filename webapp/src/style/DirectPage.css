@@ -79,7 +79,7 @@
   border-radius: 28px;
   overflow: hidden;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(13, 126, 82, 0.12);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12);
   margin-bottom: 24px;
 }
 
@@ -112,7 +112,7 @@
   border-radius: 28px;
   padding: 26px;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(13, 126, 82, 0.08);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
 }
 
 .direct-page .stream-card h3 {

@@ -552,8 +552,9 @@ const backend = {
           phone: u.phone || "",
           bio: u.bio || "",
           schoolLevel: u.metadata?.schoolLevel || "Master's Degree",
-          country: u.metadata?.country || "Algeria",
-          province: u.metadata?.province || "Constantine",
+          gender: u.metadata?.gender || "",
+          country: u.metadata?.country || "",
+          province: u.metadata?.province || "",
           isProfileComplete: Boolean(
             u.full_name && 
             u.institution && 
@@ -762,6 +763,8 @@ const backend = {
       if (event.location !== undefined) dbPayload.location = event.location;
       if (event.venue !== undefined) dbPayload.venue = event.venue;
       if (event.status !== undefined) dbPayload.status = event.status;
+      if (event.cover_image_url !== undefined) dbPayload.cover_image_url = event.cover_image_url;
+      if (event.settings !== undefined) dbPayload.settings = event.settings;
 
       const { error } = await activeSupabase.rpc("org_update", {
         p_schema_name: activeSchemaName,
@@ -786,6 +789,34 @@ const backend = {
 
       if (error) throw error;
       return true;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  // Merge partial settings into the event's settings JSONB column
+  async updateEventSettings(eventId, settings) {
+    if (activeSupabase && activeSchemaName) {
+      try {
+        // Fetch current event to merge settings (preserves sponsors, etc.)
+        const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+        const event = events.find((e) => e.id === eventId);
+        if (!event) throw new Error("Event not found");
+
+        const merged = { ...(event.settings || {}), ...settings };
+
+        const { error } = await activeSupabase.rpc("org_update", {
+          p_schema_name: activeSchemaName,
+          p_table_name: "events",
+          p_id: eventId,
+          p_data: { settings: merged },
+        });
+
+        if (error) throw error;
+        return true;
+      } catch (e) {
+        console.error("[admin backend] updateEventSettings error:", e);
+        throw e;
+      }
     }
     throw new Error("Supabase not initialized");
   },

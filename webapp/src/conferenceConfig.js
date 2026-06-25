@@ -1,6 +1,7 @@
 export const defaultConferenceConfig = {
   brand: "ElMoultaqa",
   brandInitials: "EM",
+  shortName: "",
   tagline: "Conference platform for modern hybrid events",
   name: "",
   primaryColor: "#0d7e52",

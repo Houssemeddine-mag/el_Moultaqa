@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { RefreshCw, Check } from "lucide-react";
 import backend from "../backend.js";
 
 export default function QuestionsPage() {
@@ -67,7 +68,7 @@ export default function QuestionsPage() {
           disabled={loading}
           style={{ background: "var(--surface-strong)", border: "1px solid var(--border)", color: "var(--text)" }}
         >
-          {loading ? "Loading…" : "↻ Refresh"}
+          {loading ? "Loading…" : <><RefreshCw size={16} /> Refresh</>}
         </button>
       </div>
 
@@ -135,7 +136,7 @@ export default function QuestionsPage() {
                   <span style={{ fontWeight: 700, fontSize: ".9rem" }}>{q.authorName}</span>
                   {q.isAnswered && (
                     <span style={{ fontSize: ".75rem", fontWeight: 700, color: "#0d7e52", background: "rgba(13,126,82,.1)", padding: "2px 10px", borderRadius: 20, border: "1px solid rgba(13,126,82,.25)" }}>
-                      ✓ Answered
+                      <Check size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> Answered
                     </span>
                   )}
                   <span style={{ fontSize: ".75rem", opacity: .5, marginLeft: "auto" }}>

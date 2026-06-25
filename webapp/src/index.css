@@ -44,5 +44,5 @@ img {
 }
 
 ::selection {
-  background: rgba(13, 126, 82, 0.24);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.24);
 }

@@ -159,7 +159,7 @@ function AppLayout() {
           </div>
           <div className="brand-copy">
             <strong>{conferenceConfig.brand}</strong>
-            {conferenceConfig.name && <small>{conferenceConfig.name}</small>}
+            <small>{conferenceConfig.shortName || conferenceConfig.brandInitials}</small>
           </div>
         </div>
         <nav className="topnav">
@@ -226,10 +226,8 @@ function AppLayout() {
       </main>
 
       <footer className="page-footer">
-        <p>
-          ElMoultaqa conference web application — template-ready and styled to
-          match the ElMoultaqa theme across web and mobile.
-        </p>
+        <span>{conferenceConfig.brand}</span>
+        <small>&copy; {new Date().getFullYear()}</small>
       </footer>
     </div>
   );

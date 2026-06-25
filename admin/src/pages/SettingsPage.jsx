@@ -1,55 +1,56 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getConferenceConfig, saveConferenceConfig } from "../sharedConfig";
+import { RefreshCw, Clipboard, QrCode } from "lucide-react";
 import backend from "../backend.js";
 
 const defaultConfig = {
   conferenceName: "ElMoultaqa Conference",
-  conferenceLogo: "",
-  themeColor: "#0d7e52",
   brandAcronym: "EM",
+  themeColor: "#0d7e52",
+  conferenceLogo: "",
   tagline: "Conference platform for modern hybrid events",
   conferenceDescription: "",
+  registrationMode: "public",
+  registrationCode: "",
 };
 
 export default function SettingsPage() {
   const { orgSlug } = useParams();
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState("");
-
-  // Registration & Access states
-  const [registrationMode, setRegistrationMode] = useState("public");
-  const [registrationCode, setRegistrationCode] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [eventId, setEventId] = useState(null);
 
   useEffect(() => {
-    // 1. Load theme config
-    const stored = getConferenceConfig();
-    if (stored) {
-      setConfig({
-        conferenceName: stored.name || defaultConfig.conferenceName,
-        conferenceLogo: stored.logo || defaultConfig.conferenceLogo,
-        themeColor: stored.themeColor || defaultConfig.themeColor,
-        brandAcronym: stored.brandInitials || defaultConfig.brandAcronym,
-        tagline: stored.tagline || defaultConfig.tagline,
-        conferenceDescription:
-          stored.description || defaultConfig.conferenceDescription,
-      });
-    }
-
-    // 2. Load registration settings from Supabase
-    if (orgSlug) {
-      async function loadRegSettings() {
-        try {
-          const data = await backend.getRegistrationSettings(orgSlug);
-          setRegistrationMode(data.registrationMode);
-          setRegistrationCode(data.registrationCode || "");
-        } catch (err) {
-          console.error("Failed to load registration settings:", err);
+    async function loadEvent() {
+      setLoading(true);
+      try {
+        const events = await backend.getEvents();
+        if (events && events.length > 0) {
+          const ev = events[0];
+          setEventId(ev.id);
+          setConfig({
+            conferenceName: ev.title || defaultConfig.conferenceName,
+            brandAcronym: ev.settings?.brandAcronym || ev.short_name || defaultConfig.brandAcronym,
+            themeColor: ev.settings?.themeColor || defaultConfig.themeColor,
+            conferenceLogo: ev.cover_image_url || defaultConfig.conferenceLogo,
+            tagline: ev.settings?.tagline || defaultConfig.tagline,
+            conferenceDescription: ev.description || defaultConfig.conferenceDescription,
+            registrationMode: ev.settings?.registrationMode || "public",
+            registrationCode: ev.settings?.registrationCode || "",
+          });
+        } else {
+          setStatus("No conference found. Create an event first.");
         }
+      } catch (err) {
+        console.error("Failed to load conference settings:", err);
+        setStatus("Failed to load settings.");
+      } finally {
+        setLoading(false);
       }
-      loadRegSettings();
     }
-  }, [orgSlug]);
+    loadEvent();
+  }, []);
 
   const handleChange = (key, value) => {
     setConfig((current) => ({ ...current, [key]: value }));
@@ -57,24 +58,26 @@ export default function SettingsPage() {
 
   const handleSave = async (event) => {
     event.preventDefault();
+    if (!eventId) {
+      setStatus("No conference to save. Create an event first.");
+      return;
+    }
     try {
-      // 1. Save theme config locally
-      saveConferenceConfig({
-        name: config.conferenceName,
-        shortName: config.conferenceName,
-        logo: config.conferenceLogo,
-        themeColor: config.themeColor,
-        brandInitials: config.brandAcronym,
-        tagline: config.tagline,
+      await backend.updateEvent(eventId, {
+        title: config.conferenceName,
         description: config.conferenceDescription,
+        cover_image_url: config.conferenceLogo,
       });
 
-      // 2. Save registration settings in organizations table
-      if (orgSlug) {
-        await backend.updateRegistrationSettings(orgSlug, registrationMode, registrationCode);
-      }
+      await backend.updateEventSettings(eventId, {
+        brandAcronym: config.brandAcronym,
+        themeColor: config.themeColor,
+        tagline: config.tagline,
+        registrationMode: config.registrationMode,
+        registrationCode: config.registrationCode,
+      });
 
-      setStatus("Saved conference theme, brand, and registration settings.");
+      setStatus("Conference settings saved successfully.");
     } catch (error) {
       console.error(error);
       setStatus("Unable to save settings.");
@@ -83,11 +86,22 @@ export default function SettingsPage() {
 
   const inviteUrl = `${import.meta.env.VITE_WEBAPP_URL || (window.location.origin.includes("localhost") ? "http://localhost:5173" : window.location.origin.replace("admin", "webapp"))}/c/${orgSlug}/auth`;
 
+  if (loading) {
+    return (
+      <div className="page-card">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading conference settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-card">
       <div className="page-header">
         <h1>Conference settings</h1>
-        <p>Customize the webapp theme, logo, and brand details.</p>
+        <p>Customize your conference theme, logo, and registration options.</p>
       </div>
 
       <form className="settings-form" onSubmit={handleSave}>
@@ -96,8 +110,8 @@ export default function SettingsPage() {
           <input
             type="text"
             value={config.conferenceName}
-            onChange={(event) =>
-              handleChange("conferenceName", event.target.value)
+            onChange={(e) =>
+              handleChange("conferenceName", e.target.value)
             }
           />
         </label>
@@ -107,8 +121,8 @@ export default function SettingsPage() {
           <input
             type="text"
             value={config.brandAcronym}
-            onChange={(event) =>
-              handleChange("brandAcronym", event.target.value)
+            onChange={(e) =>
+              handleChange("brandAcronym", e.target.value)
             }
           />
         </label>
@@ -118,7 +132,7 @@ export default function SettingsPage() {
           <input
             type="color"
             value={config.themeColor}
-            onChange={(event) => handleChange("themeColor", event.target.value)}
+            onChange={(e) => handleChange("themeColor", e.target.value)}
           />
         </label>
 
@@ -127,8 +141,8 @@ export default function SettingsPage() {
           <input
             type="text"
             value={config.conferenceLogo}
-            onChange={(event) =>
-              handleChange("conferenceLogo", event.target.value)
+            onChange={(e) =>
+              handleChange("conferenceLogo", e.target.value)
             }
             placeholder="https://.../logo.png"
           />
@@ -139,16 +153,16 @@ export default function SettingsPage() {
           <input
             type="text"
             value={config.tagline}
-            onChange={(event) => handleChange("tagline", event.target.value)}
+            onChange={(e) => handleChange("tagline", e.target.value)}
           />
         </label>
 
         <label>
-          Conference description (for mobile app)
+          Conference description
           <textarea
             value={config.conferenceDescription}
-            onChange={(event) =>
-              handleChange("conferenceDescription", event.target.value)
+            onChange={(e) =>
+              handleChange("conferenceDescription", e.target.value)
             }
             placeholder="Enter a brief description about your conference..."
             rows="4"
@@ -170,8 +184,8 @@ export default function SettingsPage() {
                 type="radio"
                 name="registrationMode"
                 value="public"
-                checked={registrationMode === "public"}
-                onChange={() => setRegistrationMode("public")}
+                checked={config.registrationMode === "public"}
+                onChange={() => handleChange("registrationMode", "public")}
               />
               Public (anyone with the link can join)
             </label>
@@ -180,22 +194,22 @@ export default function SettingsPage() {
                 type="radio"
                 name="registrationMode"
                 value="private"
-                checked={registrationMode === "private"}
-                onChange={() => setRegistrationMode("private")}
+                checked={config.registrationMode === "private"}
+                onChange={() => handleChange("registrationMode", "private")}
               />
               Private (requires a registration code)
             </label>
           </div>
         </div>
 
-        {registrationMode === "private" && (
+        {config.registrationMode === "private" && (
           <label style={{ display: "block", marginBottom: "1.5rem" }}>
             Registration Code
             <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
               <input
                 type="text"
-                value={registrationCode}
-                onChange={(event) => setRegistrationCode(event.target.value)}
+                value={config.registrationCode}
+                onChange={(e) => handleChange("registrationCode", e.target.value)}
                 placeholder="e.g. XK7-M9Q"
                 style={{ flex: 1, textTransform: "uppercase" }}
               />
@@ -204,12 +218,12 @@ export default function SettingsPage() {
                 className="btn-secondary"
                 style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "pointer", background: "rgba(255, 255, 255, 0.08)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.15)" }}
                 onClick={() => {
-                  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // readable chars
+                  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
                   const genPart = () => Array.from({ length: 3 }, () => characters[Math.floor(Math.random() * characters.length)]).join("");
-                  setRegistrationCode(`${genPart()}-${genPart()}`);
+                  handleChange("registrationCode", `${genPart()}-${genPart()}`);
                 }}
               >
-                🔄 Generate
+                <RefreshCw size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> Generate
               </button>
             </div>
             <small style={{ color: "rgba(255, 255, 255, 0.5)", marginTop: "0.25rem", display: "block" }}>
@@ -236,7 +250,7 @@ export default function SettingsPage() {
                 alert("Invite link copied to clipboard!");
               }}
             >
-              📋 Copy Link
+              <Clipboard size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> Copy Link
             </button>
             <button
               type="button"
@@ -245,7 +259,7 @@ export default function SettingsPage() {
               title="QR code generation coming soon"
               style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "not-allowed", opacity: 0.5, background: "rgba(255, 255, 255, 0.04)", color: "rgba(255, 255, 255, 0.3)", border: "1px solid rgba(255, 255, 255, 0.08)" }}
             >
-              📱 QR Code (soon)
+              <QrCode size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> QR Code (soon)
             </button>
           </div>
         </div>

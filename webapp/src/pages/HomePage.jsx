@@ -22,6 +22,7 @@ export default function HomePage() {
       const speakers = await fetchKeynoteSpeakers();
       if (!active) return;
       setKeynotes(speakers);
+      setActiveIndex(0);
       setLoadingKeynotes(false);
     }
 
@@ -74,16 +75,18 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [keynotes.length]);
-
-  useEffect(() => {
     if (keynotes.length <= 1) return undefined;
     const interval = setInterval(() => {
       setActiveIndex((current) => (current + 1) % keynotes.length);
     }, 10000);
     return () => clearInterval(interval);
   }, [keynotes.length]);
+
+  const elmSponsor = {
+    id: "elmoultaqa-brand",
+    alt: "ElMoultaqa",
+    src: elmLogo,
+  };
 
   const conferenceSponsor = {
     id: "conference-brand",
@@ -96,8 +99,8 @@ export default function HomePage() {
       <section className="home-upper">
         <div className="home-hero">
           <div className="hero-copy">
-            {conferenceConfig.name && (
-              <span className="eyebrow">{conferenceConfig.name}</span>
+            {conferenceConfig.shortName && (
+              <span className="eyebrow">{conferenceConfig.shortName}</span>
             )}
             <h1>{conferenceConfig.brand || "Conference"}</h1>
             <p>
@@ -155,19 +158,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* partner logos removed — using ElMoultaqa brand only */}
-
       <section className="sponsor-ribbon">
         <div className="sponsor-header">
           <div>
-            <span>Sponsors</span>
             <h3>Official sponsor logos</h3>
           </div>
         </div>
-        <div className="sponsor-track">
-          {[conferenceSponsor, ...sponsors]
-            .concat(conferenceSponsor, ...sponsors)
-            .map((sponsor, index) => (
+        <div className="sponsor-track-wrap">
+          <div className="sponsor-track">
+            {[...sponsors, elmSponsor, conferenceSponsor, ...sponsors, elmSponsor, conferenceSponsor].map((sponsor, index) => (
               <div
                 key={`${sponsor.id || sponsor.alt}-${index}`}
                 className="sponsor-item"
@@ -175,13 +174,13 @@ export default function HomePage() {
                 <img src={sponsor.src} alt={sponsor.alt} />
               </div>
             ))}
+          </div>
         </div>
       </section>
 
       <section id="keynote-speakers" className="home-info-grid keynote-section">
         <div className="section-header">
           <div>
-            <span>Keynote speakers</span>
             <h3>Meet the conference voices</h3>
           </div>
         </div>
@@ -301,21 +300,12 @@ export default function HomePage() {
 
       <section className="download-app-section">
         <div className="download-copy">
-          <span>Mobile app</span>
-          <h2>Download the ElMoultaqa conference app</h2>
+          <h2>Download the {conferenceConfig.brand} app</h2>
           <p>
             Scan the QR code to install the official mobile experience and
             access the schedule, speakers, announcements, and session details
             directly on your phone.
           </p>
-          <div className="store-buttons">
-            <a href="#" className="store-button">
-              App Store
-            </a>
-            <a href="#" className="store-button">
-              Google Play
-            </a>
-          </div>
         </div>
 
         <div className="download-qr-card">

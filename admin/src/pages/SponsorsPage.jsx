@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Building2, Plus, User, Edit3, Trash2 } from "lucide-react";
 import backend from "../backend.js";
 import "../styles/keynote-speakers.css";
 
@@ -140,7 +141,7 @@ const SponsorsPage = () => {
             setShowModal(true);
           }}
         >
-          <i className="icon-plus"></i> Add New Sponsor
+          <Plus size={18} /> Add New Sponsor
         </button>
       </div>
 
@@ -153,7 +154,7 @@ const SponsorsPage = () => {
         <div className="speakers-grid">
           {sponsors.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🏢</div>
+              <div className="empty-icon"><Building2 size={48} /></div>
               <h3>No sponsors yet</h3>
               <p className="subtitle">
                 Add sponsors so they appear in the public app and admin
@@ -172,7 +173,7 @@ const SponsorsPage = () => {
                     />
                   ) : (
                     <div className="speaker-placeholder">
-                      <i className="icon-user"></i>
+                      <User size={28} />
                     </div>
                   )}
                   <div className="speaker-order">#{s.order || 0}</div>
@@ -192,13 +193,13 @@ const SponsorsPage = () => {
                     className="btn-secondary"
                     onClick={() => handleEdit(s)}
                   >
-                    <i className="icon-edit"></i> Edit
+                    <Edit3 size={16} /> Edit
                   </button>
                   <button
                     className="btn-danger"
                     onClick={() => handleDelete(s)}
                   >
-                    <i className="icon-delete"></i> Delete
+                    <Trash2 size={16} /> Delete
                   </button>
                 </div>
               </div>
