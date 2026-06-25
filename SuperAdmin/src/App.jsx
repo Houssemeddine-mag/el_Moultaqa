@@ -106,12 +106,9 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (!userId) {
+    if (isLoaded) {
       setReady(true);
-      return;
     }
-    signOut().then(() => setReady(true)).catch(() => setReady(true));
   }, [isLoaded]);
 
   if (!ready) {
@@ -124,6 +121,7 @@ export default function App() {
       </div>
     );
   }
+
 
   return (
     <Routes>
