@@ -92,11 +92,11 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [s, c, o] = await Promise.all([
+        const [s, o] = await Promise.all([
           sa.getStats(),
-          sa.getChartData(),
           sa.listOrganizations(),
         ]);
+        const c = await sa.getChartData(o);
         setStats(s);
         setChartData(c);
         setOrgs(o.slice(0, 5));

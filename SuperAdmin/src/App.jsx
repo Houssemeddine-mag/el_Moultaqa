@@ -17,7 +17,6 @@ function ProtectedLayout() {
   const supabase = useClerkSupabase();
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     async function check() {
@@ -43,13 +42,6 @@ function ProtectedLayout() {
     }
     check();
   }, [userId, supabase]);
-
-  useEffect(() => {
-    if (!checkingAdmin && !isAdmin && userId && !signedOut) {
-      setSignedOut(true);
-      signOut().catch(() => {});
-    }
-  }, [checkingAdmin, isAdmin, userId, signedOut]);
 
   if (!isLoaded || checkingAdmin) {
     return (
@@ -78,7 +70,14 @@ function ProtectedLayout() {
             </svg>
           </div>
           <h2>Access Denied</h2>
-          <p>Your email is not registered for super administrator access. Only authorized platform administrators can access this panel.</p>
+          <p>Your account is not registered for super administrator access. Only authorized platform administrators can access this panel.</p>
+          <button
+            className="sa-btn sa-btn-primary"
+            style={{ marginTop: "1.5rem" }}
+            onClick={() => signOut()}
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     );

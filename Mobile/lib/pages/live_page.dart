@@ -9,11 +9,11 @@ class LivePage extends StatelessWidget {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     final themeColor = Color(int.parse(hex));
 
@@ -32,9 +32,9 @@ class LivePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Watch the main conference stream and stay connected with event updates.',
-              style: const TextStyle(color: Color(0xFF6B7280), height: 1.5),
+              style: TextStyle(color: Color(0xFF6B7280), height: 1.5),
             ),
             const SizedBox(height: 20),
             Container(
@@ -131,9 +131,9 @@ class LivePage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
+                        const Text(
                           MobileConfig.liveStreamUrl,
-                          style: const TextStyle(color: Color(0xFF6B7280)),
+                          style: TextStyle(color: Color(0xFF6B7280)),
                         ),
                         const SizedBox(height: 20),
                         Text(

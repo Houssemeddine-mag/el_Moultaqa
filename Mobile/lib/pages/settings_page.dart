@@ -282,7 +282,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     trailing: Switch(
                       value: _notificationsEnabled,
                       onChanged: _saveNotificationSettings,
-                      activeColor: const Color(0xFF0D7E52),
+                      activeThumbColor: const Color(0xFF0D7E52),
                     ),
                   ),
                   _divider(),

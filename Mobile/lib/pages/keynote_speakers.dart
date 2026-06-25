@@ -30,11 +30,11 @@ class KeynoteSpeakersPage extends StatelessWidget {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     final themeColor = Color(int.parse(hex));
     return GestureDetector(
@@ -72,11 +72,11 @@ class KeynoteSpeakersPage extends StatelessWidget {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     final themeColor = Color(int.parse(hex));
     showDialog(
@@ -119,11 +119,11 @@ class KeynoteSpeakersPage extends StatelessWidget {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     final themeColor = Color(int.parse(hex));
     final speakers = _speakers();

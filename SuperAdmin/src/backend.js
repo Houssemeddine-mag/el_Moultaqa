@@ -12,7 +12,50 @@ export function useSuperAdmin() {
   async function isSuperAdmin() { return rpc("is_super_admin"); }
   async function listOrganizations() { return rpc("super_admin_list_orgs"); }
   async function getStats() { return rpc("super_admin_get_stats"); }
-  async function getChartData() { return rpc("super_admin_get_chart_data"); }
+
+  // Chart data is derived client-side from the orgs list (no extra RPC needed)
+  function buildChartData(orgs) {
+    // Plan distribution donut
+    const planMap = {};
+    orgs.forEach(o => {
+      const key = o.plan_display_name || o.plan_name || "No Plan";
+      planMap[key] = (planMap[key] || 0) + 1;
+    });
+    const plan_distribution = Object.entries(planMap).map(([name, count]) => ({ name, count }));
+
+    // Registration modes donut
+    const modeMap = {};
+    orgs.forEach(o => {
+      const key = o.registration_mode || "open";
+      modeMap[key] = (modeMap[key] || 0) + 1;
+    });
+    const registration_modes = Object.entries(modeMap).map(([name, count]) => ({ name, count }));
+
+    // Org growth by month (last 12 months)
+    const now = new Date();
+    const monthCounts = {};
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      monthCounts[key] = 0;
+    }
+    orgs.forEach(o => {
+      const d = new Date(o.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (key in monthCounts) monthCounts[key]++;
+    });
+    const org_growth = Object.entries(monthCounts).map(([month, count]) => ({ month, count }));
+
+    // Top orgs by user count
+    const top_orgs = [...orgs]
+      .sort((a, b) => (b.user_count || 0) - (a.user_count || 0))
+      .slice(0, 8)
+      .map(o => ({ name: o.name, users: o.user_count || 0 }));
+
+    return { plan_distribution, registration_modes, org_growth, top_orgs };
+  }
+
+  async function getChartData(orgs) { return buildChartData(orgs || []); }
 
   async function createOrganization({ name, slug, adminEmail }) {
     return rpc("super_admin_create_org", { p_name: name, p_slug: slug, p_admin_email: adminEmail });

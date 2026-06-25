@@ -70,9 +70,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(
+                        const Text(
                           '${MobileConfig.appName} Admin',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -169,15 +169,15 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Card(
+                  const Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
                             'This admin workspace follows the same structure as the attendee app, but focuses on publishing notifications and moderating user questions for ElMoultaqa.',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.black87,
                               height: 1.4,
                             ),

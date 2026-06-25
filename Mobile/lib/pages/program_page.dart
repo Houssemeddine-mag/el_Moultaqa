@@ -10,14 +10,14 @@ class ProgramPage extends StatelessWidget {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     final themeColor = Color(int.parse(hex));
-    final scheduleDays = MobileConfig.scheduleDays;
+    const scheduleDays = MobileConfig.scheduleDays;
 
     return SafeArea(
       child: scheduleDays.isEmpty
@@ -69,9 +69,9 @@ class ProgramPage extends StatelessWidget {
                             color: themeColor,
                           ),
                         ),
-                        Text(
+                        const Text(
                           MobileConfig.conferenceDates,
-                          style: const TextStyle(color: Color(0xFF6B7280)),
+                          style: TextStyle(color: Color(0xFF6B7280)),
                         ),
                       ],
                     ),

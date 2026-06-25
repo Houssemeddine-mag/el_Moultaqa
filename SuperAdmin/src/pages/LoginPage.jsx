@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSignIn, useClerk } from "@clerk/clerk-react";
+import { useSignIn, useClerk, useAuth } from "@clerk/clerk-react";
 import { useClerkSupabase } from "@global/supabase";
 
 const BASE = "/system";
@@ -12,8 +12,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { signIn, isLoaded, setActive } = useSignIn();
   const { signOut } = useClerk();
+  const { userId, isLoaded: authLoaded } = useAuth();
   const supabase = useClerkSupabase();
   const navigate = useNavigate();
+
+  // If already signed in, go directly to dashboard
+  useEffect(() => {
+    if (authLoaded && userId) {
+      navigate(`${BASE}/dashboard`, { replace: true });
+    }
+  }, [authLoaded, userId, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,6 +73,13 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setError("");
     if (!isLoaded) return;
+
+    // If already signed in, just redirect
+    if (userId) {
+      navigate(`${BASE}/dashboard`, { replace: true });
+      return;
+    }
+
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
@@ -73,7 +88,13 @@ export default function LoginPage() {
       });
     } catch (err) {
       console.error("[SuperAdmin Google Login] Error:", err);
-      setError("Google authentication failed.");
+      // If already signed in, redirect instead of showing error
+      const msg = err?.errors?.[0]?.message || err?.message || "";
+      if (msg.toLowerCase().includes("already signed in")) {
+        navigate(`${BASE}/dashboard`, { replace: true });
+        return;
+      }
+      setError("Google authentication failed. Please try again.");
     }
   };
 

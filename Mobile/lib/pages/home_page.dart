@@ -17,7 +17,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late Color themeColor;
   DateTime ceremonyDate = DateTime(2025, 12, 8, 9, 0);
-  Duration remaining = Duration();
+  Duration remaining = const Duration();
   Timer? countdownTimer;
   String conferenceStartDate = "";
   String conferenceName = "";
@@ -90,7 +90,7 @@ class _HomePageState extends State<HomePage> {
 
   void _startCountdown() {
     countdownTimer?.cancel();
-    countdownTimer = Timer.periodic(Duration(seconds: 1), (_) {
+    countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {
           remaining = ceremonyDate.difference(DateTime.now());
@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Error opening link'),
             backgroundColor: Colors.red,
           ),
@@ -157,11 +157,11 @@ class _HomePageState extends State<HomePage> {
     String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
     String hex;
     if (raw.startsWith('#')) {
-      hex = '0xff' + raw.substring(1);
+      hex = '0xff${raw.substring(1)}';
     } else if (raw.startsWith('0x')) {
       hex = raw;
     } else {
-      hex = '0xff' + raw;
+      hex = '0xff$raw';
     }
     themeColor = Color(int.parse(hex));
 
@@ -214,7 +214,7 @@ class _HomePageState extends State<HomePage> {
                         _iconText(Icons.location_on, conferenceLocation),
                       if (totalParticipants > 0)
                         _iconText(
-                            Icons.people, "${totalParticipants}+ Participants"),
+                            Icons.people, "$totalParticipants+ Participants"),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -307,7 +307,7 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ProgramPage(),
+                            builder: (context) => const ProgramPage(),
                           ),
                         );
                       },
@@ -331,7 +331,7 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => KeynoteSpeakersPage(),
+                            builder: (context) => const KeynoteSpeakersPage(),
                           ),
                         );
                       },

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../mobile_config.dart';
 
 class KeynoteSpeakersPage extends StatefulWidget {
   const KeynoteSpeakersPage({super.key});
