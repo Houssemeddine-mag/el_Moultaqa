@@ -352,3 +352,253 @@ BEGIN
   RETURN true;
 END;
 $$;
+
+-- ============================================================================
+-- 10. Dashboard chart data — plan distribution, org growth, top orgs, etc.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.super_admin_get_chart_data()
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_result JSONB;
+  v_plan_dist JSONB;
+  v_reg_mode_dist JSONB;
+  v_org_growth JSONB;
+  v_top_orgs JSONB;
+  v_org RECORD;
+  v_month TEXT;
+  v_count BIGINT;
+  v_growth JSONB;
+  v_plan_name TEXT;
+  v_plan_count BIGINT;
+  v_mode TEXT;
+  v_mode_count BIGINT;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  -- Plan distribution
+  SELECT jsonb_agg(jsonb_build_object('name', COALESCE(p.display_name, 'None'), 'count', COALESCE(ps.c, 0)))
+  FROM (
+    SELECT s.plan_id, COUNT(*) AS c FROM public.subscriptions s WHERE s.status = 'active' GROUP BY s.plan_id
+  ) ps
+  RIGHT JOIN public.plans p ON p.id = ps.plan_id
+  INTO v_plan_dist;
+
+  -- Registration mode distribution
+  SELECT jsonb_agg(jsonb_build_object('mode', COALESCE(o.registration_mode, 'unknown'), 'count', o.c))
+  FROM (
+    SELECT COALESCE(registration_mode, 'public') AS registration_mode, COUNT(*) AS c
+    FROM public.organizations GROUP BY registration_mode
+  ) o INTO v_reg_mode_dist;
+
+  -- Org growth (orgs created per month, last 12 months)
+  SELECT jsonb_agg(jsonb_build_object('month', o.month, 'count', o.c) ORDER BY o.month)
+  FROM (
+    SELECT to_char(created_at, 'YYYY-MM') AS month, COUNT(*) AS c
+    FROM public.organizations
+    WHERE created_at >= now() - interval '12 months'
+    GROUP BY month
+  ) o INTO v_growth;
+
+  -- Top orgs by user count
+  SELECT jsonb_agg(jsonb_build_object('name', o.name, 'slug', o.slug, 'users', public.organization_users(o.schema_name)) ORDER BY public.organization_users(o.schema_name) DESC)
+  FROM public.organizations o
+  LIMIT 5 INTO v_top_orgs;
+
+  -- Build result
+  v_result := jsonb_build_object(
+    'plan_distribution', COALESCE(v_plan_dist, '[]'::JSONB),
+    'registration_modes', COALESCE(v_reg_mode_dist, '[]'::JSONB),
+    'org_growth', COALESCE(v_growth, '[]'::JSONB),
+    'top_orgs', COALESCE(v_top_orgs, '[]'::JSONB)
+  );
+
+  RETURN v_result;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.organization_users(p_schema TEXT)
+RETURNS BIGINT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+AS $$
+DECLARE
+  v BIGINT;
+BEGIN
+  EXECUTE format('SELECT COUNT(*) FROM %I.users', p_schema) INTO v;
+  RETURN v;
+EXCEPTION WHEN OTHERS THEN RETURN 0;
+END;
+$$;
+
+-- ============================================================================
+-- 11. Generic org data access for super admins
+-- ============================================================================
+-- These functions let super admins query, insert, update, and delete data in
+-- any organization's schema without needing the org-specific JWT claim.
+
+-- 11a. Query
+CREATE OR REPLACE FUNCTION public.super_admin_org_query(
+  p_schema TEXT,
+  p_table TEXT,
+  p_filters JSONB DEFAULT '{}',
+  p_limit INT DEFAULT 100,
+  p_offset INT DEFAULT 0,
+  p_order_by TEXT DEFAULT 'created_at',
+  p_order_dir TEXT DEFAULT 'DESC'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sql TEXT;
+  v_result JSONB;
+  v_key TEXT;
+  v_val TEXT;
+  v_conditions TEXT[] := '{}'::TEXT[];
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  -- Build WHERE clause from filters
+  FOR v_key, v_val IN SELECT * FROM jsonb_each_text(p_filters)
+  LOOP
+    v_conditions := array_append(v_conditions, format('%I = %L', v_key, v_val));
+  END LOOP;
+
+  v_sql := format(
+    'SELECT COALESCE(jsonb_agg(row_to_json(t)::jsonb), ''[]''::jsonb) FROM (SELECT * FROM %I.%I',
+    p_schema, p_table
+  );
+
+  IF array_length(v_conditions, 1) > 0 THEN
+    v_sql := v_sql || ' WHERE ' || array_to_string(v_conditions, ' AND ');
+  END IF;
+
+  v_sql := v_sql || format(' ORDER BY %I %s LIMIT %s OFFSET %s) t', p_order_by, p_order_dir, p_limit, p_offset);
+
+  EXECUTE v_sql INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+-- 11b. Insert
+CREATE OR REPLACE FUNCTION public.super_admin_org_insert(
+  p_schema TEXT,
+  p_table TEXT,
+  p_data JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cols TEXT;
+  v_vals TEXT;
+  v_result JSONB;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  SELECT string_agg(quote_ident(key), ', '),
+         string_agg(
+           CASE jsonb_typeof(p_data -> key)
+             WHEN 'string'  THEN quote_literal(p_data ->> key)
+             WHEN 'number'  THEN (p_data ->> key)
+             WHEN 'true'    THEN 'true'
+             WHEN 'false'   THEN 'false'
+             WHEN 'null'    THEN 'NULL'
+             WHEN 'object'  THEN quote_literal((p_data -> key)::text)
+             WHEN 'array'   THEN quote_literal((p_data -> key)::text)
+             ELSE quote_literal(p_data ->> key)
+           END, ', ')
+  INTO v_cols, v_vals
+  FROM jsonb_object_keys(p_data) AS key;
+
+  EXECUTE format(
+    'INSERT INTO %I.%I (%s) VALUES (%s) RETURNING row_to_json(%I)::jsonb',
+    p_schema, p_table, v_cols, v_vals, p_table
+  ) INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
+-- 11c. Update
+CREATE OR REPLACE FUNCTION public.super_admin_org_update(
+  p_schema TEXT,
+  p_table TEXT,
+  p_id UUID,
+  p_data JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_set TEXT;
+  v_result JSONB;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  SELECT string_agg(
+    format('%I = %s', key,
+      CASE jsonb_typeof(p_data -> key)
+        WHEN 'string'  THEN quote_literal(p_data ->> key)
+        WHEN 'number'  THEN (p_data ->> key)
+        WHEN 'true'    THEN 'true'
+        WHEN 'false'   THEN 'false'
+        WHEN 'null'    THEN 'NULL'
+        WHEN 'object'  THEN quote_literal((p_data -> key)::text)
+        WHEN 'array'   THEN quote_literal((p_data -> key)::text)
+        ELSE quote_literal(p_data ->> key)
+      END
+    ), ', ')
+  INTO v_set
+  FROM jsonb_object_keys(p_data) AS key;
+
+  EXECUTE format(
+    'UPDATE %I.%I SET %s WHERE id = %L RETURNING row_to_json(%I)::jsonb',
+    p_schema, p_table, v_set, p_id, p_table
+  ) INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
+-- 11d. Delete
+CREATE OR REPLACE FUNCTION public.super_admin_org_delete(
+  p_schema TEXT,
+  p_table TEXT,
+  p_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  EXECUTE format('DELETE FROM %I.%I WHERE id = %L', p_schema, p_table, p_id);
+  RETURN true;
+END;
+$$;

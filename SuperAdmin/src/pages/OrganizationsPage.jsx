@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSuperAdmin } from "../backend.js";
 
 function CreateOrgModal({ onClose, onCreate }) {
@@ -67,6 +68,7 @@ function StatusBadge({ status }) {
 }
 
 export default function OrganizationsPage() {
+  const navigate = useNavigate();
   const sa = useSuperAdmin();
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +132,7 @@ export default function OrganizationsPage() {
           </thead>
           <tbody>
             {orgs.map((org) => (
-              <tr key={org.id}>
+              <tr key={org.id} className="sa-clickable-row" onClick={() => navigate(`/system/organizations/${org.slug}`)}>
                 <td>
                   <strong>{org.name}</strong>
                   <br /><span className="sa-muted">{org.slug}</span>

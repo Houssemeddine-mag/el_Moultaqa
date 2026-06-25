@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import OrganizationsPage from "./pages/OrganizationsPage.jsx";
 import PlansPage from "./pages/PlansPage.jsx";
+import OrgDetailPage from "./pages/OrgDetailPage.jsx";
 
 const BASE = "/system";
 
@@ -91,6 +92,7 @@ function ProtectedLayout() {
           <Routes>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="organizations" element={<OrganizationsPage />} />
+            <Route path="organizations/:orgSlug" element={<OrgDetailPage />} />
             <Route path="plans" element={<PlansPage />} />
             <Route path="*" element={<Navigate to={`${BASE}/dashboard`} replace />} />
           </Routes>

@@ -69,7 +69,7 @@ export default function LoginPage() {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: window.location.origin + `${BASE}/sso-callback`,
-        redirectUrlComplete: `${BASE}/dashboard`,
+        redirectUrlComplete: window.location.origin + `${BASE}/dashboard`,
       });
     } catch (err) {
       console.error("[SuperAdmin Google Login] Error:", err);
