@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import * as api from "../backend.js";
+import { useSuperAdmin } from "../backend.js";
 
 function CreateOrgModal({ onClose, onCreate }) {
   const [name, setName] = useState("");
@@ -67,6 +67,7 @@ function StatusBadge({ status }) {
 }
 
 export default function OrganizationsPage() {
+  const sa = useSuperAdmin();
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,7 +76,7 @@ export default function OrganizationsPage() {
   async function loadOrgs() {
     try {
       setLoading(true);
-      const data = await api.listOrganizations();
+      const data = await sa.listOrganizations();
       setOrgs(data);
     } catch (e) {
       setError(e.message);
@@ -87,7 +88,7 @@ export default function OrganizationsPage() {
   useEffect(() => { loadOrgs(); }, []);
 
   const handleCreate = async (data) => {
-    await api.createOrganization(data);
+    await sa.createOrganization(data);
     await loadOrgs();
   };
 

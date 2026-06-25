@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import * as api from "../backend.js";
+import { useSuperAdmin } from "../backend.js";
 
 export default function DashboardPage() {
+  const sa = useSuperAdmin();
   const [stats, setStats] = useState(null);
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,8 +12,8 @@ export default function DashboardPage() {
     async function load() {
       try {
         const [statsData, orgsData] = await Promise.all([
-          api.getStats(),
-          api.listOrganizations(),
+          sa.getStats(),
+          sa.listOrganizations(),
         ]);
         setStats(statsData);
         setOrgs(orgsData.slice(0, 5));

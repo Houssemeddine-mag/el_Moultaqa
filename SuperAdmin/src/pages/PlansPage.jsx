@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import * as api from "../backend.js";
+import { useSuperAdmin } from "../backend.js";
 
 function featuresList(features) {
   if (!features || typeof features !== "object") return [];
@@ -128,6 +128,7 @@ function PlanModal({ plan, onClose, onSave }) {
 }
 
 export default function PlansPage() {
+  const sa = useSuperAdmin();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -137,7 +138,7 @@ export default function PlansPage() {
   async function loadPlans() {
     try {
       setLoading(true);
-      const data = await api.listPlans();
+      const data = await sa.listPlans();
       setPlans(data);
     } catch (e) {
       setError(e.message);
@@ -149,18 +150,18 @@ export default function PlansPage() {
   useEffect(() => { loadPlans(); }, []);
 
   const handleSave = async (data) => {
-    await api.upsertPlan(data);
+    await sa.upsertPlan(data);
     await loadPlans();
   };
 
   const handleToggle = async (planId, currentActive) => {
-    await api.togglePlan(planId, !currentActive);
+    await sa.togglePlan(planId, !currentActive);
     await loadPlans();
   };
 
   const handleDelete = async (planId) => {
     if (!window.confirm("Are you sure you want to delete this plan?")) return;
-    await api.deletePlan(planId);
+    await sa.deletePlan(planId);
     await loadPlans();
   };
 

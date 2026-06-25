@@ -212,6 +212,9 @@ input:focus, textarea:focus, select:focus {
 .sa-btn-sm:hover { border-color: var(--primary); color: var(--primary); }
 .sa-btn-danger { color: var(--danger); border-color: rgba(239,68,68,0.3); }
 .sa-btn-danger:hover { background: rgba(239,68,68,0.06); color: var(--danger); }
+.sa-btn-block {
+  width: 100%;
+}
 .sa-btn-google {
   width: 100%;
   padding: 12px;

@@ -1,6 +1,9 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useClerk } from "@clerk/clerk-react";
 import { superAdminConfig } from "../adminConfig";
 import logo from "@logo";
+
+const BASE = "/system";
 
 const icons = {
   LayoutDashboard: (
@@ -31,6 +34,18 @@ const icons = {
 };
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+  const { signOut } = useClerk();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate(`${BASE}/login`);
+    } catch (error) {
+      console.error("[Sidebar Logout] Error:", error);
+    }
+  };
+
   return (
     <nav className="sa-sidebar">
       <div className="sa-sidebar-header">
@@ -44,7 +59,7 @@ const Sidebar = () => {
         {superAdminConfig.navItems.map((item) => (
           <li key={item.path}>
             <NavLink
-              to={item.path}
+              to={`${BASE}${item.path}`}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               {icons[item.icon]}
@@ -53,6 +68,17 @@ const Sidebar = () => {
           </li>
         ))}
       </ul>
+
+      <div className="sa-sidebar-footer">
+        <button className="sa-sidebar-logout" onClick={handleLogout}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Log Out</span>
+        </button>
+      </div>
     </nav>
   );
 };

@@ -40,14 +40,11 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
-    CASE
-      WHEN auth.jwt() IS NULL THEN true
-      ELSE EXISTS (
-        SELECT 1 FROM public.super_admins
-        WHERE clerk_user_id = (auth.jwt() ->> 'sub')
-      )
-    END;
+  SELECT EXISTS (
+    SELECT 1 FROM public.super_admins
+    WHERE clerk_user_id = (auth.jwt() ->> 'sub')
+       OR email = (auth.jwt() ->> 'email')
+  );
 $$;
 
 -- ---------------------------------------------------------------------------

@@ -18,11 +18,14 @@ export default defineConfig({
       "@logo": logoFile,
       "@global": globalDir,
       "@supabase/supabase-js": fileURLToPath(new URL("./node_modules/@supabase/supabase-js", import.meta.url)),
+      "@clerk/clerk-react": fileURLToPath(new URL("./node_modules/@clerk/clerk-react", import.meta.url)),
     },
   },
   optimizeDeps: {
+    exclude: ["@global/supabase"],
     include: [
       "@supabase/supabase-js",
+      "@clerk/clerk-react",
       "react",
       "react-dom",
       "react-router-dom",
