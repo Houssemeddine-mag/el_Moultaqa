@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS public.super_admins (
   created_by TEXT
 );
 
+-- Add blocked_at column to organizations
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ;
+
 -- Seed initial super admins by inserting from owner_clerk_id of existing orgs
 INSERT INTO public.super_admins (clerk_user_id, email, full_name)
 SELECT o.owner_clerk_id, 'admin@elmoultaqa.com', 'Platform Owner'
@@ -63,6 +66,7 @@ RETURNS TABLE (
   plan_name TEXT,
   plan_display_name TEXT,
   plan_status TEXT,
+  blocked_at TIMESTAMPTZ,
   user_count BIGINT,
   event_count BIGINT,
   created_at TIMESTAMPTZ
@@ -81,11 +85,12 @@ BEGIN
     RAISE EXCEPTION 'Access denied: not a super admin';
   END IF;
 
-  FOR id, name, slug, schema_name, owner_clerk_id, logo_url, registration_mode, plan_id, plan_name, plan_display_name, plan_status, created_at IN
+  FOR id, name, slug, schema_name, owner_clerk_id, logo_url, registration_mode, plan_id, plan_name, plan_display_name, plan_status, blocked_at, created_at IN
     SELECT
       o.id, o.name, o.slug, o.schema_name, o.owner_clerk_id, o.logo_url,
       o.registration_mode,
       p.id, p.name, p.display_name, s.status,
+      o.blocked_at,
       o.created_at
     FROM public.organizations o
     LEFT JOIN LATERAL (
@@ -600,5 +605,137 @@ BEGIN
 
   EXECUTE format('DELETE FROM %I.%I WHERE id = %L', p_schema, p_table, p_id);
   RETURN true;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 12. Get record counts for multiple tables in an org schema
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.super_admin_org_table_counts(
+  p_schema TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_counts JSONB := '{}'::JSONB;
+  v_tables TEXT[] := ARRAY['users','events','sessions','speakers','sponsors','venues','tickets','notifications','questions'];
+  v_table TEXT;
+  v_count BIGINT;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  FOREACH v_table IN ARRAY v_tables
+  LOOP
+    BEGIN
+      EXECUTE format('SELECT COUNT(*) FROM %I.%I', p_schema, v_table) INTO v_count;
+      v_counts := v_counts || jsonb_build_object(v_table, v_count);
+    EXCEPTION WHEN OTHERS THEN
+      v_counts := v_counts || jsonb_build_object(v_table, 0);
+    END;
+  END LOOP;
+
+  RETURN v_counts;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 13. Delete an organization entirely (drops schema + records)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.super_admin_delete_org(
+  p_slug TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_schema TEXT;
+  v_org_id UUID;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  SELECT id, schema_name INTO v_org_id, v_schema
+  FROM public.organizations WHERE slug = p_slug;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organization with slug % not found', p_slug;
+  END IF;
+
+  EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', v_schema);
+  DELETE FROM public.subscriptions WHERE organization_id = v_org_id;
+  DELETE FROM public.organizations WHERE id = v_org_id;
+
+  RETURN TRUE;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 14. Block an organization (makes it inaccessible to non-super-admins)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.super_admin_block_org(
+  p_slug TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  UPDATE public.organizations
+  SET blocked_at = now()
+  WHERE slug = p_slug
+  RETURNING id INTO v_org_id;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organization with slug % not found', p_slug;
+  END IF;
+
+  RETURN TRUE;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 15. Unblock an organization
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.super_admin_unblock_org(
+  p_slug TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org_id UUID;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  UPDATE public.organizations
+  SET blocked_at = NULL
+  WHERE slug = p_slug
+  RETURNING id INTO v_org_id;
+
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'Organization with slug % not found', p_slug;
+  END IF;
+
+  RETURN TRUE;
 END;
 $$;

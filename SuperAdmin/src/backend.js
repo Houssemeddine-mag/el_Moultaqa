@@ -13,9 +13,7 @@ export function useSuperAdmin() {
   async function listOrganizations() { return rpc("super_admin_list_orgs"); }
   async function getStats() { return rpc("super_admin_get_stats"); }
 
-  // Chart data is derived client-side from the orgs list (no extra RPC needed)
   function buildChartData(orgs) {
-    // Plan distribution donut
     const planMap = {};
     orgs.forEach(o => {
       const key = o.plan_display_name || o.plan_name || "No Plan";
@@ -23,7 +21,6 @@ export function useSuperAdmin() {
     });
     const plan_distribution = Object.entries(planMap).map(([name, count]) => ({ name, count }));
 
-    // Registration modes donut
     const modeMap = {};
     orgs.forEach(o => {
       const key = o.registration_mode || "open";
@@ -31,7 +28,6 @@ export function useSuperAdmin() {
     });
     const registration_modes = Object.entries(modeMap).map(([name, count]) => ({ name, count }));
 
-    // Org growth by month (last 12 months)
     const now = new Date();
     const monthCounts = {};
     for (let i = 11; i >= 0; i--) {
@@ -46,7 +42,6 @@ export function useSuperAdmin() {
     });
     const org_growth = Object.entries(monthCounts).map(([month, count]) => ({ month, count }));
 
-    // Top orgs by user count
     const top_orgs = [...orgs]
       .sort((a, b) => (b.user_count || 0) - (a.user_count || 0))
       .slice(0, 8)
@@ -59,6 +54,18 @@ export function useSuperAdmin() {
 
   async function createOrganization({ name, slug, adminEmail }) {
     return rpc("super_admin_create_org", { p_name: name, p_slug: slug, p_admin_email: adminEmail });
+  }
+
+  async function deleteOrganization(slug) {
+    return rpc("super_admin_delete_org", { p_slug: slug });
+  }
+
+  async function blockOrganization(slug) {
+    return rpc("super_admin_block_org", { p_slug: slug });
+  }
+
+  async function unblockOrganization(slug) {
+    return rpc("super_admin_unblock_org", { p_slug: slug });
   }
 
   async function listPlans() { return rpc("super_admin_list_plans"); }
@@ -100,9 +107,14 @@ export function useSuperAdmin() {
     return rpc("super_admin_org_delete", { p_schema: schema, p_table: table, p_id: id });
   }
 
+  async function getOrgTableCounts(schema) {
+    return rpc("super_admin_org_table_counts", { p_schema: schema });
+  }
+
   return {
-    supabase, isSuperAdmin, listOrganizations, getStats, getChartData, createOrganization,
+    supabase, isSuperAdmin, listOrganizations, getStats, getChartData,
+    createOrganization, deleteOrganization, blockOrganization, unblockOrganization,
     listPlans, upsertPlan, togglePlan, deletePlan,
-    orgQuery, orgInsert, orgUpdate, orgDelete,
+    orgQuery, orgInsert, orgUpdate, orgDelete, getOrgTableCounts,
   };
 }

@@ -58,15 +58,21 @@ RETURNS TABLE (
   clerk_org_id    TEXT,
   name            TEXT,
   schema_name     TEXT,
-  logo_url        TEXT
+  logo_url        TEXT,
+  blocked         BOOLEAN
 )
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
+SET search_path = public
 AS $$
-  SELECT id, clerk_org_id, name, schema_name, logo_url
+  SELECT id, clerk_org_id, name, schema_name, logo_url,
+         blocked_at IS NOT NULL AS blocked
   FROM public.organizations
   WHERE slug = p_slug
+    AND (blocked_at IS NULL OR auth.jwt() ->> 'sub' IN (
+      SELECT clerk_user_id FROM public.super_admins
+    ))
   LIMIT 1;
 $$;
 

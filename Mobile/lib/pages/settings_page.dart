@@ -282,7 +282,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     trailing: Switch(
                       value: _notificationsEnabled,
                       onChanged: _saveNotificationSettings,
-                      activeThumbColor: const Color(0xFF0D7E52),
+                      thumbColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) return const Color(0xFF0D7E52);
+                        return null;
+                      }),
                     ),
                   ),
                   _divider(),

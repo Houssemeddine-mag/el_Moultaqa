@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/clerk-react";
 import { superAdminConfig } from "../adminConfig";
@@ -36,6 +37,25 @@ const icons = {
 const Sidebar = () => {
   const navigate = useNavigate();
   const { signOut } = useClerk();
+  const [clock, setClock] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const day = days[now.getDay()];
+      const date = now.getDate();
+      const month = months[now.getMonth()];
+      const year = now.getFullYear();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      setClock(`${day}, ${date} ${month} ${year}  ${h}:${m}`);
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -50,9 +70,10 @@ const Sidebar = () => {
     <nav className="sa-sidebar">
       <div className="sa-sidebar-header">
         <div className="sa-sidebar-brand">
-          <img src={logo} alt="Logo" />
+          <img src={logo} alt="Logo" className="sa-sidebar-logo-white" />
         </div>
         <div className="sa-sidebar-title">Super Admin</div>
+        <div className="sa-sidebar-clock">{clock}</div>
       </div>
 
       <ul className="sa-sidebar-nav">

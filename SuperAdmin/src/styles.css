@@ -83,21 +83,33 @@ input:focus, textarea:focus, select:focus {
   padding: 0 0 16px;
 }
 .sa-sidebar-header {
-  padding: 24px 20px 20px;
+  padding: 24px 20px 16px;
   text-align: center;
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
-.sa-sidebar-brand img {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  object-fit: cover;
+.sa-sidebar-brand {
+  display: flex;
+  justify-content: center;
+}
+.sa-sidebar-logo-white {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 .sa-sidebar-title {
   margin-top: 10px;
   font-weight: 700;
   font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sa-sidebar-clock {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.6);
   letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 .sa-sidebar-nav {
   list-style: none;
@@ -661,6 +673,50 @@ input:focus, textarea:focus, select:focus {
   .sa-charts-grid { grid-template-columns: 1fr; }
   .sa-chart-donut { flex-direction: column; align-items: flex-start; }
 }
+
+/* Editable table */
+.sa-editable-cell { cursor: pointer; position: relative; }
+.sa-editable-cell:hover { background: rgba(13,126,82,0.06); }
+.sa-editable-cell:hover::after { content: "✎"; position: absolute; right: 4px; top: 4px; font-size: 0.7rem; color: var(--muted); }
+.sa-inline-input { padding: 4px 6px; font-size: 0.85rem; min-width: 60px; }
+
+/* Inline add row form */
+.sa-inline-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; background: var(--surface); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+.sa-inline-add input { width: auto; min-width: 100px; flex: 1; padding: 6px 10px; font-size: 0.82rem; }
+
+/* Table picker */
+.sa-table-picker-wrap { position: relative; }
+.sa-table-picker-dropdown { position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,0.15); min-width: 180px; z-index: 50; overflow: hidden; }
+.sa-table-picker-item { display: block; width: 100%; padding: 10px 16px; border: none; background: none; cursor: pointer; font-size: 0.85rem; text-align: left; transition: background 0.15s; text-transform: capitalize; }
+.sa-table-picker-item:hover { background: rgba(13,126,82,0.06); }
+.sa-table-picker-item.active { background: rgba(13,126,82,0.1); font-weight: 600; color: var(--primary); }
+
+/* Visual cards grid */
+.sa-visual-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.sa-visual-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.sa-visual-card-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: rgba(13,126,82,0.04); border-bottom: 1px solid var(--border); }
+.sa-visual-card-header strong { font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sa-visual-card-body { padding: 12px 16px; }
+.sa-visual-card-field { display: flex; gap: 6px; font-size: 0.82rem; margin-bottom: 4px; }
+.sa-visual-card-field span:first-child { flex-shrink: 0; }
+
+/* Org header actions */
+.sa-org-header-actions { display: flex; align-items: flex-start; gap: 16px; }
+
+/* Section divider */
+.sa-section-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+/* Blocked row */
+.sa-row-blocked td { background: rgba(239,68,68,0.04); }
+.sa-row-blocked:hover td { background: rgba(239,68,68,0.08) !important; }
+.sa-blocked-icon { margin-right: 4px; font-size: 0.85rem; }
+
+/* Blocked banner */
+.sa-blocked-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; color: var(--danger); font-size: 0.88rem; }
+
+/* Warn outline button */
+.sa-btn-sm-outline-warn { background: transparent; border: 1px solid #d97706; color: #d97706; }
+.sa-btn-sm-outline-warn:hover { background: rgba(217,119,6,0.08); }
 
 /* Responsive */
 @media (max-width: 768px) {

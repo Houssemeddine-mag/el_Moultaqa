@@ -187,7 +187,7 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
                               children: <Widget>[
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    initialValue: _type,
+                                    value: _type,
                                     decoration: const InputDecoration(
                                       labelText: 'Type',
                                     ),
@@ -217,7 +217,7 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    initialValue: _priority,
+                                    value: _priority,
                                     decoration: const InputDecoration(
                                       labelText: 'Priority',
                                     ),
