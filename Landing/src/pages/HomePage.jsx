@@ -66,12 +66,6 @@ export default function HomePage({ user, onCreate, onAuth }) {
             <button className="hero-button" onClick={user ? onCreate : onAuth}>
               {user ? "Create your conference" : "Sign in to create"}
             </button>
-            <button
-              className="secondary-button"
-              onClick={user ? onCreate : onAuth}
-            >
-              {user ? "Start with a demo" : "Try the landing"}
-            </button>
           </div>
         </div>
         <div className="hero-visual">

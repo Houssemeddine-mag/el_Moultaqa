@@ -65,6 +65,11 @@ export default function AuthPage() {
         if (!orgDetails) {
           throw new Error(`Conference '${orgSlug}' not found.`);
         }
+        if (orgDetails.blocked) {
+          throw new Error(
+            "This conference has been suspended. Please renew your plan to restore access."
+          );
+        }
         if (!isSubscribed) return;
 
         setOrgPublicInfo(publicInfo);

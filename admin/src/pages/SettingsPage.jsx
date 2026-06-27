@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [logoMode, setLogoMode] = useState("url");
+  const [logoPreview, setLogoPreview] = useState("");
   const [eventId, setEventId] = useState(null);
 
   useEffect(() => {
@@ -29,16 +31,21 @@ export default function SettingsPage() {
         if (events && events.length > 0) {
           const ev = events[0];
           setEventId(ev.id);
+          const loadedLogo = ev.cover_image_url || defaultConfig.conferenceLogo;
           setConfig({
             conferenceName: ev.title || defaultConfig.conferenceName,
             brandAcronym: ev.settings?.brandAcronym || ev.short_name || defaultConfig.brandAcronym,
             themeColor: ev.settings?.themeColor || defaultConfig.themeColor,
-            conferenceLogo: ev.cover_image_url || defaultConfig.conferenceLogo,
+            conferenceLogo: loadedLogo,
             tagline: ev.settings?.tagline || defaultConfig.tagline,
             conferenceDescription: ev.description || defaultConfig.conferenceDescription,
             registrationMode: ev.settings?.registrationMode || "public",
             registrationCode: ev.settings?.registrationCode || "",
           });
+          if (loadedLogo.startsWith("data:image/")) {
+            setLogoMode("upload");
+            setLogoPreview(loadedLogo);
+          }
         } else {
           setStatus("No conference found. Create an event first.");
         }
@@ -137,15 +144,46 @@ export default function SettingsPage() {
         </label>
 
         <label>
-          Conference logo URL
-          <input
-            type="text"
-            value={config.conferenceLogo}
-            onChange={(e) =>
-              handleChange("conferenceLogo", e.target.value)
-            }
-            placeholder="https://.../logo.png"
-          />
+          Conference logo
+          <div className="logo-options">
+            <label className="logo-radio">
+              <input type="radio" name="logoMode" value="url"
+                checked={logoMode === "url"}
+                onChange={() => setLogoMode("url")} />
+              URL Link
+            </label>
+            <label className="logo-radio">
+              <input type="radio" name="logoMode" value="upload"
+                checked={logoMode === "upload"}
+                onChange={() => setLogoMode("upload")} />
+              Local Upload
+            </label>
+          </div>
+          {logoMode === "url" ? (
+            <input type="text" value={config.conferenceLogo}
+              onChange={(e) => handleChange("conferenceLogo", e.target.value)}
+              placeholder="https://.../logo.png" />
+          ) : (
+            <input type="file" accept="image/*" className="file-input"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  alert("Image too large (max 2MB)");
+                  e.target.value = "";
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  setLogoPreview(reader.result);
+                  handleChange("conferenceLogo", reader.result);
+                };
+                reader.readAsDataURL(file);
+              }} />
+          )}
+          {logoPreview && (
+            <img src={logoPreview} alt="Logo preview" className="logo-preview" />
+          )}
         </label>
 
         <label>

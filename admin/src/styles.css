@@ -1000,6 +1000,53 @@ input {
   cursor: pointer;
 }
 
+.settings-form .logo-options {
+  display: flex;
+  gap: 16px;
+  margin: 4px 0;
+}
+
+.settings-form .logo-radio {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.settings-form .logo-radio input[type="radio"] {
+  width: auto;
+  accent-color: var(--primary);
+}
+
+.settings-form input.file-input {
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.settings-form input.file-input::file-selector-button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  margin-right: 10px;
+}
+
+.settings-form .logo-preview {
+  display: block;
+  margin-top: 8px;
+  max-width: 120px;
+  max-height: 120px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  object-fit: contain;
+}
+
 .registration-mode-selector > span {
   display: block;
   margin-bottom: 8px;

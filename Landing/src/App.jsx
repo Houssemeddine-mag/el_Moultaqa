@@ -28,10 +28,8 @@ const initialConference = {
   logo: "",
   startDate: "2026-12-12",
   endDate: "2026-12-14",
-  collaborators: [""],
-  sponsors: [""],
-  attendees: [""],
-  offer: "starter",
+  registrationMode: "public",
+  registrationCode: "",
 };
 
 function AppRoutes({

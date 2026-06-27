@@ -66,6 +66,13 @@ function ProtectedRoute({ children }) {
           return;
         }
 
+        if (details.blocked) {
+          setOrgError(
+            "This conference has been suspended. Please renew your plan to restore access."
+          );
+          return;
+        }
+
         if (user) {
           const isMember = await checkUserMembership(supabase, details.schema_name, user.uid);
           if (!active) return;

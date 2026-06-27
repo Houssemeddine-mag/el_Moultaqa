@@ -53,6 +53,14 @@ function AdminLayout() {
           setOrgError("");
           setStatusMessage("");
 
+          if (details.blocked) {
+            setOrgError(
+              "This conference has been suspended. Please renew your plan to restore access."
+            );
+            setLoadingOrg(false);
+            return true;
+          }
+
           // Verify tenant membership
           if (orgId !== details.clerk_org_id) {
             console.log(`[AdminLayout] Auto-switching active organization context to: ${details.clerk_org_id}`);

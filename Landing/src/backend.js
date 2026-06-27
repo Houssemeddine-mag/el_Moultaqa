@@ -18,9 +18,7 @@ const CONFERENCE_CONFIG_STORAGE_KEY = "elm_conference_config";
 export async function saveConferenceConfig(supabase, conference) {
   const payload = {
     ...conference,
-    sponsors: (conference.sponsors || []).filter(Boolean),
-    collaborators: (conference.collaborators || []).filter(Boolean),
-    attendees: (conference.attendees || []).filter(Boolean),
+    sponsors: [],
     updatedAt: new Date().toISOString(),
   };
   writeJson(CONFERENCE_CONFIG_STORAGE_KEY, payload);
@@ -58,4 +56,18 @@ export async function saveConferenceConfig(supabase, conference) {
 
 export async function getConferenceConfig() {
   return readJson(CONFERENCE_CONFIG_STORAGE_KEY, null);
+}
+
+export async function listPlans(supabase) {
+  const { data, error } = await supabase
+    .from("plans")
+    .select("id, name, display_name, max_events, max_speakers, max_sessions, price_cents, currency, features")
+    .eq("is_active", true)
+    .order("price_cents", { ascending: true });
+
+  if (error) {
+    console.error("[listPlans]", error);
+    throw error;
+  }
+  return data || [];
 }
