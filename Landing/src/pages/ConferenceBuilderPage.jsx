@@ -19,6 +19,7 @@ export default function ConferenceBuilderPage({
     config.logo && config.logo.startsWith("data:image/") ? config.logo : ""
   );
   const [stepErrors, setStepErrors] = useState({});
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   const supabase = useClerkSupabase();
   const [plans, setPlans] = useState([]);
@@ -48,6 +49,36 @@ export default function ConferenceBuilderPage({
     return () => { cancelled = true; };
   }, []);
 
+  const extractDominantColor = (imgSrc) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 64;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+      const colorBuckets = {};
+      let maxCount = 0;
+      let dominant = config.themeColor;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = Math.round(data[i] / 32) * 32;
+        const g = Math.round(data[i + 1] / 32) * 32;
+        const b = Math.round(data[i + 2] / 32) * 32;
+        const key = `${r},${g},${b}`;
+        colorBuckets[key] = (colorBuckets[key] || 0) + 1;
+        if (colorBuckets[key] > maxCount) {
+          maxCount = colorBuckets[key];
+          dominant = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+        }
+      }
+      updateField("themeColor", dominant);
+    };
+    img.src = imgSrc;
+  };
+
   const next = () => {
     if (step === 2) {
       const errors = {};
@@ -58,9 +89,21 @@ export default function ConferenceBuilderPage({
       setStepErrors(errors);
       if (Object.keys(errors).length > 0) return;
     }
-    setStep((value) => Math.min(4, value + 1));
+    if (step === 4 && !config.termsAccepted) return;
+    setStep((value) => Math.min(5, value + 1));
   };
   const prev = () => setStep((value) => Math.max(1, value - 1));
+
+  useEffect(() => {
+    if (!config.id) {
+      const handler = (e) => {
+        e.preventDefault();
+        e.returnValue = "";
+      };
+      window.addEventListener("beforeunload", handler);
+      return () => window.removeEventListener("beforeunload", handler);
+    }
+  }, [config.id]);
 
   const updateField = (key, value) => {
     if (stepErrors[key]) setStepErrors((prev) => ({ ...prev, [key]: "" }));
@@ -114,25 +157,9 @@ export default function ConferenceBuilderPage({
     );
   }
 
-  const rawSlug = config.slug || config.id || config.shortName || config.name || "";
-  const orgSlug = rawSlug
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9\-]/g, "")
-    .replace(/\-\-+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "") || "conference";
-
-  const attendeeUrl = `https://web.elmoultaqa.com/c/${orgSlug}`;
-  const adminUrl = `https://admin.elmoultaqa.com/c/${orgSlug}/admin`;
-  const attendeeLocalUrl = `http://localhost:5174/c/${orgSlug}`;
-  const adminLocalUrl = `http://localhost:5175/c/${orgSlug}/admin`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(attendeeUrl)}`;
-
   return (
     <div className="builder-shell">
-      <button className="builder-back" onClick={onBack}>
+      <button className="builder-back" onClick={() => setShowLeaveModal(true)}>
         ← Back to landing
       </button>
       <div className="builder-card">
@@ -141,7 +168,7 @@ export default function ConferenceBuilderPage({
             <p className="eyebrow">Customize your conference</p>
             <h1>Build your branded conference experience</h1>
           </div>
-          <div className="builder-step-pill">Step {step} of 4</div>
+            <div className="builder-step-pill">Step {step} of 5</div>
         </header>
 
         {step === 1 && (
@@ -220,35 +247,46 @@ export default function ConferenceBuilderPage({
                 />
                 {stepErrors.shortName && <span className="field-error">{stepErrors.shortName}</span>}
               </label>
-              <label>
-                Theme color
-                <input
-                  type="color"
-                  value={config.themeColor}
-                  onChange={(event) =>
-                    updateField("themeColor", event.target.value)
-                  }
-                />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                Logo
-                <div className="logo-options">
-                  <label className="logo-radio">
-                    <input type="radio" name="logoMode" value="url"
-                      checked={logoMode === "url"}
-                      onChange={() => setLogoMode("url")} />
+              <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                <span className="field-label">Logo</span>
+                {!logoPreview && (
+                <div className="logo-mode-toggle">
+                  <button
+                    type="button"
+                    className={`logo-mode-btn${logoMode === "url" ? " selected" : ""}`}
+                    onClick={() => setLogoMode("url")}
+                  >
                     URL Link
-                  </label>
-                  <label className="logo-radio">
-                    <input type="radio" name="logoMode" value="upload"
-                      checked={logoMode === "upload"}
-                      onChange={() => setLogoMode("upload")} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`logo-mode-btn${logoMode === "upload" ? " selected" : ""}`}
+                    onClick={() => setLogoMode("upload")}
+                  >
                     Local Upload
-                  </label>
+                  </button>
                 </div>
-                {logoMode === "url" ? (
+                )}
+                {logoPreview ? (
+                  <div className="uploaded-logo">
+                    <img src={logoPreview} alt="Logo preview" className="logo-preview" />
+                    <button type="button" className="change-logo-btn"
+                      onClick={() => {
+                        setLogoPreview("");
+                        updateField("logo", "");
+                      }}>
+                      Change logo
+                    </button>
+                  </div>
+                ) : logoMode === "url" ? (
                   <input type="text" value={config.logo}
                     onChange={(e) => updateField("logo", e.target.value)}
+                    onBlur={(e) => {
+                      if (e.target.value.trim()) {
+                        setLogoPreview(e.target.value);
+                        extractDominantColor(e.target.value);
+                      }
+                    }}
                     placeholder="https://.../logo.png" />
                 ) : (
                   <input type="file" accept="image/*" className="file-input"
@@ -264,30 +302,39 @@ export default function ConferenceBuilderPage({
                       reader.onloadend = () => {
                         setLogoPreview(reader.result);
                         updateField("logo", reader.result);
+                        extractDominantColor(reader.result);
                       };
                       reader.readAsDataURL(file);
                     }} />
                 )}
-                {logoPreview && (
-                  <img src={logoPreview} alt="Logo preview" className="logo-preview" />
-                )}
-              </label>
+              </div>
               <label>
-                Start date
+                Theme color
                 <input
-                  type="date"
-                  value={config.startDate}
+                  type="color"
+                  value={config.themeColor}
                   onChange={(event) =>
-                    updateField("startDate", event.target.value)
+                    updateField("themeColor", event.target.value)
                   }
-                  className={stepErrors.startDate ? "input-error" : ""}
                 />
-                {stepErrors.startDate && <span className="field-error">{stepErrors.startDate}</span>}
               </label>
-              <label>
-                End date
-                <input
-                  type="date"
+              <div className="date-row">
+                <label>
+                  Start date
+                  <input
+                    type="date"
+                    value={config.startDate}
+                    onChange={(event) =>
+                      updateField("startDate", event.target.value)
+                    }
+                    className={stepErrors.startDate ? "input-error" : ""}
+                  />
+                  {stepErrors.startDate && <span className="field-error">{stepErrors.startDate}</span>}
+                </label>
+                <label>
+                  End date
+                  <input
+                    type="date"
                   value={config.endDate}
                   onChange={(event) =>
                     updateField("endDate", event.target.value)
@@ -295,7 +342,8 @@ export default function ConferenceBuilderPage({
                   className={stepErrors.endDate ? "input-error" : ""}
                 />
                 {stepErrors.endDate && <span className="field-error">{stepErrors.endDate}</span>}
-              </label>
+                </label>
+              </div>
             </div>
           </section>
         )}
@@ -368,40 +416,70 @@ export default function ConferenceBuilderPage({
 
         {step === 4 && (
           <section className="builder-step">
-            <h2>Review and launch</h2>
-            <div className="result-card">
-              <strong>{config.name || "Your conference"}</strong>
-              <p>{config.shortName || "A modern event platform"}</p>
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", marginBottom: "1rem" }}>
-                <div className="badge" style={{ background: config.themeColor }}>
-                  Theme: {config.themeColor}
-                </div>
-                <div className="badge" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                  Access: {config.registrationMode === "private" ? `Private (Code: ${config.registrationCode})` : "Public"}
-                </div>
-              </div>
-
-              <div className="links-grid">
-                <div>
-                  <label>Admin panel</label>
-                  <p>{adminUrl}</p>
-                  <p className="local-link">{adminLocalUrl}</p>
-                </div>
-                <div>
-                  <label>Webapp</label>
-                  <p>{attendeeUrl}</p>
-                  <p className="local-link">{attendeeLocalUrl}</p>
-                </div>
-              </div>
-              <div className="qr-card">
-                <img
-                  className="qr-image"
-                  src={qrUrl}
-                  alt={`QR code for ${attendeeUrl}`}
-                />
+            <h2>Terms and Conditions</h2>
+            <div className="terms-card">
+              <p>
+                By using ElMoultaqa, you agree to the following terms:
+              </p>
+              <div className="terms-scroll">
                 <p>
-                  Scan this QR code to open the attendee app for your organization.
+                  <strong>1. Acceptance of Terms</strong><br />
+                  By accessing and using the ElMoultaqa platform, you accept and agree to be bound by these terms.
                 </p>
+                <p>
+                  <strong>2. Platform Usage</strong><br />
+                  You are responsible for all content you publish through the platform. We reserve the right to remove any content that violates our policies.
+                </p>
+                <p>
+                  <strong>3. Data Privacy</strong><br />
+                  We collect and process data as described in our Privacy Policy. By using the platform, you consent to such processing.
+                </p>
+                <p>
+                  <strong>4. Limitation of Liability</strong><br />
+                  ElMoultaqa is provided "as is" without warranty. We are not liable for any damages arising from the use of the platform.
+                </p>
+                <p>
+                  <strong>5. Modifications</strong><br />
+                  We reserve the right to modify these terms at any time. Continued use of the platform after changes constitutes acceptance.
+                </p>
+              </div>
+              <label className="terms-checkbox">
+                <input
+                  type="checkbox"
+                  checked={config.termsAccepted}
+                  onChange={(e) => updateField("termsAccepted", e.target.checked)}
+                />
+                <span>I have read and agree to the terms and conditions</span>
+              </label>
+            </div>
+          </section>
+        )}
+
+        {step === 5 && (
+          <section className="builder-step">
+            <h2>Review and launch</h2>
+            <div className="review-card">
+              <div className="review-section">
+                <h3>Package</h3>
+                <p>{plans.find((p) => p.name === config.offer)?.display_name || config.offer}</p>
+              </div>
+              <div className="review-section">
+                <h3>Conference details</h3>
+                <div className="review-grid">
+                  <div><span>Name</span><p>{config.name}</p></div>
+                  <div><span>Short name</span><p>{config.shortName}</p></div>
+                  <div><span>Start date</span><p>{config.startDate}</p></div>
+                  <div><span>End date</span><p>{config.endDate}</p></div>
+                  <div><span>Theme color</span><p><span className="color-swatch" style={{ background: config.themeColor }} />{config.themeColor}</p></div>
+                </div>
+              </div>
+              <div className="review-section">
+                <h3>Registration</h3>
+                <p>{config.registrationMode === "private" ? `Private (Code: ${config.registrationCode})` : "Public"}</p>
+              </div>
+              <div className="review-section">
+                <h3>Terms</h3>
+                <p>Accepted</p>
               </div>
             </div>
           </section>
@@ -418,8 +496,13 @@ export default function ConferenceBuilderPage({
             )}
           </div>
           <div>
-            {step < 4 ? (
-              <button type="button" className="hero-button" onClick={next}>
+            {step < 5 ? (
+              <button
+                type="button"
+                className="hero-button"
+                onClick={next}
+                disabled={step === 4 && !config.termsAccepted}
+              >
                 Continue
               </button>
             ) : (
@@ -435,6 +518,23 @@ export default function ConferenceBuilderPage({
           </div>
         </footer>
       </div>
+
+      {showLeaveModal && (
+        <div className="modal-overlay" onClick={() => setShowLeaveModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3>Leave creation?</h3>
+            <p>All progress will be lost if you leave now.</p>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setShowLeaveModal(false)}>
+                Stay
+              </button>
+              <button className="hero-button" onClick={onBack}>
+                Leave anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

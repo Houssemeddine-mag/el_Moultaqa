@@ -30,6 +30,7 @@ const initialConference = {
   endDate: "2026-12-14",
   registrationMode: "public",
   registrationCode: "",
+  termsAccepted: false,
 };
 
 function AppRoutes({
@@ -130,7 +131,7 @@ function AppRoutes({
               <ConferenceBuilderPage
                 config={conference}
                 onChange={setConference}
-                onBack={() => navigate("/")}
+                onBack={() => { handleReset(); navigate("/"); }}
                 onFinish={handleFinish}
                 onReset={handleReset}
                 saveError={saveError}
