@@ -16,8 +16,10 @@ const WebIcon = () => (
 
 const SettingsIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="3"></circle>
-    <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 5.08l4.24 4.24M1 12h6m6 0h6m-15.78 7.78l4.24-4.24m5.08-2.12l4.24-4.24"></path>
+    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
   </svg>
 );
 
@@ -123,7 +125,6 @@ export default function HomePage({ user, onCreate, onAuth }) {
             <ul className="feature-list">
               <li>Live streaming ready</li>
               <li>Real-time updates</li>
-              <li>Mobile responsive</li>
             </ul>
           </article>
           <article className="feature-card">
@@ -151,7 +152,6 @@ export default function HomePage({ user, onCreate, onAuth }) {
             <ul className="feature-list">
               <li>Custom color schemes</li>
               <li>Logo integration</li>
-              <li>Custom domain support</li>
             </ul>
           </article>
         </div>
