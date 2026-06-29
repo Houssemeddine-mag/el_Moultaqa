@@ -8,6 +8,7 @@ const NOTIFICATIONS_STORAGE_KEY = "elm_webapp_notifications";
 const STREAM_QUESTIONS_STORAGE_KEY = "elm_stream_questions";
 const SPONSORS_STORAGE_KEY = "elm_sponsors";
 const CONFERENCE_CONFIG_STORAGE_KEY = "elm_conference_config";
+const ADMIN_STREAMS_STORAGE_KEY = "elm_admin_streams";
 
 const authListeners = new Set();
 let activeSupabase = null;
@@ -107,6 +108,7 @@ function normalizeProgram(program, id) {
     keynoteDescription: program.keynoteDescription || "",
     keynoteHasConference: Boolean(program.keynoteHasConference),
     conferences: Array.isArray(program.conferences) ? program.conferences : [],
+    streamId: program.streamId || null,
     createdAt: program.createdAt || null,
     updatedAt: program.updatedAt || null,
   };
@@ -139,6 +141,10 @@ function readNotifications() {
 
 function readStreamQuestions() {
   return getCollection(STREAM_QUESTIONS_STORAGE_KEY);
+}
+
+function readAdminStreams() {
+  return getCollection(ADMIN_STREAMS_STORAGE_KEY);
 }
 
 function readConferenceConfig() {
@@ -361,6 +367,7 @@ export async function fetchAllPrograms() {
           keynoteDescription: session.description || "",
           keynoteHasConference: false,
           conferences: [],
+          streamId: session.metadata?.streamId || null,
           createdAt: session.created_at,
           updatedAt: session.updated_at,
         };
@@ -458,7 +465,28 @@ export async function fetchNotifications(limitCount = 4) {
   return readNotifications().slice(0, limitCount);
 }
 
-export async function submitStreamQuestion({ author, message, clerkUserId = null }) {
+export async function fetchStreams() {
+  if (activeSupabase && activeSchemaName) {
+    try {
+      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+      if (events && events.length > 0) {
+        return events[0].settings?.streams || [];
+      }
+      return [];
+    } catch (e) {
+      console.error("[localService.fetchStreams] Supabase query failed:", e);
+    }
+  }
+  return readAdminStreams();
+}
+
+export async function fetchStreamQuestions(streamId) {
+  const all = readStreamQuestions();
+  if (streamId) return all.filter((q) => q.streamId === streamId);
+  return all;
+}
+
+export async function submitStreamQuestion({ author, message, clerkUserId = null, streamId = null, sessionTitle = null, presentationTitle = null }) {
   if (activeSupabase && activeSchemaName) {
     try {
       const insertPayload = {
@@ -466,7 +494,10 @@ export async function submitStreamQuestion({ author, message, clerkUserId = null
         clerk_user_id: clerkUserId,
         message: message,
         is_answered: false,
-        is_pinned: false
+        is_pinned: false,
+        stream_id: streamId,
+        session_title: sessionTitle,
+        presentation_title: presentationTitle,
       };
       const { data, error } = await activeSupabase.rpc("org_insert", {
         p_schema_name: activeSchemaName,
@@ -496,6 +527,9 @@ export async function submitStreamQuestion({ author, message, clerkUserId = null
     message,
     createdAt: new Date().toISOString(),
     isAnswered: false,
+    streamId,
+    sessionTitle,
+    presentationTitle,
   };
   writeJson(STREAM_QUESTIONS_STORAGE_KEY, [question, ...current]);
   return question;

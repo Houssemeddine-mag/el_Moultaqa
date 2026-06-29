@@ -8,6 +8,7 @@ class AdminStorage {
   static const String _notificationsKey = 'elm_admin_notifications';
   static const String _webNotificationsKey = 'elm_webapp_notifications';
   static const String _questionsKey = 'elm_stream_questions';
+  static const String _streamsKey = 'elm_admin_streams';
 
   static Future<List<AdminNotification>> loadNotifications() async {
     final prefs = await SharedPreferences.getInstance();
@@ -56,5 +57,40 @@ class AdminStorage {
       questions.map((question) => question.toMap()).toList(),
     );
     await prefs.setString(_questionsKey, encoded);
+  }
+
+  static Future<List<LiveStream>> loadStreams() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_streamsKey);
+    if (raw == null || raw.isEmpty) return <LiveStream>[];
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <LiveStream>[];
+
+    return decoded
+        .whereType<Map>()
+        .map((map) => LiveStream.fromMap(Map<String, dynamic>.from(map)))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  static Future<void> saveStreams(List<LiveStream> streams) async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(
+      streams.map((stream) => stream.toMap()).toList(),
+    );
+    await prefs.setString(_streamsKey, encoded);
+  }
+
+  static Future<void> addStream(LiveStream stream) async {
+    final streams = await loadStreams();
+    streams.insert(0, stream);
+    await saveStreams(streams);
+  }
+
+  static Future<void> removeStream(String id) async {
+    final streams = await loadStreams();
+    streams.removeWhere((s) => s.id == id);
+    await saveStreams(streams);
   }
 }

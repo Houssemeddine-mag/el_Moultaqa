@@ -40,6 +40,175 @@ class _AdminQuestionsPageState extends State<AdminQuestionsPage> {
     });
   }
 
+  Widget _buildGroupedQuestions() {
+    final grouped = <String, List<StreamQuestion>>{};
+    for (final q in _questions) {
+      final key = q.sessionTitle ?? 'General';
+      grouped.putIfAbsent(key, () => []).add(q);
+    }
+    final keys = grouped.keys.toList()
+      ..sort((a, b) {
+        if (a == 'General') return 1;
+        if (b == 'General') return -1;
+        return a.compareTo(b);
+      });
+
+    return ListView(
+      children: keys.map((sessionKey) {
+        final items = grouped[sessionKey]!;
+        final presGrouped = <String, List<StreamQuestion>>{};
+        for (final q in items) {
+          final pk = q.presentationTitle ?? '';
+          presGrouped.putIfAbsent(pk, () => []).add(q);
+        }
+        final presKeys = presGrouped.keys.toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.schedule, size: 16, color: widget.themeColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    sessionKey,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: widget.themeColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${items.length} question${items.length != 1 ? 's' : ''}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            ...presKeys.map((presKey) {
+              final presItems = presGrouped[presKey]!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (presKey.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, bottom: 4),
+                      child: Text(
+                        presKey,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ...presItems.map((question) {
+                    final controller = _controllerFor(question.id);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Chip(
+                                    label: Text(question.author),
+                                    backgroundColor: widget.themeColor
+                                        .withValues(alpha: 0.12),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Chip(
+                                    label: Text(question.isAnswered
+                                        ? 'Answered'
+                                        : 'Pending'),
+                                    backgroundColor: question.isAnswered
+                                        ? Colors.green.withValues(alpha: 0.15)
+                                        : Colors.orange.withValues(alpha: 0.2),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    onPressed: () => _delete(question.id),
+                                    icon:
+                                        const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                question.message,
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                              if (question.isAnswered &&
+                                  question.answer != null &&
+                                  question.answer!.trim().isNotEmpty)
+                                ...<Widget>[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green
+                                          .withValues(alpha: 0.08),
+                                      borderRadius:
+                                          BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: Colors.green
+                                            .withValues(alpha: 0.18),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Answer: ${question.answer!}',
+                                      style:
+                                          const TextStyle(height: 1.35),
+                                    ),
+                                  ),
+                                ]
+                              else ...<Widget>[
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: controller,
+                                  minLines: 2,
+                                  maxLines: 4,
+                                  decoration: _answerDecoration(),
+                                ),
+                                const SizedBox(height: 10),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _markAnswered(question),
+                                    icon: const Icon(Icons.done),
+                                    label: const Text(
+                                        'Mark as answered'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: widget.themeColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              );
+            }),
+            const Divider(),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
   InputDecoration _answerDecoration() {
     return InputDecoration(
       labelText: 'Write an answer',
@@ -228,108 +397,7 @@ class _AdminQuestionsPageState extends State<AdminQuestionsPage> {
                               ),
                             ),
                           )
-                        : ListView.separated(
-                            itemCount: _questions.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final question = _questions[index];
-                              final controller = _controllerFor(question.id);
-                              return Card(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Row(
-                                        children: <Widget>[
-                                          Chip(
-                                            label: Text(question.author),
-                                            backgroundColor: widget.themeColor
-                                                .withValues(alpha: 0.12),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Chip(
-                                            label: Text(question.isAnswered
-                                                ? 'Answered'
-                                                : 'Pending'),
-                                            backgroundColor: question.isAnswered
-                                                ? Colors.green
-                                                    .withValues(alpha: 0.15)
-                                                : Colors.orange
-                                                    .withValues(alpha: 0.2),
-                                          ),
-                                          const Spacer(),
-                                          IconButton(
-                                            onPressed: () =>
-                                                _delete(question.id),
-                                            icon: const Icon(
-                                                Icons.delete_outline),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        question.message,
-                                        style: const TextStyle(fontSize: 15),
-                                      ),
-                                      if (question.isAnswered &&
-                                          question.answer != null &&
-                                          question.answer!
-                                              .trim()
-                                              .isNotEmpty) ...<Widget>[
-                                        const SizedBox(height: 10),
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green
-                                                .withValues(alpha: 0.08),
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            border: Border.all(
-                                              color: Colors.green
-                                                  .withValues(alpha: 0.18),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Answer: ${question.answer!}',
-                                            style:
-                                                const TextStyle(height: 1.35),
-                                          ),
-                                        ),
-                                      ] else ...<Widget>[
-                                        const SizedBox(height: 12),
-                                        TextField(
-                                          controller: controller,
-                                          minLines: 2,
-                                          maxLines: 4,
-                                          decoration: _answerDecoration(),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () =>
-                                                _markAnswered(question),
-                                            icon: const Icon(Icons.done),
-                                            label:
-                                                const Text('Mark as answered'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  widget.themeColor,
-                                              foregroundColor: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                        : _buildGroupedQuestions(),
                   ),
                 ],
               ),

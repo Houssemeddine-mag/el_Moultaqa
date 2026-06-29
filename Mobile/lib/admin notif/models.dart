@@ -39,6 +39,39 @@ class AdminNotification {
   }
 }
 
+class LiveStream {
+  final String id;
+  final String name;
+  final String url;
+  final DateTime createdAt;
+
+  const LiveStream({
+    required this.id,
+    required this.name,
+    required this.url,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'id': id,
+      'name': name,
+      'url': url,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory LiveStream.fromMap(Map<String, dynamic> map) {
+    return LiveStream(
+      id: (map['id'] ?? '').toString(),
+      name: (map['name'] ?? '').toString(),
+      url: (map['url'] ?? '').toString(),
+      createdAt: DateTime.tryParse((map['createdAt'] ?? '').toString()) ??
+          DateTime.now(),
+    );
+  }
+}
+
 class StreamQuestion {
   final String id;
   final String author;
@@ -47,6 +80,9 @@ class StreamQuestion {
   final bool isAnswered;
   final String? answer;
   final DateTime? answeredAt;
+  final String? streamId;
+  final String? sessionTitle;
+  final String? presentationTitle;
 
   const StreamQuestion({
     required this.id,
@@ -56,6 +92,9 @@ class StreamQuestion {
     required this.isAnswered,
     this.answer,
     this.answeredAt,
+    this.streamId,
+    this.sessionTitle,
+    this.presentationTitle,
   });
 
   StreamQuestion copyWith({
@@ -66,6 +105,9 @@ class StreamQuestion {
     bool? isAnswered,
     String? answer,
     DateTime? answeredAt,
+    String? streamId,
+    String? sessionTitle,
+    String? presentationTitle,
   }) {
     return StreamQuestion(
       id: id ?? this.id,
@@ -75,6 +117,9 @@ class StreamQuestion {
       isAnswered: isAnswered ?? this.isAnswered,
       answer: answer ?? this.answer,
       answeredAt: answeredAt ?? this.answeredAt,
+      streamId: streamId ?? this.streamId,
+      sessionTitle: sessionTitle ?? this.sessionTitle,
+      presentationTitle: presentationTitle ?? this.presentationTitle,
     );
   }
 
@@ -87,6 +132,9 @@ class StreamQuestion {
       'isAnswered': isAnswered,
       'answer': answer,
       'answeredAt': answeredAt?.toIso8601String(),
+      'streamId': streamId,
+      'sessionTitle': sessionTitle,
+      'presentationTitle': presentationTitle,
     };
   }
 
@@ -102,6 +150,9 @@ class StreamQuestion {
       answeredAt: map['answeredAt'] != null
           ? DateTime.tryParse(map['answeredAt'].toString())
           : null,
+      streamId: map['streamId']?.toString(),
+      sessionTitle: map['sessionTitle']?.toString(),
+      presentationTitle: map['presentationTitle']?.toString(),
     );
   }
 }

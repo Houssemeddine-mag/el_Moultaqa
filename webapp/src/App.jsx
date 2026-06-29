@@ -12,7 +12,7 @@ import {
 import "./App.css";
 import HomePage from "./pages/HomePage.jsx";
 import ProgramPage from "./pages/ProgramPage.jsx";
-import DirectPage from "./pages/DirectPage.jsx";
+import LivePage from "./pages/LivePage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -256,7 +256,7 @@ function App() {
             <Route index element={<Navigate replace to="home" />} />
             <Route path="home" element={<HomePage />} />
             <Route path="program" element={<ProgramPage />} />
-            <Route path="direct" element={<DirectPage />} />
+            <Route path="direct" element={<LivePage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="/c/:orgSlug/auth" element={<AuthPage />} />

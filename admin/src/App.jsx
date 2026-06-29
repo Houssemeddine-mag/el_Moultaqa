@@ -11,6 +11,7 @@ import UsersPage from "./pages/UsersPage.jsx";
 import DatabaseManagerPage from "./pages/DatabaseManagerPage.jsx";
 import KeynoteInApp from "./pages/KeynoteInApp.jsx";
 import SponsorsPage from "./pages/SponsorsPage.jsx";
+import StreamsPage from "./pages/StreamsPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 import { useAuth, useClerk, useOrganizationList, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
@@ -303,6 +304,7 @@ const App = () => {
           <Route path="users" element={<UsersPage />} />
           <Route path="database" element={<DatabaseManagerPage />} />
           <Route path="keynote-in-app" element={<KeynoteInApp />} />
+          <Route path="streams" element={<StreamsPage />} />
           <Route path="sponsors" element={<SponsorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<ErrorPage />} />

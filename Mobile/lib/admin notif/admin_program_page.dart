@@ -16,12 +16,29 @@ class AdminProgramPage extends StatefulWidget {
 
 class _AdminProgramPageState extends State<AdminProgramPage> {
   List<Map<String, dynamic>> _programs = <Map<String, dynamic>>[];
+  List<LiveStream> _streams = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPrograms();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([_loadPrograms(), _loadStreams()]);
+  }
+
+  Future<void> _loadStreams() async {
+    final streams = await AdminStorage.loadStreams();
+    if (mounted) {
+      setState(() => _streams = streams);
+    }
+  }
+
+  Future<void> _savePrograms() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('elm_webapp_programs', jsonEncode(_programs));
   }
 
   Future<void> _loadPrograms() async {
@@ -336,6 +353,40 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                       '${(session['start'] ?? '').toString()}${(session['end'] ?? '').toString().isNotEmpty ? ' - ${session['end']}' : ''}',
                                       style: const TextStyle(
                                           color: Colors.black54),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    DropdownButtonFormField<String>(
+                                      value: (session['streamId'] ?? '').toString().isNotEmpty
+                                          ? (session['streamId'] ?? '').toString()
+                                          : null,
+                                      decoration: InputDecoration(
+                                        labelText: 'Linked stream',
+                                        contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 8),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        isDense: true,
+                                      ),
+                                      isExpanded: true,
+                                      items: [
+                                        const DropdownMenuItem<String>(
+                                          value: null,
+                                          child: Text('None'),
+                                        ),
+                                        ..._streams.map((s) =>
+                                            DropdownMenuItem<String>(
+                                              value: s.id,
+                                              child: Text(s.name),
+                                            )),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          session['streamId'] = value;
+                                        });
+                                        _savePrograms();
+                                      },
                                     ),
                                     if (conferences.isNotEmpty) ...<Widget>[
                                       const SizedBox(height: 12),

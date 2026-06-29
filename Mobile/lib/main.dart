@@ -7,8 +7,8 @@ import 'admin notif/admin_main_layout.dart';
 import 'admin notif/storage.dart';
 import 'mobile_config.dart';
 import 'pages/auth_page.dart';
-import 'pages/direct_page.dart';
 import 'pages/home_page.dart';
+import 'pages/live_page.dart';
 import 'pages/notification_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/program_page.dart';
@@ -131,7 +131,7 @@ class _MainLayoutState extends State<MainLayout> {
       case 1:
         return const ProgramPage();
       case 2:
-        return const DirectPage();
+        return const LivePage();
       case 3:
         return ProfilePage(userRole: widget.userRole);
       case 4:

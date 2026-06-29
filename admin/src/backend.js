@@ -822,6 +822,82 @@ const backend = {
   },
 
   // =========================================================================
+  // Live Streams Management (admin manages, attendees watch)
+  // =========================================================================
+
+  async getStreams() {
+    if (activeSupabase && activeSchemaName) {
+      try {
+        const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+        if (events && events.length > 0) {
+          return events[0].settings?.streams || [];
+        }
+        return [];
+      } catch (e) {
+        console.error("[admin backend] getStreams error:", e);
+      }
+    }
+    try {
+      const raw = localStorage.getItem("elm_admin_streams");
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async addStream(stream) {
+    if (activeSupabase && activeSchemaName) {
+      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+      if (!events || events.length === 0) throw new Error("No event found to update streams");
+      const event = events[0];
+      const streams = event.settings?.streams || [];
+      const newStream = { id: generateId(), ...stream };
+      streams.push(newStream);
+
+      const { error } = await activeSupabase.rpc("org_update", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "events",
+        p_id: event.id,
+        p_data: { settings: { ...event.settings, streams } },
+      });
+
+      if (error) throw error;
+      return newStream;
+    }
+
+    const streams = this.getStreams() || [];
+    const id = generateId();
+    const now = new Date().toISOString();
+    const newItem = { id, ...stream, createdAt: now };
+    streams.push(newItem);
+    localStorage.setItem("elm_admin_streams", JSON.stringify(streams));
+    return newItem;
+  },
+
+  async deleteStream(id) {
+    if (activeSupabase && activeSchemaName) {
+      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+      if (!events || events.length === 0) throw new Error("No event found");
+      const event = events[0];
+      const streams = (event.settings?.streams || []).filter((s) => s.id !== id);
+
+      const { error } = await activeSupabase.rpc("org_update", {
+        p_schema_name: activeSchemaName,
+        p_table_name: "events",
+        p_id: event.id,
+        p_data: { settings: { ...event.settings, streams } },
+      });
+
+      if (error) throw error;
+      return true;
+    }
+
+    const streams = (this.getStreams() || []).filter((s) => s.id !== id);
+    localStorage.setItem("elm_admin_streams", JSON.stringify(streams));
+    return true;
+  },
+
+  // =========================================================================
   // Notifications Management (admin sends, attendees read)
   // =========================================================================
 
