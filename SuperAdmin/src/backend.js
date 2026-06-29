@@ -12,6 +12,7 @@ export function useSuperAdmin() {
   async function isSuperAdmin() { return rpc("is_super_admin"); }
   async function listOrganizations() { return rpc("super_admin_list_orgs"); }
   async function getStats() { return rpc("super_admin_get_stats"); }
+  async function getDetailedStats() { return rpc("super_admin_get_detailed_stats"); }
 
   function buildChartData(orgs) {
     const planMap = {};
@@ -111,10 +112,23 @@ export function useSuperAdmin() {
     return rpc("super_admin_org_table_counts", { p_schema: schema });
   }
 
+  async function listOrgsDiscoveryStatus() {
+    return rpc("super_admin_list_orgs_discovery_status");
+  }
+
+  async function toggleDiscoveryEnable(slug, enabled) {
+    return rpc("super_admin_toggle_discovery_enable", { p_org_slug: slug, p_enabled: enabled });
+  }
+
+  async function toggleDiscoveryBlock(slug, blocked) {
+    return rpc("super_admin_toggle_discovery_block", { p_org_slug: slug, p_blocked: blocked });
+  }
+
   return {
-    supabase, isSuperAdmin, listOrganizations, getStats, getChartData,
+    supabase, isSuperAdmin, listOrganizations, getStats, getDetailedStats, getChartData,
     createOrganization, deleteOrganization, blockOrganization, unblockOrganization,
     listPlans, upsertPlan, togglePlan, deletePlan,
     orgQuery, orgInsert, orgUpdate, orgDelete, getOrgTableCounts,
+    listOrgsDiscoveryStatus, toggleDiscoveryEnable, toggleDiscoveryBlock,
   };
 }

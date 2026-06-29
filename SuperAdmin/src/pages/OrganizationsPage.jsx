@@ -159,10 +159,11 @@ export default function OrganizationsPage() {
               <th>Plan</th>
               <th>Status</th>
               <th>Blocked</th>
+              <th>Discovery</th>
               <th>Users</th>
               <th>Events</th>
               <th>Created</th>
-              <th style={{ width: 140 }} />
+              <th style={{ width: 220 }} />
             </tr>
           </thead>
           <tbody>
@@ -175,6 +176,17 @@ export default function OrganizationsPage() {
                 <td>{org.plan_name || "Free"}</td>
                 <td><StatusBadge status={org.plan_status || "active"} /></td>
                 <td>{org.blocked_at ? <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span> : <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>Active</span>}</td>
+                <td>
+                  {org.discovery_enabled ? (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>Enabled</span>
+                      {org.card_published ? <span className="sa-badge" style={{ background: "#2563eb", color: "#fff" }}>Published</span> : null}
+                      {org.card_blocked ? <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span> : null}
+                    </div>
+                  ) : (
+                    <span className="sa-badge" style={{ background: "#6b7280", color: "#fff" }}>Disabled</span>
+                  )}
+                </td>
                 <td>{org.user_count}</td>
                 <td>{org.event_count}</td>
                 <td>{new Date(org.created_at).toLocaleDateString()}</td>
@@ -198,7 +210,7 @@ export default function OrganizationsPage() {
                 </td>
               </tr>
             ))}
-            {orgs.length === 0 && <tr><td colSpan="7" className="sa-empty">No organizations found</td></tr>}
+            {orgs.length === 0 && <tr><td colSpan="9" className="sa-empty">No organizations found</td></tr>}
           </tbody>
         </table>
       </div>

@@ -160,6 +160,8 @@ export default function OrgDetailPage() {
   const [tableMode, setTableMode] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [showTablePicker, setShowTablePicker] = useState(false);
+  const [discStatus, setDiscStatus] = useState(null);
+  const [discAction, setDiscAction] = useState(null);
 
   useEffect(() => {
     if (!orgSlug) return;
@@ -173,6 +175,19 @@ export default function OrgDetailPage() {
         const schema = found.schema_name || found.slug;
         sa.getOrgTableCounts(schema).then(setCounts).catch(() => {});
       } catch (e) { setError(e.message); } finally { setLoading(false); }
+    })();
+  }, [orgSlug]);
+
+  useEffect(() => {
+    if (!orgSlug) return;
+    (async () => {
+      try {
+        const list = await sa.listOrgsDiscoveryStatus();
+        const found = list.find((d) => d.org_slug === orgSlug);
+        setDiscStatus(found || null);
+      } catch (e) {
+        console.error("[OrgDetailPage] load discovery status error:", e);
+      }
     })();
   }, [orgSlug]);
 
@@ -220,6 +235,70 @@ export default function OrgDetailPage() {
           <p className="sa-muted">{org.slug} &middot; {org.plan_name || "No plan"} &middot; Created {new Date(org.created_at).toLocaleDateString()}</p>
         </div>
       </div>
+
+      {/* ── Discovery Management section ── */}
+      <section className="sa-section">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Discovery</h2>
+        </div>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center", padding: "16px 20px", background: "var(--sa-surface)", border: "1px solid var(--sa-border)", borderRadius: 12 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <strong style={{ fontSize: ".85rem", minWidth: 80 }}>Status:</strong>
+            {discStatus?.discovery_enabled ? (
+              <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>Enabled</span>
+            ) : (
+              <span className="sa-badge" style={{ background: "#6b7280", color: "#fff" }}>Disabled</span>
+            )}
+            {discStatus?.card_published && (
+              <span className="sa-badge" style={{ background: "#2563eb", color: "#fff" }}>Published</span>
+            )}
+            {discStatus?.card_blocked && (
+              <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className={`sa-btn sa-btn-sm ${discStatus?.discovery_enabled ? "sa-btn-sm-outline-warn" : "sa-btn-primary"}`}
+              onClick={async () => {
+                setDiscAction("enable");
+                try {
+                  await sa.toggleDiscoveryEnable(orgSlug, !discStatus?.discovery_enabled);
+                  const list = await sa.listOrgsDiscoveryStatus();
+                  setDiscStatus(list.find((d) => d.org_slug === orgSlug) || null);
+                } catch (e) { setError(e.message); }
+                finally { setDiscAction(null); }
+              }}
+              disabled={discAction === "enable"}
+            >
+              {discAction === "enable" ? "..." : discStatus?.discovery_enabled ? "Disable" : "Enable"}
+            </button>
+            <button
+              className={`sa-btn sa-btn-sm ${discStatus?.card_blocked ? "sa-btn-primary" : "sa-btn-sm-outline-warn"}`}
+              onClick={async () => {
+                setDiscAction("block");
+                try {
+                  await sa.toggleDiscoveryBlock(orgSlug, !discStatus?.card_blocked);
+                  const list = await sa.listOrgsDiscoveryStatus();
+                  setDiscStatus(list.find((d) => d.org_slug === orgSlug) || null);
+                } catch (e) { setError(e.message); }
+                finally { setDiscAction(null); }
+              }}
+              disabled={discAction === "block" || !discStatus?.discovery_enabled}
+            >
+              {discAction === "block" ? "..." : discStatus?.card_blocked ? "Unblock" : "Block"}
+            </button>
+          </div>
+          {discStatus && (
+            <span className="sa-muted" style={{ fontSize: ".82rem" }}>
+              Title: {discStatus.card_title || "—"} &middot;
+              Category: {discStatus.card_category || "—"} &middot;
+              {discStatus.card_start_date && ` ${discStatus.card_start_date} – ${discStatus.card_end_date || ""}`}
+            </span>
+          )}
+        </div>
+      </section>
+
+      <hr className="sa-section-divider" />
 
       {/* ── Statistics section ── */}
       <section className="sa-section">

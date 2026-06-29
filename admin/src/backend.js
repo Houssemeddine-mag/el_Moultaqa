@@ -1022,6 +1022,69 @@ const backend = {
   },
 
   // =========================================================================
+  // Discovery Card Management (org admin customizes & publishes)
+  // =========================================================================
+
+  async getDiscoveryCard(orgSlug) {
+    if (activeSupabase && orgSlug) {
+      try {
+        const { data, error } = await activeSupabase.rpc("org_get_discovery_card", {
+          p_org_slug: orgSlug,
+        });
+        if (error) throw error;
+        if (!data || data.length === 0) return null;
+        return data[0];
+      } catch (e) {
+        console.error("[admin backend] getDiscoveryCard error:", e);
+        return null;
+      }
+    }
+    return null;
+  },
+
+  async saveDiscoveryCard(orgSlug, card) {
+    if (activeSupabase && orgSlug) {
+      const { data, error } = await activeSupabase.rpc("org_save_discovery_card", {
+        p_org_slug: orgSlug,
+        p_title: card.title,
+        p_description: card.description || null,
+        p_category: card.category || null,
+        p_start_date: card.start_date || null,
+        p_end_date: card.end_date || null,
+        p_start_time: card.start_time || null,
+        p_location: card.location || null,
+        p_logo_url: card.logo_url || null,
+        p_pricing: card.pricing || "free",
+      });
+      if (error) throw error;
+      return data;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async publishDiscoveryCard(orgSlug) {
+    if (activeSupabase && orgSlug) {
+      const { data, error } = await activeSupabase.rpc("org_publish_discovery_card", {
+        p_org_slug: orgSlug,
+      });
+      if (error) throw error;
+      return data;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  async unpublishDiscoveryCard(orgSlug) {
+    if (activeSupabase && orgSlug) {
+      const { data, error } = await activeSupabase.rpc("org_unpublish_discovery_card", {
+        p_org_slug: orgSlug,
+      });
+      if (error) throw error;
+      return data;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
+  // =========================================================================
   // Database Stats (real row counts for DatabaseManagerPage)
   // =========================================================================
 

@@ -19,6 +19,8 @@ import AuthPage from "./pages/AuthPage.jsx";
 import DocumentationPage from "./pages/DocumentationPage.jsx";
 import LegalPage from "./pages/LegalPage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
+import DiscoveryPage from "./pages/DiscoveryPage.jsx";
+import ConferenceDetailPage from "./pages/ConferenceDetailPage.jsx";
 import OrgButton from "./components/OrgButton.jsx";
 
 const initialConference = {
@@ -90,6 +92,11 @@ function AppRoutes({
           </div>
         </a>
 
+        <nav className="nav-links">
+          <a href="/discovery" onClick={(e) => { e.preventDefault(); navigate("/discovery"); }}>
+            Discover
+          </a>
+        </nav>
         <div className="nav-actions">
           {user ? (
             <>
@@ -165,6 +172,8 @@ function AppRoutes({
         <Route path="/docs" element={<DocumentationPage />} />
         <Route path="/legal" element={<LegalPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/discovery" element={<DiscoveryPage />} />
+        <Route path="/discovery/:slug" element={<ConferenceDetailPage />} />
         <Route path="/auth/sso-callback" element={<AuthenticateWithRedirectCallback />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -179,6 +188,7 @@ function AppRoutes({
               <h3>Company</h3>
               <ul>
                 <li><a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>Home</a></li>
+                <li><a href="/discovery" onClick={(e) => { e.preventDefault(); navigate("/discovery"); }}>Discover</a></li>
                 <li><a href="/docs" onClick={(e) => { e.preventDefault(); navigate("/docs"); }}>Documentation</a></li>
                 <li><a href="/about#about" onClick={(e) => { e.preventDefault(); navigate("/about#about"); }}>About us</a></li>
                 <li><a href="/about#contact" onClick={(e) => { e.preventDefault(); navigate("/about#contact"); }}>Contact</a></li>
