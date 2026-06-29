@@ -61,8 +61,7 @@ class _SidebarState extends State<Sidebar> {
   Widget build(BuildContext context) {
     return Drawer(
       backgroundColor: const Color(0xFFFDFDFD),
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
@@ -104,31 +103,38 @@ class _SidebarState extends State<Sidebar> {
               ),
             ),
           ),
-          _buildNavItem(
-            context,
-            icon: Icons.home_outlined,
-            title: 'Home',
-            index: 0,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildNavItem(
+                  context,
+                  icon: Icons.home_outlined,
+                  title: 'Home',
+                  index: 0,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.calendar_month_outlined,
+                  title: 'Program',
+                  index: 1,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.videocam_outlined,
+                  title: 'Live Stream',
+                  index: 2,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  index: 3,
+                ),
+              ],
+            ),
           ),
-          _buildNavItem(
-            context,
-            icon: Icons.calendar_month_outlined,
-            title: 'Program',
-            index: 1,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.videocam_outlined,
-            title: 'Live Stream',
-            index: 2,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.person_outline,
-            title: 'Profile',
-            index: 3,
-          ),
-          const Divider(),
+          const Divider(height: 1),
           _buildNavItem(
             context,
             icon: Icons.settings_outlined,
@@ -149,7 +155,7 @@ class _SidebarState extends State<Sidebar> {
               Navigator.pop(context);
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
         ],
       ),
     );

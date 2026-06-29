@@ -1,17 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'admin notif/admin_main_layout.dart';
+import 'admin notif/storage.dart';
 import 'mobile_config.dart';
-import 'theme.dart';
 import 'pages/auth_page.dart';
+import 'pages/direct_page.dart';
 import 'pages/home_page.dart';
+import 'pages/notification_page.dart';
+import 'pages/profile_page.dart';
 import 'pages/program_page.dart';
 import 'pages/keynote_speakers_page.dart';
-import 'pages/direct_page.dart';
-import 'pages/profile_page.dart';
 import 'pages/settings_page.dart';
-import 'admin notif/admin_main_layout.dart';
-import 'widgets/sidebar.dart';
+import 'theme.dart';
 import 'widgets/notification_bell.dart';
+import 'widgets/sidebar.dart';
 
 void main() {
   runApp(const ElMoultaqaMobileApp());
@@ -62,11 +67,33 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _conferenceName = 'ElMoultaqa';
+  int _notificationCount = 0;
+  Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
     _loadConferenceName();
+    _refreshNotificationCount();
+    _notificationTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshNotificationCount(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshNotificationCount() async {
+    final notifications = await AdminStorage.loadNotifications();
+    if (mounted) {
+      setState(() {
+        _notificationCount = notifications.length;
+      });
+    }
   }
 
   Future<void> _loadConferenceName() async {
@@ -97,7 +124,10 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildPage(int index) {
     switch (index) {
       case 0:
-        return HomePage(userRole: widget.userRole);
+        return HomePage(
+          userRole: widget.userRole,
+          onNavigateToProgram: () => setState(() => _selectedIndex = 1),
+        );
       case 1:
         return const ProgramPage();
       case 2:
@@ -277,6 +307,23 @@ class _MainLayoutState extends State<MainLayout> {
               fontSize: 18,
             ),
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: NotificationBell(
+                notificationCount: _notificationCount,
+                color: const Color(0xFF0D7E52),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
         drawer: Sidebar(
           onItemSelected: (index) {

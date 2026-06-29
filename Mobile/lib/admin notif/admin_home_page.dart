@@ -49,212 +49,292 @@ class _AdminHomePageState extends State<AdminHomePage> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: _loading
-            ? const Center(
-                child: Padding(
-                padding: EdgeInsets.only(top: 100),
-                child: CircularProgressIndicator(),
-              ))
-            : Column(
+      child: _loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: widget.themeColor,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const Text(
-                          '${MobileConfig.appName} Admin',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Manage notifications and moderate stream questions from one central ElMoultaqa dashboard.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 12,
-                          children: <Widget>[
-                            _infoChip(Icons.notifications_active,
-                                '$_notificationCount notifications'),
-                            _infoChip(Icons.question_answer,
-                                '$_questionCount questions'),
-                            _infoChip(Icons.pending_actions,
-                                '$_pendingQuestions pending'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _statCard(
-                          _notificationCount.toString(),
-                          'Notifications',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _statCard(
-                          _pendingQuestions.toString(),
-                          'Pending Questions',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Admin Actions',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _actionCard(
-                          icon: Icons.calendar_month_outlined,
-                          title: 'Program',
-                          description:
-                              'Review the conference schedule and sessions from the same template data used by attendees.',
-                          onTap: widget.onOpenProgram,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _actionCard(
-                          icon: Icons.notifications_active_outlined,
-                          title: 'Notifications Management',
-                          description:
-                              'Create, publish, and delete notifications for mobile and web users.',
-                          onTap: widget.onOpenNotifications,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _actionCard(
-                    icon: Icons.question_answer_outlined,
-                    title: 'Stream Questions',
-                    description:
-                        'Review incoming questions and answer them from the live stream.',
-                    onTap: widget.onOpenQuestions,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'About ${MobileConfig.appName}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: widget.themeColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'This admin workspace follows the same structure as the attendee app, but focuses on publishing notifications and moderating user questions for ElMoultaqa.',
-                            style: TextStyle(
-                              color: Colors.black87,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildQuickActions(),
                 ],
               ),
-      ),
+            ),
     );
   }
 
-  Widget _infoChip(IconData icon, String label) {
-    return Chip(
-      avatar: Icon(icon, color: Colors.white, size: 18),
-      label: Text(label, style: const TextStyle(color: Colors.white)),
-      backgroundColor: Colors.white.withValues(alpha: 0.16),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
-    );
-  }
-
-  Widget _statCard(String value, String title) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          children: <Widget>[
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: widget.themeColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
-            ),
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            widget.themeColor,
+            widget.themeColor.withValues(alpha: 0.8),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: widget.themeColor.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _actionCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(icon, color: widget.themeColor, size: 28),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.admin_panel_settings,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${MobileConfig.appName} Admin',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Manage your conference',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _headerStat(
+                Icons.notifications_active,
+                '$_notificationCount',
+                'Notifications',
+              ),
+              const SizedBox(width: 24),
+              _headerStat(
+                Icons.question_answer,
+                '$_questionCount',
+                'Questions',
+              ),
+              const SizedBox(width: 24),
+              _headerStat(
+                Icons.pending_actions,
+                '$_pendingQuestions',
+                'Pending',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerStat(IconData icon, String value, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white70, size: 14),
+              const SizedBox(width: 4),
               Text(
-                description,
-                style: const TextStyle(color: Colors.black54, height: 1.35),
+                value,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white60,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _actionTile(
+          icon: Icons.calendar_month_outlined,
+          title: 'Program',
+          subtitle: 'Review the conference schedule and sessions',
+          color: widget.themeColor,
+          onTap: widget.onOpenProgram,
+        ),
+        const SizedBox(height: 10),
+        _actionTile(
+          icon: Icons.notifications_active_outlined,
+          title: 'Notifications',
+          subtitle: 'Create, publish, and delete notifications',
+          color: widget.themeColor,
+          trailing: _notificationCount > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_notificationCount',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+          onTap: widget.onOpenNotifications,
+        ),
+        const SizedBox(height: 10),
+        _actionTile(
+          icon: Icons.question_answer_outlined,
+          title: 'Questions',
+          subtitle: 'Review and answer incoming stream questions',
+          color: widget.themeColor,
+          trailing: _pendingQuestions > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_pendingQuestions',
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+          onTap: widget.onOpenQuestions,
+        ),
+      ],
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    Widget? trailing,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: 0.04),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.grey.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing,
+              ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey[400],
+                size: 20,
               ),
             ],
           ),

@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'models.dart';
+import 'storage.dart';
+
 class AdminProgramPage extends StatefulWidget {
   final Color themeColor;
   const AdminProgramPage({super.key, required this.themeColor});
@@ -61,6 +64,64 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
         _programs = <Map<String, dynamic>>[];
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _notifyForSession(Map<String, dynamic> session) async {
+    final title = (session['title'] ?? 'Session').toString();
+    final date = (session['date'] ?? '').toString();
+    final start = (session['start'] ?? '').toString();
+    final room = (session['room'] ?? '').toString();
+
+    final notification = AdminNotification(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: 'Session Starting Soon',
+      message: '$title is about to start on $date at $start${room.isNotEmpty ? ' in $room' : ''}.',
+      type: 'session',
+      priority: 'high',
+      createdAt: DateTime.now(),
+    );
+
+    final existing = await AdminStorage.loadNotifications();
+    final updated = <AdminNotification>[notification, ...existing];
+    await AdminStorage.saveNotifications(updated);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Notification sent for "$title"')),
+      );
+    }
+  }
+
+  Future<void> _notifyForPresentation(
+      Map<String, dynamic> session, Map<String, dynamic> presentation) async {
+    final sessionTitle = (session['title'] ?? 'Session').toString();
+    final presTitle =
+        (presentation['title'] ?? 'Presentation').toString();
+    final speaker =
+        (presentation['speaker'] ?? presentation['presenter'] ?? '').toString();
+    final date = (session['date'] ?? '').toString();
+    final start =
+        (presentation['start'] ?? session['start'] ?? '').toString();
+    final room = (session['room'] ?? '').toString();
+
+    final notification = AdminNotification(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: 'Presentation Starting Soon',
+      message: '$presTitle by $speaker is about to start on $date at $start${room.isNotEmpty ? ' in $room' : ''} as part of "$sessionTitle".',
+      type: 'conference',
+      priority: 'high',
+      createdAt: DateTime.now(),
+    );
+
+    final existing = await AdminStorage.loadNotifications();
+    final updated = <AdminNotification>[notification, ...existing];
+    await AdminStorage.saveNotifications(updated);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Notification sent for "$presTitle"')),
+      );
     }
   }
 
@@ -237,6 +298,18 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                             ),
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.notifications_active,
+                                            size: 20,
+                                            color: widget.themeColor,
+                                          ),
+                                          tooltip: 'Notify attendees',
+                                          onPressed: () =>
+                                              _notifyForSession(session),
+                                          splashRadius: 20,
+                                        ),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -290,13 +363,43 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: <Widget>[
-                                                Text(
-                                                  (conference['title'] ??
-                                                          'Presentation')
-                                                      .toString(),
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        (conference['title'] ??
+                                                                'Presentation')
+                                                            .toString(),
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        Icons
+                                                            .notifications_active,
+                                                        size: 18,
+                                                        color:
+                                                            widget.themeColor,
+                                                      ),
+                                                      tooltip:
+                                                          'Notify attendees',
+                                                      onPressed: () =>
+                                                          _notifyForPresentation(
+                                                              session,
+                                                              conference),
+                                                      splashRadius: 18,
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                        minWidth: 32,
+                                                        minHeight: 32,
+                                                      ),
+                                                      padding:
+                                                          EdgeInsets.zero,
+                                                    ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(

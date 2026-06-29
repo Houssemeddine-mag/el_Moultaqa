@@ -185,55 +185,57 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
                             const SizedBox(height: 12),
                             Row(
                               children: <Widget>[
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _type,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Type',
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      value: _type,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Type',
+                                      ),
+                                      items: const <DropdownMenuItem<String>>[
+                                        DropdownMenuItem(
+                                            value: 'general',
+                                            child: Text('General')),
+                                        DropdownMenuItem(
+                                            value: 'session',
+                                            child: Text('Session')),
+                                        DropdownMenuItem(
+                                            value: 'conference',
+                                            child: Text('Conference')),
+                                        DropdownMenuItem(
+                                            value: 'urgent',
+                                            child: Text('Urgent')),
+                                        DropdownMenuItem(
+                                            value: 'announcement',
+                                            child: Text('Announcement')),
+                                      ],
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() => _type = value);
+                                      },
                                     ),
-                                    items: const <DropdownMenuItem<String>>[
-                                      DropdownMenuItem(
-                                          value: 'general',
-                                          child: Text('General')),
-                                      DropdownMenuItem(
-                                          value: 'session',
-                                          child: Text('Session')),
-                                      DropdownMenuItem(
-                                          value: 'conference',
-                                          child: Text('Conference')),
-                                      DropdownMenuItem(
-                                          value: 'urgent',
-                                          child: Text('Urgent')),
-                                      DropdownMenuItem(
-                                          value: 'announcement',
-                                          child: Text('Announcement')),
-                                    ],
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() => _type = value);
-                                    },
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _priority,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Priority',
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      value: _priority,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Priority',
+                                      ),
+                                      items: const <DropdownMenuItem<String>>[
+                                        DropdownMenuItem(
+                                            value: 'normal',
+                                            child: Text('Normal')),
+                                        DropdownMenuItem(
+                                            value: 'high', child: Text('High')),
+                                      ],
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() => _priority = value);
+                                      },
                                     ),
-                                    items: const <DropdownMenuItem<String>>[
-                                      DropdownMenuItem(
-                                          value: 'normal',
-                                          child: Text('Normal')),
-                                      DropdownMenuItem(
-                                          value: 'high', child: Text('High')),
-                                    ],
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() => _priority = value);
-                                    },
                                   ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 12),

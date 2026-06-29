@@ -1,14 +1,18 @@
-import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../mobile_config.dart';
-import 'program_page.dart';
 import 'keynote_speakers_page.dart';
+import 'program_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userRole;
-  const HomePage({super.key, required this.userRole});
+  final VoidCallback? onNavigateToProgram;
+  const HomePage({super.key, required this.userRole, this.onNavigateToProgram});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -22,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   String conferenceStartDate = "";
   String conferenceName = "";
   String conferenceDescription = '';
+  String conferenceWebsite = '';
   String conferenceLocation = "";
   int totalParticipants = 0;
 
@@ -34,12 +39,18 @@ class _HomePageState extends State<HomePage> {
   };
 
   List<Map<String, dynamic>> upcomingEvents = [];
+  Timer? _upcomingTimer;
 
   @override
   void initState() {
     super.initState();
     _startCountdown();
     _loadConferenceData();
+    _loadUpcomingEvents();
+    _upcomingTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _loadUpcomingEvents(),
+    );
   }
 
   Future<void> _loadConferenceData() async {
@@ -81,10 +92,159 @@ class _HomePageState extends State<HomePage> {
           if (descMatch != null && descMatch.group(1)!.isNotEmpty) {
             conferenceDescription = descMatch.group(1) ?? conferenceDescription;
           }
+
+          final websiteMatch =
+              RegExp(r'"website"\s*:\s*"([^"]*)"').firstMatch(config);
+          if (websiteMatch != null && websiteMatch.group(1)!.isNotEmpty) {
+            conferenceWebsite = websiteMatch.group(1)!;
+          }
         });
       }
     } catch (e) {
       // Use MobileConfig defaults
+    }
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('elm_webapp_programs');
+
+      if (raw == null || raw.isEmpty) {
+        if (mounted) {
+          setState(() {
+            upcomingEvents = [];
+            programStats = {
+              'totalSessions': 0,
+              'totalConferences': 0,
+              'totalSpeakers': 0,
+              'keynoteSessions': 0,
+            };
+          });
+        }
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      final now = DateTime.now();
+      final List<Map<String, dynamic>> allUpcoming = [];
+
+      int totalSessions = 0;
+      int totalConferences = 0;
+      int keynoteSessions = 0;
+      final Set<String> speakers = {};
+
+      for (final session in decoded) {
+        if (session is! Map) continue;
+        final dateStr = (session['date'] ?? '').toString();
+        final startStr = (session['start'] ?? '').toString();
+        final endStr = (session['end'] ?? '').toString();
+        final title = (session['title'] ?? 'Session').toString();
+        final room = (session['room'] ?? '').toString();
+
+        if (dateStr.isEmpty || startStr.isEmpty) continue;
+
+        final startDt = DateTime.tryParse('${dateStr}T$startStr');
+        final endDt = endStr.isNotEmpty
+            ? DateTime.tryParse('${dateStr}T$endStr')
+            : startDt;
+
+        if (startDt == null) continue;
+
+        if (endDt != null && endDt.isBefore(now)) continue;
+
+        totalSessions++;
+
+        final conferences = (session['conferences'] as List?)
+                ?.whereType<Map>()
+                .map((m) => Map<String, dynamic>.from(m))
+                .toList() ??
+            [];
+
+        if (conferences.isNotEmpty) {
+          for (final conf in conferences) {
+            final confTitle = (conf['title'] ?? '').toString();
+            final speaker = (conf['speaker'] ?? conf['presenter'] ?? '').toString();
+            final confStart = (conf['start'] ?? '').toString();
+            final confEnd = (conf['end'] ?? '').toString();
+            final isKeynote = conf['isKeynote'] == true;
+
+            final confStartDt = confStart.isNotEmpty
+                ? DateTime.tryParse('${dateStr}T$confStart')
+                : startDt;
+            final confEndDt = confEnd.isNotEmpty
+                ? DateTime.tryParse('${dateStr}T$confEnd')
+                : endDt;
+
+            if (confStartDt != null && confEndDt != null && confEndDt.isBefore(now)) continue;
+
+            if (speaker.isNotEmpty) speakers.add(speaker);
+            if (isKeynote) keynoteSessions++;
+            totalConferences++;
+
+            final timeStr = confStart.isNotEmpty
+                ? (confEnd.isNotEmpty ? '$confStart - $confEnd' : confStart)
+                : (startStr.isNotEmpty
+                    ? (endStr.isNotEmpty ? '$startStr - $endStr' : startStr)
+                    : '');
+
+            allUpcoming.add({
+              'title': confTitle.isNotEmpty ? confTitle : title,
+              'speaker': speaker.isNotEmpty ? speaker : 'Speaker',
+              'time': timeStr,
+              'room': room,
+              'sortDt': confStartDt ?? startDt,
+              'date': dateStr,
+            });
+          }
+        } else {
+          final timeStr = startStr.isNotEmpty
+              ? (endStr.isNotEmpty ? '$startStr - $endStr' : startStr)
+              : '';
+
+          allUpcoming.add({
+            'title': title,
+            'speaker': (session['chairs'] is List
+                    ? (session['chairs'] as List).join(', ')
+                    : '')
+                .toString(),
+            'time': timeStr,
+            'room': room,
+            'sortDt': startDt,
+            'date': dateStr,
+          });
+        }
+      }
+
+      allUpcoming.sort((a, b) {
+        final aDt = a['sortDt'] as DateTime;
+        final bDt = b['sortDt'] as DateTime;
+        return aDt.compareTo(bDt);
+      });
+
+      final next3 = allUpcoming.take(3).map((e) {
+        return {
+          'title': e['title'],
+          'speaker': e['speaker'],
+          'time': e['time'],
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          upcomingEvents = next3;
+          programStats = {
+            'totalSessions': totalSessions,
+            'totalConferences': totalConferences,
+            'totalSpeakers': speakers.length,
+            'keynoteSessions': keynoteSessions,
+          };
+        });
+      }
+    } catch (e) {
+      // Silently fail
     }
   }
 
@@ -148,6 +308,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     countdownTimer?.cancel();
+    _upcomingTimer?.cancel();
     super.dispose();
   }
 
@@ -304,12 +465,16 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProgramPage(),
-                          ),
-                        );
+                        if (widget.onNavigateToProgram != null) {
+                          widget.onNavigateToProgram!();
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProgramPage(),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: themeColor,
@@ -375,24 +540,25 @@ class _HomePageState extends State<HomePage> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _launchURL('https://conference.example.com'),
-                            icon: const Icon(Icons.web, size: 18),
-                            label: const Text("Visit website"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: themeColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                    if (conferenceWebsite.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _launchURL(conferenceWebsite),
+                              icon: const Icon(Icons.web, size: 18),
+                              label: const Text("Visit website"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: themeColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -493,23 +659,64 @@ class _HomePageState extends State<HomePage> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       color: themeColor.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: themeColor.withOpacity(0.2)),
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: themeColor,
-          child: const Icon(Icons.person, color: Colors.white),
+          child: const Icon(Icons.schedule, color: Colors.white, size: 20),
         ),
         title: Text(
           event['title'] ?? 'Session',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("By ${event['speaker'] ?? 'Speaker'}"),
-            Text(event['time'] ?? ''),
-          ],
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if ((event['speaker'] ?? '').isNotEmpty)
+                Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        event['speaker'],
+                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              if ((event['time'] ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        event['time'],
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: themeColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.arrow_forward_ios, size: 14, color: themeColor),
+        ),
         onTap: () {},
       ),
     );

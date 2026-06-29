@@ -24,3 +24,4 @@ flutter:
     - assets/images/
     - assets/icons/
     - ../global/logo.png
+    - ../global/icon.png

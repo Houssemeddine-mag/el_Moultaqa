@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class AdminSidebar extends StatefulWidget {
+class AdminSidebar extends StatelessWidget {
   final Function(int) onItemSelected;
   final int selectedIndex;
 
@@ -11,33 +10,6 @@ class AdminSidebar extends StatefulWidget {
     required this.onItemSelected,
     required this.selectedIndex,
   });
-
-  @override
-  State<AdminSidebar> createState() => _AdminSidebarState();
-}
-
-class _AdminSidebarState extends State<AdminSidebar> {
-  String _conferenceName = 'ElMoultaqa';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadConferenceName();
-  }
-
-  Future<void> _loadConferenceName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final config = prefs.getString('elm_conference_config');
-    if (config != null) {
-      final nameMatch = RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(config);
-      if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
-        setState(() {
-          _conferenceName = nameMatch.group(1)!;
-        });
-        return;
-      }
-    }
-  }
 
   Future<void> _launchWebApp() async {
     const url = 'https://elmoultaqa.com';
@@ -50,12 +22,12 @@ class _AdminSidebarState extends State<AdminSidebar> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      width: 260,
       backgroundColor: const Color(0xFFFDFDFD),
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
           Container(
-            height: 146,
+            height: 160,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xFF0D7E52), Color(0xFF1FB69A)],
@@ -63,69 +35,72 @@ class _AdminSidebarState extends State<AdminSidebar> {
                 end: Alignment.bottomRight,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 48,
-                      child: Image.asset(
-                        '../global/logo.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
-                            Icons.admin_panel_settings,
-                            size: 48,
-                            color: Colors.white,
-                          );
-                        },
-                      ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 72,
+                    width: 72,
+                    child: Image.asset(
+                      'assets/icons/icon.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.admin_panel_settings,
+                          size: 64,
+                          color: Colors.white,
+                        );
+                      },
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _conferenceName,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Admin Panel',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-          _buildNavItem(
-            context,
-            icon: Icons.home_outlined,
-            title: 'Home',
-            index: 0,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildNavItem(
+                  context,
+                  icon: Icons.home_outlined,
+                  title: 'Home',
+                  index: 0,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.calendar_month_outlined,
+                  title: 'Program',
+                  index: 1,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.notifications_active_outlined,
+                  title: 'Notifications',
+                  index: 2,
+                ),
+                _buildNavItem(
+                  context,
+                  icon: Icons.question_answer_outlined,
+                  title: 'Questions',
+                  index: 3,
+                ),
+              ],
+            ),
           ),
-          _buildNavItem(
-            context,
-            icon: Icons.calendar_month_outlined,
-            title: 'Program',
-            index: 1,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.notifications_active_outlined,
-            title: 'Notifications',
-            index: 2,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.question_answer_outlined,
-            title: 'Questions',
-            index: 3,
-          ),
-          const Divider(),
+          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.language, color: Color(0xFF0D7E52)),
             title: const Text(
@@ -140,7 +115,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
               Navigator.pop(context);
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -152,7 +127,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
     required String title,
     required int index,
   }) {
-    final isSelected = widget.selectedIndex == index;
+    final isSelected = selectedIndex == index;
     return ListTile(
       leading: Icon(
         icon,
@@ -167,7 +142,7 @@ class _AdminSidebarState extends State<AdminSidebar> {
       ),
       selected: isSelected,
       selectedTileColor: const Color(0xFF0D7E52).withValues(alpha: 0.1),
-      onTap: () => widget.onItemSelected(index),
+      onTap: () => onItemSelected(index),
     );
   }
 }
