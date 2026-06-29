@@ -120,6 +120,11 @@ export function ConferenceProvider({ children }) {
             name: storedConfig?.name || orgDetails.name || defaultConferenceConfig.name,
             themeColor: storedConfig?.themeColor || orgDetails.themeColor || defaultConferenceConfig.primaryColor,
             logoUrl: storedConfig?.logo || orgDetails.logo_url || defaultConferenceConfig.logoUrl,
+            startDate: storedConfig?.startDate || null,
+            endDate: storedConfig?.endDate || null,
+            sponsors: storedConfig?.sponsors || [],
+            stream_url: storedConfig?.stream_url || null,
+            settings: storedConfig?.settings || {},
           });
         }
       } catch (error) {

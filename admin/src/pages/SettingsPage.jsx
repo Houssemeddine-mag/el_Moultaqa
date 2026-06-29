@@ -12,6 +12,7 @@ const defaultConfig = {
   conferenceDescription: "",
   registrationMode: "public",
   registrationCode: "",
+  streamUrl: "",
 };
 
 export default function SettingsPage() {
@@ -41,6 +42,7 @@ export default function SettingsPage() {
             conferenceDescription: ev.description || defaultConfig.conferenceDescription,
             registrationMode: ev.settings?.registrationMode || "public",
             registrationCode: ev.settings?.registrationCode || "",
+            streamUrl: ev.settings?.stream_url || "",
           });
           if (loadedLogo.startsWith("data:image/")) {
             setLogoMode("upload");
@@ -82,6 +84,7 @@ export default function SettingsPage() {
         tagline: config.tagline,
         registrationMode: config.registrationMode,
         registrationCode: config.registrationCode,
+        stream_url: config.streamUrl.trim() || null,
       });
 
       setStatus("Conference settings saved successfully.");
@@ -205,6 +208,26 @@ export default function SettingsPage() {
             placeholder="Enter a brief description about your conference..."
             rows="4"
           />
+        </label>
+
+        <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.1)", margin: "2.5rem 0 1.5rem" }} />
+
+        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.25rem", color: "var(--brand-primary, #0d7e52)" }}>Live Stream</h2>
+        <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
+          Set the HLS stream URL that attendees will see in the Live tab. Leave blank to hide the player.
+        </p>
+
+        <label>
+          Stream URL (HLS / .m3u8)
+          <input
+            type="url"
+            value={config.streamUrl}
+            onChange={(e) => handleChange("streamUrl", e.target.value)}
+            placeholder="http://your-server/live/index.m3u8"
+          />
+          <small style={{ color: "rgba(255,255,255,0.45)", marginTop: "0.25rem", display: "block" }}>
+            Paste your HLS manifest URL. Supports rtmp re-streamed via nginx or any HLS-compatible CDN.
+          </small>
         </label>
 
         <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.1)", margin: "2.5rem 0 1.5rem" }} />

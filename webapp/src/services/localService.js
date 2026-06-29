@@ -167,6 +167,8 @@ export async function fetchConferenceConfig() {
           sponsors: ev.settings?.sponsors || [],
           collaborators: ev.settings?.collaborators || [],
           attendees: ev.settings?.attendees || [],
+          stream_url: ev.settings?.stream_url || ev.stream_url || null,
+          settings: ev.settings || {},
         };
       }
     } catch (e) {
