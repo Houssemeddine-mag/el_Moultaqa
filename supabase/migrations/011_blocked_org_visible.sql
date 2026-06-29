@@ -7,6 +7,9 @@
 -- of a generic "not found" error.
 -- ============================================================================
 
+-- Must drop first because the return type (OUT columns) is changing
+DROP FUNCTION IF EXISTS public.resolve_org_slug(TEXT);
+
 CREATE OR REPLACE FUNCTION public.resolve_org_slug(p_slug TEXT)
 RETURNS TABLE (
   organization_id UUID,
