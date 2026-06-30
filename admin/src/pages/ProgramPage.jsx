@@ -21,6 +21,7 @@ const Program = () => {
       affiliation: "",
       bio: "",
       image: "",
+      fileName: "",
     },
     keynoteDescription: "",
     keynoteHasConference: false,
@@ -197,7 +198,7 @@ const Program = () => {
         room: "",
         chairs: [],
         chairInput: "",
-        keynote: { name: "", affiliation: "", bio: "", image: "" },
+        keynote: { name: "", affiliation: "", bio: "", image: "", fileName: "" },
         keynoteDescription: "",
         keynoteHasConference: false,
         keynoteConference: { title: "", start: "", end: "" },
@@ -236,6 +237,7 @@ const Program = () => {
         affiliation: "",
         bio: "",
         image: "",
+        fileName: "",
       },
       keynoteDescription: session.keynoteDescription || "",
       keynoteHasConference:
@@ -537,33 +539,58 @@ const Program = () => {
               </div>
               <div className="form-group presenter-image-upload">
                 <label>Picture</label>
-                <label className="custom-file-label" htmlFor="keynoteImgInput">
-                  Choose Image
-                </label>
-                <input
-                  id="keynoteImgInput"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
+                <div className="file-upload-wrapper">
+                  <label className="custom-file-label" htmlFor="keynoteImgInput">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    {formData.keynote.image ? "Change Image" : "Choose Image"}
+                  </label>
+                  <input
+                    id="keynoteImgInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            keynote: { ...prev.keynote, image: reader.result, fileName: file.name },
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
+                {formData.keynote.image && (
+                  <div className="image-preview-area">
+                    <img
+                      src={formData.keynote.image}
+                      alt="Preview"
+                      className="presenter-image-preview"
+                    />
+                    <button
+                      type="button"
+                      className="image-remove-button"
+                      onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          keynote: { ...prev.keynote, image: reader.result },
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {formData.keynote.image && (
-                  <img
-                    src={formData.keynote.image}
-                    alt="Preview"
-                    className="presenter-image-preview"
-                  />
+                          keynote: { ...prev.keynote, image: "", fileName: "" },
+                        }))
+                      }
+                      title="Remove image"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -940,7 +967,7 @@ const Program = () => {
                   room: "",
                   chairs: [],
                   chairInput: "",
-                  keynote: { name: "", affiliation: "", bio: "", image: "" },
+                  keynote: { name: "", affiliation: "", bio: "", image: "", fileName: "" },
                   keynoteDescription: "",
                   keynoteHasConference: false,
                   keynoteConference: { title: "", start: "", end: "" },
