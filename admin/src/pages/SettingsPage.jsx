@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { RefreshCw, Clipboard, Save, Upload, Palette, Globe, Lock, Smartphone } from "lucide-react";
 import backend from "../backend.js";
 
@@ -16,6 +16,7 @@ const defaultConfig = {
 
 export default function SettingsPage() {
   const { orgSlug } = useParams();
+  const navigate = useNavigate();
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState("success");
@@ -385,8 +386,15 @@ export default function SettingsPage() {
               </div>
               <div className="feature-placeholder-text">
                 <strong>Conference Mobile App</strong>
-                <p>Generate a branded APK with your conference name, logo, and theme color. Available in the Applications page.</p>
+                <p>Generate a branded APK with your conference name, logo, and theme color.</p>
               </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => navigate(`/o/${orgSlug}/applications`)}
+              >
+                <Smartphone size={16} /> Create App
+              </button>
             </div>
           </div>
         </div>

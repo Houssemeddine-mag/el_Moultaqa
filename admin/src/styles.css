@@ -1680,12 +1680,16 @@ input {
 
 .feature-placeholder {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 18px;
   padding: 20px;
   background: var(--surface-strong);
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border);
+}
+
+.feature-placeholder .btn-primary {
+  flex-shrink: 0;
 }
 
 .feature-placeholder-icon {
