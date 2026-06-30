@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
-import { Users, ClipboardList, Hourglass, Calendar, Mic, Shield, MapPin, Building2 } from "lucide-react";
+import { Users, ClipboardList, Calendar, Mic, Shield, MapPin, Building2, Podcast, Handshake, HelpCircle, Bell } from "lucide-react";
 import backend from "../backend.js";
 
-const STAT_ICONS = [Users, ClipboardList, Hourglass, Calendar, Mic, Shield];
-
 function StatCard({ title, value, description, icon: Icon, index }) {
-  const UsedIcon = Icon || STAT_ICONS[index % STAT_ICONS.length];
   return (
     <div
       className="stat-card"
       style={{ animation: `fadeInUp 0.5s ease-out ${index * 0.08}s both` }}
     >
-      <div className="stat-icon"><UsedIcon size={22} /></div>
+      <div className="stat-icon"><Icon size={22} /></div>
       <h3>{title}</h3>
       <p className="stat-value">{value}</p>
       <p className="stat-subtitle">{description}</p>
@@ -143,6 +140,10 @@ const DashboardPage = () => {
   const [metrics, setMetrics] = useState(null);
   const [currentEvent, setCurrentEvent] = useState(null);
   const [presenters, setPresenters] = useState([]);
+  const [keynoteSpeakers, setKeynoteSpeakers] = useState([]);
+  const [sponsors, setSponsors] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -152,14 +153,22 @@ const DashboardPage = () => {
         setLoading(true);
         setError("");
         
-        const [dashboardMetrics, topPresenters, events] = await Promise.all([
+        const [dashboardMetrics, topPresenters, events, ks, sp, qs, notifs] = await Promise.all([
           backend.getDashboardMetrics(),
           backend.getTopPresenters(5),
           backend.getEvents(),
+          backend.getKeynoteSpeakers().catch(() => []),
+          backend.getSponsors().catch(() => []),
+          backend.getQuestions().catch(() => []),
+          backend.getNotifications().catch(() => []),
         ]);
 
         setMetrics(dashboardMetrics);
         setPresenters(topPresenters);
+        setKeynoteSpeakers(ks);
+        setSponsors(sp);
+        setQuestions(qs);
+        setNotifications(notifs);
         if (events && events.length > 0) {
           setCurrentEvent(events[0]);
         }
@@ -187,7 +196,7 @@ const DashboardPage = () => {
           </div>
         </div>
         <div className="grid-cards">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
@@ -223,12 +232,14 @@ const DashboardPage = () => {
 
   const metricCards = metrics
     ? [
-        { title: "Total Users", value: metrics.totalUsers, description: "Registered attendees and staff" },
-        { title: "Total Sessions", value: metrics.totalSessions, description: "All scheduled sessions" },
-        { title: "Upcoming Sessions", value: metrics.upcomingSessions, description: "Sessions yet to occur" },
-        { title: "Total Events", value: metrics.totalEvents, description: "Organized events" },
-        { title: "Speakers", value: metrics.usersByRole.speakers, description: "Registered speakers" },
-        { title: "Admins", value: metrics.usersByRole.admins, description: "Event administrators" },
+        { title: "Total Users", value: metrics.totalUsers, description: "Registered attendees and staff", icon: Users },
+        { title: "Speakers", value: metrics.usersByRole.speakers + keynoteSpeakers.length, description: "Speakers + keynotes", icon: Mic },
+        { title: "Keynote Speakers", value: keynoteSpeakers.length, description: "Invited keynote speakers", icon: Podcast },
+        { title: "Sessions", value: metrics.totalSessions, description: "Total program sessions", icon: ClipboardList },
+        { title: "Events", value: metrics.totalEvents, description: "Conference events organized", icon: Calendar },
+        { title: "Sponsors", value: sponsors.length, description: "Partner organizations", icon: Handshake },
+        { title: "Unanswered Q&A", value: questions.filter((q) => !q.isAnswered).length, description: "Questions needing a reply", icon: HelpCircle },
+        { title: "Notifications", value: notifications.length, description: "Broadcasts sent to attendees", icon: Bell },
       ]
     : [];
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Video, Plus, Trash2, ExternalLink, Tv, AlertCircle } from "lucide-react";
 import backend from "../backend.js";
-import ExportButton from "../Components/ExportButton.jsx";
 
 const EMPTY_FORM = { name: "", url: "" };
 
@@ -75,13 +74,6 @@ export default function StreamsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <ExportButton
-            data={streams.map((s) => ({
-              Name: s.name,
-              URL: s.url,
-            }))}
-            filename="streams"
-          />
           <button
             className="primary-button"
             onClick={() => setShowForm((v) => !v)}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Download, Database, RefreshCw, FileSpreadsheet, FileCode, Table,
-  Users, Calendar, Mic, Building2, Video, CalendarCheck, FileText, HelpCircle, Bell,
+  Users, CalendarRange, Podcast, Handshake, MonitorPlay, CalendarDays, Monitor, MessageSquareText, BellRing,
 } from "lucide-react";
 import backend from "../backend.js";
 import { downloadCSV, downloadJSON, downloadExcelHTML } from "../utils/exportUtils.js";
@@ -14,14 +14,14 @@ const FORMATS = [
 
 const SECTIONS = [
   { key: "users", label: "Users", icon: Users, desc: "Registered attendees with profiles, roles, and demographics" },
-  { key: "sessions", label: "Program Sessions", icon: Calendar, desc: "Conference schedule with dates, rooms, chairs, and keynote info" },
-  { key: "speakers", label: "Keynote Speakers", icon: Mic, desc: "Speaker profiles with bio, title, institution" },
-  { key: "sponsors", label: "Sponsors", icon: Building2, desc: "Sponsor list with website and display order" },
-  { key: "streams", label: "Live Streams", icon: Video, desc: "Configured live stream URLs" },
-  { key: "events", label: "Events", icon: CalendarCheck, desc: "Conference events with dates, location, and status" },
-  { key: "presentations", label: "Presentations", icon: FileText, desc: "All presentations with track, timing, and presenter info" },
-  { key: "questions", label: "Q&A Questions", icon: HelpCircle, desc: "Attendee-submitted questions with answer status" },
-  { key: "notifications", label: "Notifications", icon: Bell, desc: "Broadcast notifications sent to attendees" },
+  { key: "sessions", label: "Program Sessions", icon: CalendarRange, desc: "Conference schedule with dates, rooms, chairs, and keynote info" },
+  { key: "speakers", label: "Keynote Speakers", icon: Podcast, desc: "Speaker profiles with bio, title, institution" },
+  { key: "sponsors", label: "Sponsors", icon: Handshake, desc: "Sponsor list with website and display order" },
+  { key: "streams", label: "Live Streams", icon: MonitorPlay, desc: "Configured live stream URLs" },
+  { key: "events", label: "Events", icon: CalendarDays, desc: "Conference events with dates, location, and status" },
+  { key: "presentations", label: "Presentations", icon: Monitor, desc: "All presentations with track, timing, and presenter info" },
+  { key: "questions", label: "Q&A Questions", icon: MessageSquareText, desc: "Attendee-submitted questions with answer status" },
+  { key: "notifications", label: "Notifications", icon: BellRing, desc: "Broadcast notifications sent to attendees" },
 ];
 
 function FormatMenu({ onSelect, onClose }) {
@@ -273,17 +273,8 @@ export default function ExportAllPage() {
                   e.currentTarget.style.transform = "none";
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      width: 44, height: 44, borderRadius: 12,
-                      background: "linear-gradient(135deg, rgba(13,126,82,.1) 0%, rgba(31,182,154,.1) 100%)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <SectionIcon size={22} style={{ color: "var(--accent)" }} />
-                  </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+                  <SectionIcon size={26} style={{ color: "var(--accent)", flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: ".95rem", color: "var(--text)" }}>{section.label}</div>
                     <div style={{ fontSize: ".8rem", color: "var(--muted)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{section.desc}</div>

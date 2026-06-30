@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar, MapPin, Building2, X, Check, Edit3 } from "lucide-react";
 import backend from "../backend.js";
-import ExportButton from "../Components/ExportButton.jsx";
 
 const EMPTY_FORM = {
   title: "",
@@ -126,23 +125,10 @@ export default function EventManagerPage() {
           <p className="subtitle">Create and manage conference events</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <ExportButton
-            data={events.map((e) => ({
-              Title: e.title,
-              Description: e.description,
-              "Short Name": e.short_name,
-              "Start Date": e.start_date,
-              "End Date": e.end_date,
-              Location: e.location,
-              Venue: e.venue,
-              Status: e.status,
-            }))}
-            filename="events"
-          />
           <button
-            className="landing-cta"
+            className="primary-button"
             onClick={showForm ? closeForm : openCreateForm}
-            style={{ background: showForm ? "var(--surface-strong)" : "var(--accent)", border: showForm ? "1px solid var(--border)" : "none", color: showForm ? "var(--text)" : "#fff" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
           >
             {showForm ? <><X size={16} /> Cancel</> : "+ New Event"}
           </button>

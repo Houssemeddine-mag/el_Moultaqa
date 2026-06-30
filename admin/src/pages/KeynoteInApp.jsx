@@ -2,7 +2,6 @@
 import { Plus, Mic, User, Edit3, Trash2 } from "lucide-react";
 import backend from "../backend.js";
 import "../styles/keynote-speakers.css";
-import ExportButton from "../Components/ExportButton.jsx";
 
 const KeynoteInApp = () => {
   const [speakers, setSpeakers] = useState([]);
@@ -274,17 +273,6 @@ const KeynoteInApp = () => {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <ExportButton
-            data={speakers.map((s) => ({
-              Name: s.name,
-              Title: s.title,
-              Institution: s.company || s.institution,
-              Bio: s.bio,
-              Photo: s.photo || "",
-            }))}
-            filename="keynote-speakers"
-            variant="secondary"
-          />
           <button
             className="btn-primary"
             onClick={() => {

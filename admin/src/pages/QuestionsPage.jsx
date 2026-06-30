@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, Check } from "lucide-react";
 import backend from "../backend.js";
-import ExportButton from "../Components/ExportButton.jsx";
 
 export default function QuestionsPage() {
   const [questions, setQuestions] = useState([]);
@@ -64,15 +63,6 @@ export default function QuestionsPage() {
           <p className="subtitle">Questions submitted by attendees during sessions.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <ExportButton
-            data={questions.map((q) => ({
-              Author: q.authorName,
-              Message: q.message,
-              Answered: q.isAnswered ? "Yes" : "No",
-              "Created At": q.createdAt ? new Date(q.createdAt).toLocaleString() : "",
-            }))}
-            filename="questions"
-          />
           <button
             className="landing-cta"
             onClick={fetchQuestions}
