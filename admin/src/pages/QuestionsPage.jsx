@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, Check } from "lucide-react";
 import backend from "../backend.js";
+import ExportButton from "../Components/ExportButton.jsx";
 
 export default function QuestionsPage() {
   const [questions, setQuestions] = useState([]);
@@ -62,14 +63,25 @@ export default function QuestionsPage() {
           <h1>Live Questions</h1>
           <p className="subtitle">Questions submitted by attendees during sessions.</p>
         </div>
-        <button
-          className="landing-cta"
-          onClick={fetchQuestions}
-          disabled={loading}
-          style={{ background: "var(--surface-strong)", border: "1px solid var(--border)", color: "var(--text)" }}
-        >
-          {loading ? "Loading…" : <><RefreshCw size={16} /> Refresh</>}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <ExportButton
+            data={questions.map((q) => ({
+              Author: q.authorName,
+              Message: q.message,
+              Answered: q.isAnswered ? "Yes" : "No",
+              "Created At": q.createdAt ? new Date(q.createdAt).toLocaleString() : "",
+            }))}
+            filename="questions"
+          />
+          <button
+            className="landing-cta"
+            onClick={fetchQuestions}
+            disabled={loading}
+            style={{ background: "var(--surface-strong)", border: "1px solid var(--border)", color: "var(--text)" }}
+          >
+            {loading ? "Loading…" : <><RefreshCw size={16} /> Refresh</>}
+          </button>
+        </div>
       </div>
 
       {/* Stats strip */}

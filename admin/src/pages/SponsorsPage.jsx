@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Building2, Plus, User, Edit3, Trash2 } from "lucide-react";
 import backend from "../backend.js";
 import "../styles/keynote-speakers.css";
+import ExportButton from "../Components/ExportButton.jsx";
 
 const SponsorsPage = () => {
   const [sponsors, setSponsors] = useState([]);
@@ -134,15 +135,27 @@ const SponsorsPage = () => {
             Manage sponsor names and logos for the conference.
           </p>
         </div>
-        <button
-          className="btn-primary"
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-        >
-          <Plus size={18} /> Add New Sponsor
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <ExportButton
+            data={sponsors.map((s) => ({
+              Name: s.name,
+              Website: s.website,
+              Order: s.order,
+              "Has Logo": s.logoData ? "Yes" : "No",
+            }))}
+            filename="sponsors"
+            variant="secondary"
+          />
+          <button
+            className="btn-primary"
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+          >
+            <Plus size={18} /> Add New Sponsor
+          </button>
+        </div>
       </div>
 
       {loading ? (

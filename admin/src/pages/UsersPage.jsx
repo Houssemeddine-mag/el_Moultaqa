@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import backend from "../backend.js";
+import ExportButton from "../Components/ExportButton.jsx";
 
 const PIE_COLORS = [
   "#0d7e52", "#1fb69a", "#f59e0b", "#e74c3c", "#3498db",
@@ -206,6 +207,22 @@ const UsersPage = () => {
             View and manage registered users, profiles, and administrative roles.
           </p>
         </div>
+        <ExportButton
+          data={users.map((u) => ({
+            Name: u.displayName,
+            Email: u.email,
+            Role: u.role,
+            University: u.university,
+            "School Level": u.schoolLevel,
+            Gender: u.gender,
+            Country: u.country,
+            Province: u.province,
+            Phone: u.phone,
+            "Profile Complete": u.isProfileComplete ? "Yes" : "No",
+            "Created At": u.createdAt ? new Date(u.createdAt).toLocaleString() : "",
+          }))}
+          filename="users"
+        />
       </div>
 
       {error && (

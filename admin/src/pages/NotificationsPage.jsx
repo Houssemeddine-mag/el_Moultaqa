@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Pin } from "lucide-react";
 import backend from "../backend.js";
+import ExportButton from "../Components/ExportButton.jsx";
 
 // Notification type badge colours
 const TYPE_COLOURS = {
@@ -75,13 +76,25 @@ export default function NotificationsPage() {
           <h1>Notifications</h1>
           <p className="subtitle">Broadcast announcements to all attendees in real time.</p>
         </div>
-        <button
-          className="landing-cta"
-          onClick={() => setShowForm((v) => !v)}
-          style={{ background: "var(--accent)" }}
-        >
-          {showForm ? "Cancel" : "＋ New Notification"}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <ExportButton
+            data={notifications.map((n) => ({
+              Title: n.title,
+              Message: n.message,
+              Type: n.type,
+              "Is Pinned": n.isPinned ? "Yes" : "No",
+              "Created At": n.createdAt ? new Date(n.createdAt).toLocaleString() : "",
+            }))}
+            filename="notifications"
+          />
+          <button
+            className="landing-cta"
+            onClick={() => setShowForm((v) => !v)}
+            style={{ background: "var(--accent)" }}
+          >
+            {showForm ? "Cancel" : "＋ New Notification"}
+          </button>
+        </div>
       </div>
 
       {error && (

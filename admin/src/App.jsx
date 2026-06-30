@@ -14,6 +14,7 @@ import SponsorsPage from "./pages/SponsorsPage.jsx";
 import StreamsPage from "./pages/StreamsPage.jsx";
 import DiscoveryCardPage from "./pages/DiscoveryCardPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import ExportAllPage from "./pages/ExportAllPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 import { useAuth, useClerk, useOrganizationList, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { useClerkSupabase, resolveOrgSlug } from "@global/supabase";
@@ -33,6 +34,7 @@ function AdminLayout() {
   const [eventLogo, setEventLogo] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const [discoveryEnabled, setDiscoveryEnabled] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -88,6 +90,11 @@ function AdminLayout() {
             if (events && events.length > 0) {
               setEventLogo(events[0].cover_image_url || "");
             }
+          }).catch(() => {});
+
+          // Fetch discovery card status to gate sidebar link
+          backend.getDiscoveryCard(orgSlug).then((card) => {
+            setDiscoveryEnabled(card ? !!card.is_super_enabled : false);
           }).catch(() => {});
 
           // Apply theme color styling if configured
@@ -203,7 +210,7 @@ function AdminLayout() {
 
   return (
     <div className="app-container">
-      <Sidebar />
+      <Sidebar discoveryEnabled={discoveryEnabled} />
       <div className="content-wrapper shell-content">
         <Topbar orgDetails={orgDetails} eventLogo={eventLogo} />
         <ScrollToTop />
@@ -309,6 +316,7 @@ const App = () => {
           <Route path="discovery-card" element={<DiscoveryCardPage />} />
           <Route path="sponsors" element={<SponsorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="export" element={<ExportAllPage />} />
           <Route path="*" element={<ErrorPage />} />
         </Route>
         <Route path="*" element={<ErrorPage />} />

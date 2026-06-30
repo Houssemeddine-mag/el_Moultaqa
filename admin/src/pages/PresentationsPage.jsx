@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import backend from "../backend.js";
+import ExportButton from "../Components/ExportButton.jsx";
 
 const PresentationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -147,6 +148,21 @@ const PresentationsPage = () => {
             Browse presentations, sort by rating, and inspect session details.
           </p>
         </div>
+        <ExportButton
+          data={presentations.map((p) => ({
+            Title: p.title,
+            Presenter: p.presenter,
+            Affiliation: p.affiliation,
+            Track: p.track,
+            Date: p.programDate,
+            Start: p.start,
+            End: p.end,
+            Room: p.room,
+            Resume: p.resume,
+            Status: p.status,
+          }))}
+          filename="presentations"
+        />
       </div>
 
       <div className="controls-row">

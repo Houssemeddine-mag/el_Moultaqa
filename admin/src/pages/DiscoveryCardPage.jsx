@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { Save, Eye, EyeOff, Globe, ShieldAlert, ShieldCheck, AlertCircle } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Save, Eye, EyeOff, Globe, ShieldAlert, ShieldCheck, AlertCircle, ArrowLeft } from "lucide-react";
 import backend from "../backend.js";
 
 const CATEGORIES = [
@@ -12,6 +12,7 @@ const CATEGORIES = [
 
 export default function DiscoveryCardPage() {
   const { orgSlug } = useParams();
+  const navigate = useNavigate();
   const [card, setCard] = useState({
     title: "",
     description: "",
@@ -32,9 +33,17 @@ export default function DiscoveryCardPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [cardExists, setCardExists] = useState(false);
+
   useEffect(() => {
     loadCard();
   }, [orgSlug]);
+
+  useEffect(() => {
+    if (!loading && cardExists && !isSuperEnabled) {
+      navigate(`/c/${orgSlug}/admin/app/dashboard`, { replace: true });
+    }
+  }, [loading, cardExists, isSuperEnabled, orgSlug, navigate]);
 
   async function loadCard() {
     try {
@@ -42,6 +51,7 @@ export default function DiscoveryCardPage() {
       setError("");
       const data = await backend.getDiscoveryCard(orgSlug);
       if (data) {
+        setCardExists(true);
         setCard({
           title: data.title || "",
           description: data.description || "",

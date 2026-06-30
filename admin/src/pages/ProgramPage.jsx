@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "../styles/program.css";
 import "../styles/program-form-restore.css";
 import backend from "../backend.js";
+import ExportButton from "../Components/ExportButton.jsx";
 
 const Program = () => {
   const [sessions, setSessions] = useState([]);
@@ -965,7 +966,23 @@ const Program = () => {
       </div>
 
       <div className="sessions-section">
-        <h2>Conference Program</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Conference Program</h2>
+          <ExportButton
+            data={sessions.map((s) => ({
+              Type: s.type,
+              Title: s.title,
+              Date: s.date,
+              Start: s.start,
+              End: s.end,
+              Room: s.room,
+              Chairs: Array.isArray(s.chairs) ? s.chairs.join("; ") : s.chairs,
+              "Keynote Speaker": s.keynote?.name || "",
+              "Keynote Affiliation": s.keynote?.affiliation || "",
+            }))}
+            filename="program-sessions"
+          />
+        </div>
         <div className="sessions-table-container">
           {sessions.length === 0 ? (
             <div style={{ padding: 24, textAlign: "center", color: "#888" }}>
