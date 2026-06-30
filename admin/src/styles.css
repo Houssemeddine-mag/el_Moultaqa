@@ -1617,6 +1617,10 @@ input {
   cursor: pointer;
   transition: all 0.2s ease;
   background: #fff;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  width: 100%;
 }
 
 .option-card:hover {
@@ -1629,17 +1633,11 @@ input {
   box-shadow: 0 0 0 1px rgba(13, 126, 82, 0.15);
 }
 
-.option-card input[type="radio"] {
-  accent-color: var(--primary);
-  margin-top: 3px;
-  width: auto;
-  flex-shrink: 0;
-}
-
 .option-card strong {
   display: block;
   font-size: 0.9rem;
   margin-bottom: 3px;
+  font-weight: 700;
 }
 
 .option-card span {

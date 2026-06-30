@@ -284,34 +284,28 @@ export default function SettingsPage() {
             <div className="form-group">
               <label className="form-label">Registration mode</label>
               <div className="option-cards">
-                <label className={`option-card ${config.registrationMode === "public" ? "active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="registrationMode"
-                    value="public"
-                    checked={config.registrationMode === "public"}
-                    onChange={() => handleChange("registrationMode", "public")}
-                  />
+                <button
+                  type="button"
+                  className={`option-card ${config.registrationMode === "public" ? "active" : ""}`}
+                  onClick={() => handleChange("registrationMode", "public")}
+                >
                   <Globe size={20} />
                   <div>
                     <strong>Public</strong>
                     <span>Anyone with the link can register</span>
                   </div>
-                </label>
-                <label className={`option-card ${config.registrationMode === "private" ? "active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="registrationMode"
-                    value="private"
-                    checked={config.registrationMode === "private"}
-                    onChange={() => handleChange("registrationMode", "private")}
-                  />
+                </button>
+                <button
+                  type="button"
+                  className={`option-card ${config.registrationMode === "private" ? "active" : ""}`}
+                  onClick={() => handleChange("registrationMode", "private")}
+                >
                   <Lock size={20} />
                   <div>
                     <strong>Private</strong>
                     <span>Requires a registration code</span>
                   </div>
-                </label>
+                </button>
               </div>
             </div>
 
