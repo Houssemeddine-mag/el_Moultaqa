@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { RefreshCw, Clipboard, QrCode, Save, Image, Link, Upload, Palette, Globe, Lock, Tv, Smartphone } from "lucide-react";
+import { RefreshCw, Clipboard, Save, Upload, Palette, Globe, Lock, Smartphone } from "lucide-react";
 import backend from "../backend.js";
 
 const defaultConfig = {
@@ -12,7 +12,6 @@ const defaultConfig = {
   conferenceDescription: "",
   registrationMode: "public",
   registrationCode: "",
-  streamUrl: "",
 };
 
 export default function SettingsPage() {
@@ -21,7 +20,6 @@ export default function SettingsPage() {
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState("success");
   const [loading, setLoading] = useState(true);
-  const [logoMode, setLogoMode] = useState("url");
   const [logoPreview, setLogoPreview] = useState("");
   const [eventId, setEventId] = useState(null);
 
@@ -43,12 +41,8 @@ export default function SettingsPage() {
             conferenceDescription: ev.description || defaultConfig.conferenceDescription,
             registrationMode: ev.settings?.registrationMode || "public",
             registrationCode: ev.settings?.registrationCode || "",
-            streamUrl: ev.settings?.stream_url || "",
           });
-          if (loadedLogo.startsWith("data:image/")) {
-            setLogoMode("upload");
-            setLogoPreview(loadedLogo);
-          }
+          setLogoPreview(loadedLogo);
         } else {
           setStatus("No conference found. Create an event first.");
           setStatusType("error");
@@ -88,7 +82,6 @@ export default function SettingsPage() {
         tagline: config.tagline,
         registrationMode: config.registrationMode,
         registrationCode: config.registrationCode,
-        stream_url: config.streamUrl.trim() || null,
       });
 
       setStatus("Conference settings saved successfully.");
@@ -118,10 +111,7 @@ export default function SettingsPage() {
       <div className="page-header">
         <div>
           <h1>Settings</h1>
-          <p>Manage your conference branding, registration, and integrations.</p>
-        </div>
-        <div className="settings-theme-preview" style={{ background: config.themeColor }}>
-          {config.brandAcronym || "EM"}
+          <p>Manage your conference branding, registration, and attendee access.</p>
         </div>
       </div>
 
@@ -133,18 +123,19 @@ export default function SettingsPage() {
 
       <form className="settings-form" onSubmit={handleSave}>
 
-        {/* ====== Branding ====== */}
-        <div className="settings-section">
-          <div className="settings-section-header">
+        {/* ====== Branding & Identity ====== */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <div className="settings-card-accent" style={{ background: config.themeColor }} />
             <Palette size={20} />
             <div>
-              <h2>Branding</h2>
-              <p>Your conference identity — name, logo, and colors.</p>
+              <h2>Branding & Identity</h2>
+              <p>Your conference name, visual identity, and how it appears to attendees.</p>
             </div>
           </div>
 
-          <div className="settings-section-body">
-            <div className="form-row">
+          <div className="settings-card-body">
+            <div className="settings-grid">
               <div className="form-group">
                 <label className="form-label">Conference name</label>
                 <input
@@ -155,7 +146,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Brand acronym</label>
+                <label className="form-label">Acronym</label>
                 <input
                   type="text"
                   value={config.brandAcronym}
@@ -187,7 +178,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="form-row">
+            <div className="settings-grid">
               <div className="form-group">
                 <label className="form-label">Theme color</label>
                 <div className="color-picker-wrap">
@@ -206,37 +197,22 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Logo</label>
-                <div className="logo-upload-area">
-                  <div className="logo-mode-tabs">
-                    <button
-                      type="button"
-                      className={`logo-mode-tab ${logoMode === "url" ? "active" : ""}`}
-                      onClick={() => setLogoMode("url")}
-                    >
-                      <Link size={14} /> URL
-                    </button>
-                    <button
-                      type="button"
-                      className={`logo-mode-tab ${logoMode === "upload" ? "active" : ""}`}
-                      onClick={() => setLogoMode("upload")}
-                    >
-                      <Upload size={14} /> Upload
-                    </button>
+                <label className="form-label">Conference logo</label>
+                <div className="logo-input-row">
+                  <div className="logo-url-field">
+                    <input
+                      type="text"
+                      value={config.conferenceLogo}
+                      onChange={(e) => {
+                        handleChange("conferenceLogo", e.target.value);
+                        setLogoPreview(e.target.value);
+                      }}
+                      placeholder="https://example.com/logo.png"
+                    />
                   </div>
-                  {logoMode === "url" ? (
-                    <div className="logo-url-input">
-                      <Link size={16} className="input-icon" />
-                      <input
-                        type="text"
-                        value={config.conferenceLogo}
-                        onChange={(e) => handleChange("conferenceLogo", e.target.value)}
-                        placeholder="https://example.com/logo.png"
-                      />
-                    </div>
-                  ) : (
-                    <div className="logo-upload-input">
-                      <Upload size={16} className="input-icon" />
+                  <div className="logo-upload-field">
+                    <label className="logo-upload-btn">
+                      <Upload size={16} />
                       <input
                         type="file"
                         accept="image/*"
@@ -256,61 +232,58 @@ export default function SettingsPage() {
                           reader.readAsDataURL(file);
                         }}
                       />
-                    </div>
-                  )}
-                  {logoPreview && (
-                    <div className="logo-preview-area">
-                      <img src={logoPreview} alt="Logo preview" className="logo-preview" />
-                    </div>
+                    </label>
+                  </div>
+                </div>
+                {logoPreview && (
+                  <div className="logo-preview-bar">
+                    <img src={logoPreview} alt="Logo" className="logo-thumb" />
+                    {logoPreview !== config.conferenceLogo && (
+                      <span className="form-hint">Uploaded image</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="brand-preview">
+              <div className="brand-preview-header" style={{ background: config.themeColor }}>
+                <div className="brand-preview-logo">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="" />
+                  ) : (
+                    <span>{config.brandAcronym?.charAt(0) || "E"}</span>
                   )}
                 </div>
+                <div className="brand-preview-info">
+                  <span className="brand-preview-name">{config.conferenceName}</span>
+                  <span className="brand-preview-badge">{config.brandAcronym}</span>
+                </div>
+              </div>
+              <div className="brand-preview-body">
+                <span className="brand-preview-label">Brand preview</span>
+                <p className="brand-preview-tagline">{config.tagline || "Your tagline appears here"}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ====== Live Stream ====== */}
-        <div className="settings-section">
-          <div className="settings-section-header">
-            <Tv size={20} />
-            <div>
-              <h2>Live Stream</h2>
-              <p>Connect your HLS stream for attendees to watch live sessions.</p>
-            </div>
-          </div>
-
-          <div className="settings-section-body">
-            <div className="form-group">
-              <label className="form-label">Stream URL (HLS / .m3u8)</label>
-              <div className="input-with-icon">
-                <Globe size={16} className="input-icon" />
-                <input
-                  type="url"
-                  value={config.streamUrl}
-                  onChange={(e) => handleChange("streamUrl", e.target.value)}
-                  placeholder="http://your-server/live/index.m3u8"
-                />
-              </div>
-              <span className="form-hint">Leave blank to hide the live player. Supports any HLS-compatible CDN.</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ====== Registration ====== */}
-        <div className="settings-section">
-          <div className="settings-section-header">
+        {/* ====== Registration & Access ====== */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <div className="settings-card-accent" style={{ background: config.themeColor }} />
             <Lock size={20} />
             <div>
-              <h2>Registration</h2>
+              <h2>Registration & Access</h2>
               <p>Control how attendees sign up and access your conference.</p>
             </div>
           </div>
 
-          <div className="settings-section-body">
+          <div className="settings-card-body">
             <div className="form-group">
               <label className="form-label">Registration mode</label>
-              <div className="reg-mode-cards">
-                <label className={`reg-mode-card ${config.registrationMode === "public" ? "active" : ""}`}>
+              <div className="option-cards">
+                <label className={`option-card ${config.registrationMode === "public" ? "active" : ""}`}>
                   <input
                     type="radio"
                     name="registrationMode"
@@ -324,7 +297,7 @@ export default function SettingsPage() {
                     <span>Anyone with the link can register</span>
                   </div>
                 </label>
-                <label className={`reg-mode-card ${config.registrationMode === "private" ? "active" : ""}`}>
+                <label className={`option-card ${config.registrationMode === "private" ? "active" : ""}`}>
                   <input
                     type="radio"
                     name="registrationMode"
@@ -388,14 +361,6 @@ export default function SettingsPage() {
                 >
                   <Clipboard size={16} /> Copy
                 </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled
-                  title="Coming soon"
-                >
-                  <QrCode size={16} /> QR
-                </button>
               </div>
               <span className="form-hint">Share this link with your attendees to let them register.</span>
             </div>
@@ -403,8 +368,9 @@ export default function SettingsPage() {
         </div>
 
         {/* ====== Mobile App ====== */}
-        <div className="settings-section">
-          <div className="settings-section-header">
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <div className="settings-card-accent" style={{ background: config.themeColor }} />
             <Smartphone size={20} />
             <div>
               <h2>Mobile Application</h2>
@@ -412,26 +378,20 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="settings-section-body">
-            <div className="mobile-app-status">
-              <div className="mobile-app-icon">
-                <Smartphone size={32} />
+          <div className="settings-card-body">
+            <div className="feature-placeholder">
+              <div className="feature-placeholder-icon">
+                <Smartphone size={28} />
               </div>
-              <div>
+              <div className="feature-placeholder-text">
                 <strong>Conference Mobile App</strong>
-                <p>Generate a branded APK with your conference name, logo, and theme.</p>
+                <p>Generate a branded APK with your conference name, logo, and theme color. Available in the Applications page.</p>
               </div>
-            </div>
-            <div className="mobile-app-actions">
-              <button type="button" className="btn-primary" disabled>
-                <Smartphone size={16} /> Build Mobile App
-              </button>
-              <span className="form-hint">Available in the Applications page.</span>
             </div>
           </div>
         </div>
 
-        <div className="settings-footer">
+        <div className="settings-actions">
           <button type="submit" className="btn-primary btn-large">
             <Save size={18} /> Save Settings
           </button>
