@@ -105,7 +105,13 @@ function AppRoutes({
         <div className="nav-actions">
           {user ? (
             <>
-              <span className="nav-user-email">{user.email}</span>
+              {user.imageUrl ? (
+                <img className="nav-user-avatar-img" src={user.imageUrl} alt="" title={user.email} />
+              ) : (
+                <div className="nav-user-avatar" title={user.email}>
+                  {user.email.charAt(0).toUpperCase()}
+                </div>
+              )}
               <OrgButton />
               <button className="secondary-button" onClick={logoutAndHome}>
                 Sign out
@@ -119,7 +125,7 @@ function AppRoutes({
             </>
           ) : (
             <button className="landing-cta" onClick={() => navigate("/auth")}>
-              Sign in to create
+              Sign in
             </button>
           )}
         </div>
@@ -262,6 +268,7 @@ export default function App() {
     ? {
         email: clerkUser.primaryEmailAddress?.emailAddress,
         uid: clerkUser.id,
+        imageUrl: clerkUser.imageUrl,
       }
     : null;
 
