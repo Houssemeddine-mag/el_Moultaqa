@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { RefreshCw, Clipboard, QrCode } from "lucide-react";
+import { RefreshCw, Clipboard, QrCode, Save, Image, Link, Upload, Palette, Globe, Lock, Tv, Smartphone } from "lucide-react";
 import backend from "../backend.js";
 
 const defaultConfig = {
@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const { orgSlug } = useParams();
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState("");
+  const [statusType, setStatusType] = useState("success");
   const [loading, setLoading] = useState(true);
   const [logoMode, setLogoMode] = useState("url");
   const [logoPreview, setLogoPreview] = useState("");
@@ -50,10 +51,12 @@ export default function SettingsPage() {
           }
         } else {
           setStatus("No conference found. Create an event first.");
+          setStatusType("error");
         }
       } catch (err) {
         console.error("Failed to load conference settings:", err);
         setStatus("Failed to load settings.");
+        setStatusType("error");
       } finally {
         setLoading(false);
       }
@@ -69,6 +72,7 @@ export default function SettingsPage() {
     event.preventDefault();
     if (!eventId) {
       setStatus("No conference to save. Create an event first.");
+      setStatusType("error");
       return;
     }
     try {
@@ -88,9 +92,11 @@ export default function SettingsPage() {
       });
 
       setStatus("Conference settings saved successfully.");
+      setStatusType("success");
     } catch (error) {
       console.error(error);
       setStatus("Unable to save settings.");
+      setStatusType("error");
     }
   };
 
@@ -108,228 +114,328 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="page-card">
+    <div className="settings-page">
       <div className="page-header">
-        <h1>Conference settings</h1>
-        <p>Customize your conference theme, logo, and registration options.</p>
+        <div>
+          <h1>Settings</h1>
+          <p>Manage your conference branding, registration, and integrations.</p>
+        </div>
+        <div className="settings-theme-preview" style={{ background: config.themeColor }}>
+          {config.brandAcronym || "EM"}
+        </div>
       </div>
 
-      <form className="settings-form" onSubmit={handleSave}>
-        <label>
-          Conference name
-          <input
-            type="text"
-            value={config.conferenceName}
-            onChange={(e) =>
-              handleChange("conferenceName", e.target.value)
-            }
-          />
-        </label>
-
-        <label>
-          Brand acronym
-          <input
-            type="text"
-            value={config.brandAcronym}
-            onChange={(e) =>
-              handleChange("brandAcronym", e.target.value)
-            }
-          />
-        </label>
-
-        <label>
-          Theme color
-          <input
-            type="color"
-            value={config.themeColor}
-            onChange={(e) => handleChange("themeColor", e.target.value)}
-          />
-        </label>
-
-        <label>
-          Conference logo
-          <div className="logo-options">
-            <label className="logo-radio">
-              <input type="radio" name="logoMode" value="url"
-                checked={logoMode === "url"}
-                onChange={() => setLogoMode("url")} />
-              URL Link
-            </label>
-            <label className="logo-radio">
-              <input type="radio" name="logoMode" value="upload"
-                checked={logoMode === "upload"}
-                onChange={() => setLogoMode("upload")} />
-              Local Upload
-            </label>
-          </div>
-          {logoMode === "url" ? (
-            <input type="text" value={config.conferenceLogo}
-              onChange={(e) => handleChange("conferenceLogo", e.target.value)}
-              placeholder="https://.../logo.png" />
-          ) : (
-            <input type="file" accept="image/*" className="file-input"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (file.size > 2 * 1024 * 1024) {
-                  alert("Image too large (max 2MB)");
-                  e.target.value = "";
-                  return;
-                }
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setLogoPreview(reader.result);
-                  handleChange("conferenceLogo", reader.result);
-                };
-                reader.readAsDataURL(file);
-              }} />
-          )}
-          {logoPreview && (
-            <img src={logoPreview} alt="Logo preview" className="logo-preview" />
-          )}
-        </label>
-
-        <label>
-          Tagline
-          <input
-            type="text"
-            value={config.tagline}
-            onChange={(e) => handleChange("tagline", e.target.value)}
-          />
-        </label>
-
-        <label>
-          Conference description
-          <textarea
-            value={config.conferenceDescription}
-            onChange={(e) =>
-              handleChange("conferenceDescription", e.target.value)
-            }
-            placeholder="Enter a brief description about your conference..."
-            rows="4"
-          />
-        </label>
-
-        <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.1)", margin: "2.5rem 0 1.5rem" }} />
-
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.25rem", color: "var(--brand-primary, #0d7e52)" }}>Live Stream</h2>
-        <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-          Set the HLS stream URL that attendees will see in the Live tab. Leave blank to hide the player.
-        </p>
-
-        <label>
-          Stream URL (HLS / .m3u8)
-          <input
-            type="url"
-            value={config.streamUrl}
-            onChange={(e) => handleChange("streamUrl", e.target.value)}
-            placeholder="http://your-server/live/index.m3u8"
-          />
-          <small style={{ color: "rgba(255,255,255,0.45)", marginTop: "0.25rem", display: "block" }}>
-            Paste your HLS manifest URL. Supports rtmp re-streamed via nginx or any HLS-compatible CDN.
-          </small>
-        </label>
-
-        <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.1)", margin: "2.5rem 0 1.5rem" }} />
-
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.25rem", color: "var(--brand-primary, #0d7e52)" }}>Attendee Registration</h2>
-        <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-          Control how attendees register for your conference and get access to the webapp.
-        </p>
-
-        <div className="registration-mode-selector" style={{ marginBottom: "1.5rem" }}>
-          <span style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", fontSize: "0.9rem" }}>Registration Mode</span>
-          <div style={{ display: "flex", gap: "2rem" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
-              <input
-                type="radio"
-                name="registrationMode"
-                value="public"
-                checked={config.registrationMode === "public"}
-                onChange={() => handleChange("registrationMode", "public")}
-              />
-              Public (anyone with the link can join)
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
-              <input
-                type="radio"
-                name="registrationMode"
-                value="private"
-                checked={config.registrationMode === "private"}
-                onChange={() => handleChange("registrationMode", "private")}
-              />
-              Private (requires a registration code)
-            </label>
-          </div>
+      {status && (
+        <div className={`settings-status ${statusType === "error" ? "settings-status--error" : ""}`}>
+          {status}
         </div>
+      )}
 
-        {config.registrationMode === "private" && (
-          <label style={{ display: "block", marginBottom: "1.5rem" }}>
-            Registration Code
-            <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
+      <form className="settings-form" onSubmit={handleSave}>
+
+        {/* ====== Branding ====== */}
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <Palette size={20} />
+            <div>
+              <h2>Branding</h2>
+              <p>Your conference identity — name, logo, and colors.</p>
+            </div>
+          </div>
+
+          <div className="settings-section-body">
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Conference name</label>
+                <input
+                  type="text"
+                  value={config.conferenceName}
+                  onChange={(e) => handleChange("conferenceName", e.target.value)}
+                  placeholder="e.g. Algeria Tech Summit 2026"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Brand acronym</label>
+                <input
+                  type="text"
+                  value={config.brandAcronym}
+                  onChange={(e) => handleChange("brandAcronym", e.target.value)}
+                  placeholder="e.g. ATS"
+                  maxLength={6}
+                />
+                <span className="form-hint">Shown as a badge in the webapp header.</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Tagline</label>
               <input
                 type="text"
-                value={config.registrationCode}
-                onChange={(e) => handleChange("registrationCode", e.target.value)}
-                placeholder="e.g. XK7-M9Q"
-                style={{ flex: 1, textTransform: "uppercase" }}
+                value={config.tagline}
+                onChange={(e) => handleChange("tagline", e.target.value)}
+                placeholder="e.g. Where innovation meets opportunity"
               />
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "pointer", background: "rgba(255, 255, 255, 0.08)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.15)" }}
-                onClick={() => {
-                  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-                  const genPart = () => Array.from({ length: 3 }, () => characters[Math.floor(Math.random() * characters.length)]).join("");
-                  handleChange("registrationCode", `${genPart()}-${genPart()}`);
-                }}
-              >
-                <RefreshCw size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> Generate
-              </button>
             </div>
-            <small style={{ color: "rgba(255, 255, 255, 0.5)", marginTop: "0.25rem", display: "block" }}>
-              Attendees must enter this code manually after creating their account.
-            </small>
-          </label>
-        )}
 
-        <div style={{ marginBottom: "2rem" }}>
-          <span style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600", fontSize: "0.9rem" }}>Invite Link</span>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <input
-              type="text"
-              readOnly
-              value={inviteUrl}
-              style={{ flex: 1, background: "rgba(255, 255, 255, 0.05)", cursor: "default" }}
-            />
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "pointer", background: "rgba(255, 255, 255, 0.08)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.15)" }}
-              onClick={() => {
-                navigator.clipboard.writeText(inviteUrl);
-                alert("Invite link copied to clipboard!");
-              }}
-            >
-              <Clipboard size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> Copy Link
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled
-              title="QR code generation coming soon"
-              style={{ padding: "0 1.5rem", borderRadius: "8px", cursor: "not-allowed", opacity: 0.5, background: "rgba(255, 255, 255, 0.04)", color: "rgba(255, 255, 255, 0.3)", border: "1px solid rgba(255, 255, 255, 0.08)" }}
-            >
-              <QrCode size={16} style={{ verticalAlign: "middle", marginRight: 4 }} /> QR Code (soon)
-            </button>
+            <div className="form-group">
+              <label className="form-label">Description</label>
+              <textarea
+                value={config.conferenceDescription}
+                onChange={(e) => handleChange("conferenceDescription", e.target.value)}
+                placeholder="A short description of your conference..."
+                rows={3}
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Theme color</label>
+                <div className="color-picker-wrap">
+                  <input
+                    type="color"
+                    value={config.themeColor}
+                    onChange={(e) => handleChange("themeColor", e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    value={config.themeColor}
+                    onChange={(e) => handleChange("themeColor", e.target.value)}
+                    placeholder="#0d7e52"
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Logo</label>
+                <div className="logo-upload-area">
+                  <div className="logo-mode-tabs">
+                    <button
+                      type="button"
+                      className={`logo-mode-tab ${logoMode === "url" ? "active" : ""}`}
+                      onClick={() => setLogoMode("url")}
+                    >
+                      <Link size={14} /> URL
+                    </button>
+                    <button
+                      type="button"
+                      className={`logo-mode-tab ${logoMode === "upload" ? "active" : ""}`}
+                      onClick={() => setLogoMode("upload")}
+                    >
+                      <Upload size={14} /> Upload
+                    </button>
+                  </div>
+                  {logoMode === "url" ? (
+                    <div className="logo-url-input">
+                      <Link size={16} className="input-icon" />
+                      <input
+                        type="text"
+                        value={config.conferenceLogo}
+                        onChange={(e) => handleChange("conferenceLogo", e.target.value)}
+                        placeholder="https://example.com/logo.png"
+                      />
+                    </div>
+                  ) : (
+                    <div className="logo-upload-input">
+                      <Upload size={16} className="input-icon" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          if (file.size > 2 * 1024 * 1024) {
+                            alert("Image too large (max 2MB)");
+                            e.target.value = "";
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setLogoPreview(reader.result);
+                            handleChange("conferenceLogo", reader.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </div>
+                  )}
+                  {logoPreview && (
+                    <div className="logo-preview-area">
+                      <img src={logoPreview} alt="Logo preview" className="logo-preview" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <button type="submit" className="btn-primary">
-          Save settings
-        </button>
+        {/* ====== Live Stream ====== */}
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <Tv size={20} />
+            <div>
+              <h2>Live Stream</h2>
+              <p>Connect your HLS stream for attendees to watch live sessions.</p>
+            </div>
+          </div>
 
-        {status && <p className="settings-status">{status}</p>}
+          <div className="settings-section-body">
+            <div className="form-group">
+              <label className="form-label">Stream URL (HLS / .m3u8)</label>
+              <div className="input-with-icon">
+                <Globe size={16} className="input-icon" />
+                <input
+                  type="url"
+                  value={config.streamUrl}
+                  onChange={(e) => handleChange("streamUrl", e.target.value)}
+                  placeholder="http://your-server/live/index.m3u8"
+                />
+              </div>
+              <span className="form-hint">Leave blank to hide the live player. Supports any HLS-compatible CDN.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ====== Registration ====== */}
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <Lock size={20} />
+            <div>
+              <h2>Registration</h2>
+              <p>Control how attendees sign up and access your conference.</p>
+            </div>
+          </div>
+
+          <div className="settings-section-body">
+            <div className="form-group">
+              <label className="form-label">Registration mode</label>
+              <div className="reg-mode-cards">
+                <label className={`reg-mode-card ${config.registrationMode === "public" ? "active" : ""}`}>
+                  <input
+                    type="radio"
+                    name="registrationMode"
+                    value="public"
+                    checked={config.registrationMode === "public"}
+                    onChange={() => handleChange("registrationMode", "public")}
+                  />
+                  <Globe size={20} />
+                  <div>
+                    <strong>Public</strong>
+                    <span>Anyone with the link can register</span>
+                  </div>
+                </label>
+                <label className={`reg-mode-card ${config.registrationMode === "private" ? "active" : ""}`}>
+                  <input
+                    type="radio"
+                    name="registrationMode"
+                    value="private"
+                    checked={config.registrationMode === "private"}
+                    onChange={() => handleChange("registrationMode", "private")}
+                  />
+                  <Lock size={20} />
+                  <div>
+                    <strong>Private</strong>
+                    <span>Requires a registration code</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {config.registrationMode === "private" && (
+              <div className="form-group">
+                <label className="form-label">Registration code</label>
+                <div className="code-input-row">
+                  <input
+                    type="text"
+                    value={config.registrationCode}
+                    onChange={(e) => handleChange("registrationCode", e.target.value)}
+                    placeholder="e.g. XK7-M9Q"
+                    className="code-input"
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                      const genPart = () => Array.from({ length: 3 }, () => characters[Math.floor(Math.random() * characters.length)]).join("");
+                      handleChange("registrationCode", `${genPart()}-${genPart()}`);
+                    }}
+                  >
+                    <RefreshCw size={16} /> Generate
+                  </button>
+                </div>
+                <span className="form-hint">Attendees must enter this code after creating their account.</span>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Invite link</label>
+              <div className="invite-link-row">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteUrl}
+                  className="invite-link-input"
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteUrl);
+                    setStatus("Invite link copied!");
+                    setStatusType("success");
+                  }}
+                >
+                  <Clipboard size={16} /> Copy
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled
+                  title="Coming soon"
+                >
+                  <QrCode size={16} /> QR
+                </button>
+              </div>
+              <span className="form-hint">Share this link with your attendees to let them register.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ====== Mobile App ====== */}
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <Smartphone size={20} />
+            <div>
+              <h2>Mobile Application</h2>
+              <p>Your branded mobile app for attendees.</p>
+            </div>
+          </div>
+
+          <div className="settings-section-body">
+            <div className="mobile-app-status">
+              <div className="mobile-app-icon">
+                <Smartphone size={32} />
+              </div>
+              <div>
+                <strong>Conference Mobile App</strong>
+                <p>Generate a branded APK with your conference name, logo, and theme.</p>
+              </div>
+            </div>
+            <div className="mobile-app-actions">
+              <button type="button" className="btn-primary" disabled>
+                <Smartphone size={16} /> Build Mobile App
+              </button>
+              <span className="form-hint">Available in the Applications page.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-footer">
+          <button type="submit" className="btn-primary btn-large">
+            <Save size={18} /> Save Settings
+          </button>
+        </div>
       </form>
     </div>
   );
