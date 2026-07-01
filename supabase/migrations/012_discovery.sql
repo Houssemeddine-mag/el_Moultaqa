@@ -61,6 +61,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT
@@ -94,6 +95,7 @@ CREATE OR REPLACE FUNCTION public.list_discovery_categories()
 RETURNS TABLE (category TEXT)
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT DISTINCT de.category
@@ -124,6 +126,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT
@@ -260,29 +263,33 @@ $$;
 -- Publish the card (set is_org_published = true)
 CREATE OR REPLACE FUNCTION public.org_publish_discovery_card(p_org_slug TEXT)
 RETURNS BOOLEAN
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+BEGIN
   UPDATE public.discovery_events
   SET is_org_published = true, updated_at = now()
   WHERE org_slug = p_org_slug
     AND is_super_enabled = true
     AND is_super_blocked = false;
-  RETURN found;
+  RETURN FOUND;
+END;
 $$;
 
 -- Unpublish the card (set is_org_published = false)
 CREATE OR REPLACE FUNCTION public.org_unpublish_discovery_card(p_org_slug TEXT)
 RETURNS BOOLEAN
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+BEGIN
   UPDATE public.discovery_events
   SET is_org_published = false, updated_at = now()
   WHERE org_slug = p_org_slug;
-  RETURN found;
+  RETURN FOUND;
+END;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -379,6 +386,86 @@ BEGIN
   SET is_super_blocked = p_blocked, updated_at = now()
   WHERE org_slug = p_org_slug;
 
-  RETURN found;
+  RETURN FOUND;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 5. Update super_admin_list_orgs to include discovery status
+-- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.super_admin_list_orgs();
+
+CREATE OR REPLACE FUNCTION public.super_admin_list_orgs()
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  slug TEXT,
+  schema_name TEXT,
+  owner_clerk_id TEXT,
+  logo_url TEXT,
+  registration_mode TEXT,
+  plan_id UUID,
+  plan_name TEXT,
+  plan_display_name TEXT,
+  plan_status TEXT,
+  blocked_at TIMESTAMPTZ,
+  user_count BIGINT,
+  event_count BIGINT,
+  discovery_enabled BOOLEAN,
+  card_published BOOLEAN,
+  card_blocked BOOLEAN,
+  created_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_schema TEXT;
+  v_user_sql TEXT;
+  v_event_sql TEXT;
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: not a super admin';
+  END IF;
+
+  FOR id, name, slug, schema_name, owner_clerk_id, logo_url, registration_mode, plan_id, plan_name, plan_display_name, plan_status, blocked_at, discovery_enabled, card_published, card_blocked, created_at IN
+    SELECT
+      o.id, o.name, o.slug, o.schema_name, o.owner_clerk_id, o.logo_url,
+      o.registration_mode,
+      p.id, p.name, p.display_name, s.status,
+      o.blocked_at,
+      COALESCE(de.is_super_enabled, false),
+      COALESCE(de.is_org_published, false),
+      COALESCE(de.is_super_blocked, false),
+      o.created_at
+    FROM public.organizations o
+    LEFT JOIN public.discovery_events de ON de.org_slug = o.slug
+    LEFT JOIN LATERAL (
+      SELECT * FROM public.subscriptions
+      WHERE organization_id = o.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) s ON true
+    LEFT JOIN public.plans p ON p.id = s.plan_id
+    ORDER BY o.created_at DESC
+  LOOP
+    BEGIN
+      v_user_sql := format('SELECT COUNT(*) FROM %I.users', schema_name);
+      EXECUTE v_user_sql INTO user_count;
+    EXCEPTION WHEN OTHERS THEN
+      user_count := 0;
+    END;
+
+    BEGIN
+      v_event_sql := format('SELECT COUNT(*) FROM %I.events', schema_name);
+      EXECUTE v_event_sql INTO event_count;
+    EXCEPTION WHEN OTHERS THEN
+      event_count := 0;
+    END;
+
+    RETURN NEXT;
+  END LOOP;
 END;
 $$;

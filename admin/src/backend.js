@@ -513,21 +513,48 @@ const backend = {
   // =========================================================================
   // Organization Information
   // =========================================================================
-  // Retrieves org name and details from the orgDetails passed at init.
-  // This is set in App.jsx when resolveOrgSlug() succeeds.
-  
-  getOrgInfo() {
-    // Note: orgInfo is set by App.jsx via a callback after resolveOrgSlug()
-    // For now, return a placeholder. In production, we'll enhance this
-    // to optionally fetch from public.organizations if needed.
+  // Retrieves the current organization metadata from the shared
+  // public.organizations registry using the tenant-aware Supabase client.
+  async getOrgInfo() {
     if (!activeSupabase || !activeSchemaName) {
       return null;
     }
-    // Org details are already loaded in App.jsx and available in App state
-    // This function can be extended to fetch additional org metadata
-    return {
-      schemaName: activeSchemaName,
-    };
+
+    try {
+      const { data, error } = await activeSupabase
+        .from("organizations")
+        .select("id, clerk_org_id, name, slug, schema_name, logo_url, domain, owner_clerk_id, created_at, updated_at")
+        .eq("schema_name", activeSchemaName)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        return {
+          schemaName: activeSchemaName,
+        };
+      }
+
+      return {
+        id: data.id,
+        clerkOrgId: data.clerk_org_id,
+        name: data.name,
+        slug: data.slug,
+        schemaName: data.schema_name || activeSchemaName,
+        logoUrl: data.logo_url || "",
+        domain: data.domain || "",
+        ownerClerkId: data.owner_clerk_id || "",
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    } catch (e) {
+      console.error("[admin backend] getOrgInfo error:", e);
+      return {
+        schemaName: activeSchemaName,
+      };
+    }
   },
 
   // =========================================================================
