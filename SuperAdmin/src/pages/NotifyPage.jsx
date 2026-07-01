@@ -19,6 +19,7 @@ function EmailModal({ org, onClose, onSend }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (mode === "template" && template) {
@@ -33,7 +34,8 @@ function EmailModal({ org, onClose, onSend }) {
     setSending(true);
     try {
       await onSend({ to: org.adminEmail, subject: subject.trim(), body: body.trim() });
-      onClose();
+      setSent(true);
+      setTimeout(onClose, 1200);
     } catch (e) {
       alert("Failed to send: " + e.message);
     } finally {
@@ -102,12 +104,18 @@ function EmailModal({ org, onClose, onSend }) {
           </div>
         </div>
 
-        <div className="sa-modal-actions">
-          <button className="sa-btn sa-btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="sa-btn sa-btn-primary" onClick={handleSend} disabled={sending || !subject.trim() || !body.trim()}>
-            {sending ? "Sending..." : "Send Email"}
-          </button>
-        </div>
+        {sent ? (
+          <div style={{ padding: "16px 28px", background: "rgba(13,126,82,0.08)", color: "var(--primary)", fontWeight: 600, fontSize: ".9rem", textAlign: "center", borderTop: "1px solid var(--border)" }}>
+            Email sent successfully!
+          </div>
+        ) : (
+          <div className="sa-modal-actions">
+            <button className="sa-btn sa-btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="sa-btn sa-btn-primary" onClick={handleSend} disabled={sending || !subject.trim() || !body.trim()}>
+              {sending ? "Sending..." : "Send Email"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -171,9 +179,13 @@ export default function NotifyPage() {
   const handleSend = async ({ to, subject, body }) => {
     setSending(to);
     try {
-      await sa.supabase.functions.invoke("send-notification", {
+      const { data, error } = await sa.supabase.functions.invoke("send-notification", {
         body: { to, subject, body },
       });
+      if (error) throw error;
+      if (data?.provider === "none") {
+        window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
+      }
     } catch {
       window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
     } finally {
