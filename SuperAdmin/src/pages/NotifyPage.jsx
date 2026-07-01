@@ -157,18 +157,9 @@ export default function NotifyPage() {
       orgList.map(async (org) => {
         const schema = org.schema_name || org.slug;
         try {
-          let email = "";
-          if (org.owner_clerk_id && org.owner_clerk_id !== "super_admin") {
-            const users = await sa.orgQuery(schema, "users", { clerk_user_id: org.owner_clerk_id }, 1);
-            const owner = users && users.length > 0 ? users[0] : null;
-            email = owner?.email || "";
-          }
-          if (!email) {
-            const users = await sa.orgQuery(schema, "users", { role: "admin" }, 5);
-            const admin = users?.find((u) => u.email) || users?.[0];
-            email = admin?.email || "";
-          }
-          return { slug: org.slug, email, loading: false };
+          const users = await sa.orgQuery(schema, "users", { clerk_user_id: org.owner_clerk_id }, 1);
+          const owner = users && users.length > 0 ? users[0] : null;
+          return { slug: org.slug, email: owner?.email || "", loading: false };
         } catch {
           return { slug: org.slug, email: "", loading: false };
         }
