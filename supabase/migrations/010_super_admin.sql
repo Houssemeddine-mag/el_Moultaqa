@@ -66,6 +66,7 @@ RETURNS TABLE (
   plan_name TEXT,
   plan_display_name TEXT,
   plan_status TEXT,
+  plan_end_date TIMESTAMPTZ,
   blocked_at TIMESTAMPTZ,
   user_count BIGINT,
   event_count BIGINT,
@@ -85,11 +86,11 @@ BEGIN
     RAISE EXCEPTION 'Access denied: not a super admin';
   END IF;
 
-  FOR id, name, slug, schema_name, owner_clerk_id, logo_url, registration_mode, plan_id, plan_name, plan_display_name, plan_status, blocked_at, created_at IN
+  FOR id, name, slug, schema_name, owner_clerk_id, logo_url, registration_mode, plan_id, plan_name, plan_display_name, plan_status, plan_end_date, blocked_at, created_at IN
     SELECT
       o.id, o.name, o.slug, o.schema_name, o.owner_clerk_id, o.logo_url,
       o.registration_mode,
-      p.id, p.name, p.display_name, s.status,
+      p.id, p.name, p.display_name, s.status, s.current_period_end,
       o.blocked_at,
       o.created_at
     FROM public.organizations o

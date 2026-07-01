@@ -227,6 +227,7 @@ export default function NotifyPage() {
               <th>Admin Email</th>
               <th>Plan</th>
               <th>Status</th>
+              <th>Days Left</th>
               <th>Users</th>
               <th>Events</th>
               <th>Blocked</th>
@@ -250,6 +251,18 @@ export default function NotifyPage() {
                 </td>
                 <td>{org.plan_display_name || org.plan_name || "Free"}</td>
                 <td><StatusBadge status={org.plan_status || "active"} /></td>
+                <td>
+                  {(() => {
+                    if (!org.plan_end_date) return <span className="sa-muted">&mdash;</span>;
+                    const now = new Date();
+                    const end = new Date(org.plan_end_date);
+                    const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+                    if (days < 0) return <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Expired</span>;
+                    if (days <= 7) return <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>{days}d</span>;
+                    if (days <= 14) return <span className="sa-badge" style={{ background: "#d97706", color: "#fff" }}>{days}d</span>;
+                    return <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>{days}d</span>;
+                  })()}
+                </td>
                 <td>{org.user_count}</td>
                 <td>{org.event_count}</td>
                 <td>
