@@ -1,12 +1,11 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.14";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const SMTP_HOST = Deno.env.get("SMTP_HOST") || "";
+const SMTP_PORT = parseInt(Deno.env.get("SMTP_PORT") || "587");
+const SMTP_USER = Deno.env.get("SMTP_USER") || "";
+const SMTP_PASS = Deno.env.get("SMTP_PASS") || "";
+const SMTP_FROM_EMAIL = Deno.env.get("SMTP_FROM_EMAIL") || SMTP_USER;
+const SMTP_FROM_NAME = Deno.env.get("SMTP_FROM_NAME") || "ElMoultaqa Super Admin";
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -23,52 +22,31 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const emailData = {
-      from: "ElMoultaqa <notifications@elmoultaqa.com>",
-      to,
-      subject,
-      text: body,
-    };
-
-    if (RESEND_API_KEY) {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Resend API error: ${res.status} ${err}`);
-      }
-
-      await supabaseAdmin.from("notification_logs").insert({
-        recipient: to,
-        subject,
-        status: "sent",
-      });
-
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
       return new Response(
-        JSON.stringify({ success: true }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "SMTP not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables via `supabase secrets set`.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    await supabaseAdmin.from("notification_logs").insert({
-      recipient: to,
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: `"${SMTP_FROM_NAME}" <${SMTP_FROM_EMAIL}>`,
+      to,
       subject,
-      status: "logged",
-      body_preview: body.slice(0, 200),
+      text: body,
     });
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        note: "Email logged. Set RESEND_API_KEY to send emails.",
-      }),
+      JSON.stringify({ success: true }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

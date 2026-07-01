@@ -171,11 +171,11 @@ export default function NotifyPage() {
   const handleSend = async ({ to, subject, body }) => {
     setSending(to);
     try {
-      await sa.supabase.functions.invoke("send-notification", {
+      const { error } = await sa.supabase.functions.invoke("send-notification", {
         body: { to, subject, body },
       });
-    } catch {
-      window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
+      if (error) throw new Error(error.message || error);
+      return true;
     } finally {
       setSending(null);
     }
