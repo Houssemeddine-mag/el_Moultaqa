@@ -32,6 +32,12 @@ const icons = {
       <line x1="1" y1="10" x2="23" y2="10" />
     </svg>
   ),
+  Bell: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 01-3.46 0" />
+    </svg>
+  ),
 };
 
 const Sidebar = () => {

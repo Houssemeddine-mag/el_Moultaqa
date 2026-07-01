@@ -718,6 +718,15 @@ input:focus, textarea:focus, select:focus {
 .sa-btn-sm-outline-warn { background: transparent; border: 1px solid #d97706; color: #d97706; }
 .sa-btn-sm-outline-warn:hover { background: rgba(217,119,6,0.08); }
 
+/* ── Notify Page ── */
+.sa-notify-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sa-sidebar {
