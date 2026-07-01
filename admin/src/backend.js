@@ -821,6 +821,21 @@ const backend = {
     throw new Error("Supabase not initialized");
   },
 
+  async updateOrgBranding(slug, { name, logoUrl }) {
+    if (activeSupabase) {
+      const payload = {};
+      if (name !== undefined) payload.p_name = name;
+      if (logoUrl !== undefined) payload.p_logo_url = logoUrl;
+      const { error } = await activeSupabase.rpc("update_org_branding", {
+        p_slug: slug,
+        ...payload,
+      });
+      if (error) throw error;
+      return true;
+    }
+    throw new Error("Supabase not initialized");
+  },
+
   // =========================================================================
   // Live Streams Management (admin manages, attendees watch)
   // =========================================================================
