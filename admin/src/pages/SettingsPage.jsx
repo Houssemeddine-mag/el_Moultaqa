@@ -85,11 +85,6 @@ export default function SettingsPage() {
         registrationCode: config.registrationCode,
       });
 
-      await backend.updateOrgBranding(orgSlug, {
-        name: config.conferenceName,
-        logoUrl: config.conferenceLogo,
-      });
-
       setStatus("Conference settings saved successfully.");
       setStatusType("success");
     } catch (error) {

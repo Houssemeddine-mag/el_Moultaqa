@@ -19,7 +19,6 @@ function EmailModal({ org, onClose, onSend }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (mode === "template" && template) {
@@ -34,8 +33,7 @@ function EmailModal({ org, onClose, onSend }) {
     setSending(true);
     try {
       await onSend({ to: org.adminEmail, subject: subject.trim(), body: body.trim() });
-      setSent(true);
-      setTimeout(onClose, 1200);
+      onClose();
     } catch (e) {
       alert("Failed to send: " + e.message);
     } finally {
@@ -104,18 +102,12 @@ function EmailModal({ org, onClose, onSend }) {
           </div>
         </div>
 
-        {sent ? (
-          <div style={{ padding: "16px 28px", background: "rgba(13,126,82,0.08)", color: "var(--primary)", fontWeight: 600, fontSize: ".9rem", textAlign: "center", borderTop: "1px solid var(--border)" }}>
-            Email sent successfully!
-          </div>
-        ) : (
-          <div className="sa-modal-actions">
-            <button className="sa-btn sa-btn-ghost" onClick={onClose}>Cancel</button>
-            <button className="sa-btn sa-btn-primary" onClick={handleSend} disabled={sending || !subject.trim() || !body.trim()}>
-              {sending ? "Sending..." : "Send Email"}
-            </button>
-          </div>
-        )}
+        <div className="sa-modal-actions">
+          <button className="sa-btn sa-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="sa-btn sa-btn-primary" onClick={handleSend} disabled={sending || !subject.trim() || !body.trim()}>
+            {sending ? "Sending..." : "Send Email"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -157,9 +149,9 @@ export default function NotifyPage() {
       orgList.map(async (org) => {
         const schema = org.schema_name || org.slug;
         try {
-          const users = await sa.orgQuery(schema, "users", { clerk_user_id: org.owner_clerk_id }, 1);
-          const owner = users && users.length > 0 ? users[0] : null;
-          return { slug: org.slug, email: owner?.email || "", loading: false };
+          const users = await sa.orgQuery(schema, "users", { role: "admin" }, 1);
+          const admin = users && users.length > 0 ? users[0] : null;
+          return { slug: org.slug, email: admin?.email || "", loading: false };
         } catch {
           return { slug: org.slug, email: "", loading: false };
         }
@@ -179,13 +171,9 @@ export default function NotifyPage() {
   const handleSend = async ({ to, subject, body }) => {
     setSending(to);
     try {
-      const { data, error } = await sa.supabase.functions.invoke("send-notification", {
+      await sa.supabase.functions.invoke("send-notification", {
         body: { to, subject, body },
       });
-      if (error) throw error;
-      if (data?.provider === "none") {
-        window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
-      }
     } catch {
       window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
     } finally {
@@ -269,10 +257,7 @@ export default function NotifyPage() {
                     const now = new Date();
                     const end = new Date(org.plan_end_date);
                     const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-                    if (days < 0) return <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Expired</span>;
-                    if (days <= 7) return <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>{days}d</span>;
-                    if (days <= 14) return <span className="sa-badge" style={{ background: "#d97706", color: "#fff" }}>{days}d</span>;
-                    return <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>{days}d</span>;
+                    return days < 0 ? "Expired" : `${days} days`;
                   })()}
                 </td>
                 <td>{org.user_count}</td>
