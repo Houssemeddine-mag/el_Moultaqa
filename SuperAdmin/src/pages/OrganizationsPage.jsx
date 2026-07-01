@@ -82,6 +82,7 @@ export default function OrganizationsPage() {
   const navigate = useNavigate();
   const sa = useSuperAdmin();
   const [orgs, setOrgs] = useState([]);
+  const [ownerEmails, setOwnerEmails] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -92,11 +93,32 @@ export default function OrganizationsPage() {
       setLoading(true);
       const data = await sa.listOrganizations();
       setOrgs(data);
+      loadOwnerEmails(data);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadOwnerEmails(orgList) {
+    const results = await Promise.allSettled(
+      orgList.map(async (org) => {
+        const schema = org.schema_name || org.slug;
+        try {
+          const users = await sa.orgQuery(schema, "users", { clerk_user_id: org.owner_clerk_id }, 1);
+          const owner = users && users.length > 0 ? users[0] : null;
+          return { slug: org.slug, email: owner?.email || "" };
+        } catch {
+          return { slug: org.slug, email: "" };
+        }
+      })
+    );
+    const map = {};
+    results.forEach((r) => {
+      if (r.status === "fulfilled") map[r.value.slug] = r.value.email;
+    });
+    setOwnerEmails(map);
   }
 
   useEffect(() => { loadOrgs(); }, []);
@@ -156,6 +178,7 @@ export default function OrganizationsPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Owner Email</th>
               <th>Plan</th>
               <th>Status</th>
               <th>Blocked</th>
@@ -173,6 +196,7 @@ export default function OrganizationsPage() {
                   {org.blocked_at && <span className="sa-blocked-icon" title="Blocked">&#x1f512;</span>}
                   <strong>{org.name}</strong><br /><span className="sa-muted">{org.slug}</span>
                 </td>
+                <td className="sa-muted" style={{ fontSize: 13 }}>{ownerEmails[org.slug] || "..."}</td>
                 <td>{org.plan_name || "Free"}</td>
                 <td><StatusBadge status={org.plan_status || "active"} /></td>
                 <td>{org.blocked_at ? <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span> : <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>Active</span>}</td>
@@ -210,7 +234,7 @@ export default function OrganizationsPage() {
                 </td>
               </tr>
             ))}
-            {orgs.length === 0 && <tr><td colSpan="9" className="sa-empty">No organizations found</td></tr>}
+            {orgs.length === 0 && <tr><td colSpan="10" className="sa-empty">No organizations found</td></tr>}
           </tbody>
         </table>
       </div>
