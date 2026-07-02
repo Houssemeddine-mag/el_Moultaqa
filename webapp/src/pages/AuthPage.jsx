@@ -1,11 +1,3 @@
-// ============================================================================
-// AuthPage — Clerk-backed authentication (custom UI)
-// ============================================================================
-// Uses Clerk's useSignIn() and useSignUp() hooks to handle auth flows
-// while keeping your existing UI completely intact.
-// Adds registration gate for multi-tenancy.
-// ============================================================================
-
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSignIn, useSignUp, useClerk } from "@clerk/clerk-react";
@@ -33,21 +25,11 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Gated registration states
-  const [registrationStep, setRegistrationStep] = useState("auth"); // 'auth' | 'checking' | 'code_required' | 'registering' | 'done'
+  const [registrationStep, setRegistrationStep] = useState("auth");
   const [registrationCode, setRegistrationCode] = useState("");
-  const [orgPublicInfo, setOrgPublicInfo] = useState(null);
-  const [orgSchemaName, setOrgSchemaName] = useState(null);
-
-  const getOrgSlugFromPath = (path) => {
-    if (!path) return null;
-    const match = path.match(/^\/c\/([^\/]+)/);
-    return match ? match[1] : null;
-  };
 
   const redirectTo = location.state?.from?.pathname || `/c/${orgSlug || "demo"}/profile`;
 
-  // Check registration status when user is authenticated
   useEffect(() => {
     if (!user || !supabase || !orgSlug) {
       setRegistrationStep("auth");
@@ -66,14 +48,9 @@ export default function AuthPage() {
           throw new Error(`Conference '${orgSlug}' not found.`);
         }
         if (orgDetails.blocked) {
-          throw new Error(
-            "This conference has been suspended. Please renew your plan to restore access."
-          );
+          throw new Error("This conference has been suspended.");
         }
         if (!isSubscribed) return;
-
-        setOrgPublicInfo(publicInfo);
-        setOrgSchemaName(orgDetails.schema_name);
 
         const isMember = await checkUserMembership(supabase, orgDetails.schema_name, user.uid);
         if (!isSubscribed) return;
@@ -110,14 +87,9 @@ export default function AuthPage() {
 
     checkRegistration();
 
-    return () => {
-      isSubscribed = false;
-    };
+    return () => { isSubscribed = false; };
   }, [user, supabase, orgSlug, navigate, redirectTo]);
 
-  // ---------------------------------------------------------------------------
-  // Email/Password: Sign In or Create Account
-  // ---------------------------------------------------------------------------
   async function handleEmailAction() {
     setError("");
     setInfoMessage("");
@@ -126,7 +98,6 @@ export default function AuthPage() {
       setError("Please enter both email and password.");
       return;
     }
-
     if (!signInLoaded || !signUpLoaded) {
       setError("Authentication is still loading. Please wait.");
       return;
@@ -135,56 +106,39 @@ export default function AuthPage() {
     setLoading(true);
     try {
       if (isCreatingAccount) {
-        // --- Sign Up ---
         const result = await signUp.create({
           emailAddress: email,
           password: password,
         });
-
-        if (result.status === "complete") {
-          // Will be caught by user useEffect
-        } else {
-          // May need email verification — check Clerk dashboard settings
-          setInfoMessage(
-            "Account created! Please check your email to verify your address."
-          );
+        if (result.status !== "complete") {
+          setInfoMessage("Account created! Please check your email to verify your address.");
         }
       } else {
-        // --- Sign In ---
         const result = await signIn.create({
           identifier: email,
           password: password,
         });
-
-        if (result.status === "complete") {
-          // Will be caught by user useEffect
-        } else {
-          // Multi-factor or other verification step required
+        if (result.status !== "complete") {
           setInfoMessage("Please complete the verification step.");
         }
       }
     } catch (err) {
       console.error("[AuthPage]", err);
-      const clerkMessage =
+      setError(
         err?.errors?.[0]?.longMessage ||
         err?.errors?.[0]?.message ||
         err?.message ||
-        "Authentication failed.";
-      setError(clerkMessage);
+        "Authentication failed."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Social: Google OAuth
-  // ---------------------------------------------------------------------------
   async function handleGoogleSignIn() {
     setError("");
     setInfoMessage("");
-
     if (!signInLoaded) return;
-
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
@@ -197,15 +151,10 @@ export default function AuthPage() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Social: GitHub OAuth
-  // ---------------------------------------------------------------------------
   async function handleGithubSignIn() {
     setError("");
     setInfoMessage("");
-
     if (!signInLoaded) return;
-
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_github",
@@ -218,20 +167,14 @@ export default function AuthPage() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Password Reset
-  // ---------------------------------------------------------------------------
   async function handlePasswordReset() {
     setError("");
     setInfoMessage("");
-
     if (!email) {
       setError("Enter your email address to reset your password.");
       return;
     }
-
     if (!signInLoaded) return;
-
     setLoading(true);
     try {
       await signIn.create({
@@ -241,20 +184,17 @@ export default function AuthPage() {
       setInfoMessage("Password reset link sent to your email.");
     } catch (err) {
       console.error("[AuthPage] Password reset error:", err);
-      const clerkMessage =
+      setError(
         err?.errors?.[0]?.longMessage ||
         err?.errors?.[0]?.message ||
         err?.message ||
-        "Password reset failed.";
-      setError(clerkMessage);
+        "Password reset failed."
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Sign Out
-  // ---------------------------------------------------------------------------
   async function handleSignOut() {
     setError("");
     try {
@@ -266,16 +206,12 @@ export default function AuthPage() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Gated Access Join
-  // ---------------------------------------------------------------------------
   async function handleJoinWithCode() {
     setError("");
     if (!registrationCode.trim()) {
       setError("Please enter the registration code.");
       return;
     }
-
     setLoading(true);
     try {
       await registerAttendee(
@@ -296,266 +232,194 @@ export default function AuthPage() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Derived display values
-  // ---------------------------------------------------------------------------
   const conferenceConfig = useConferenceConfig();
-  const displayName =
-    user?.displayName || user?.email?.split("@")[0] || "Guest";
-  const userEmail = user?.email || "guest@elmoultaqa.com";
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "Guest";
+  const userEmail = user?.email || "";
 
-  let statusText = "Sign in with your email and password or use a social provider.";
+  const conferenceName = conferenceConfig.brand || "Conference";
+  const conferenceInitials = conferenceConfig.brandInitials || "CO";
+
+  let statusText = `Sign in to access ${conferenceName}`;
   if (user) {
-    if (registrationStep === "checking") {
-      statusText = "Checking your registration status...";
-    } else if (registrationStep === "registering") {
-      statusText = "Registering you for this conference...";
-    } else if (registrationStep === "code_required") {
-      statusText = "Registration code required.";
-    } else {
-      statusText = "Signed in and ready to access your conference data.";
-    }
+    if (registrationStep === "checking") statusText = "Checking your registration...";
+    else if (registrationStep === "registering") statusText = "Registering you...";
+    else if (registrationStep === "code_required") statusText = "Registration code required";
+    else statusText = "Signed in and ready";
   }
 
-  const profileFields = [
-    { label: "Email", value: userEmail },
-    { label: "Name", value: displayName },
-  ];
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="page-shell auth-page">
-      <div className="auth-grid">
-        <section className="auth-copy-panel">
-          <div className="auth-copy-logo">
-            <div className="auth-copy-mark" aria-hidden="true">
-              <span>{conferenceConfig.brandInitials}</span>
+      <div className="auth-container">
+        <div className="auth-brand">
+          {conferenceConfig.logoUrl ? (
+            <img src={conferenceConfig.logoUrl} alt="" className="auth-brand-logo" />
+          ) : (
+            <div className="auth-brand-fallback">
+              <span>{conferenceInitials}</span>
+            </div>
+          )}
+          <div className="auth-brand-divider" />
+          <h1>{conferenceName}</h1>
+          <p>{user ? "Manage your profile and access conference features." : "Sign in to access your schedule, live sessions, and more."}</p>
+        </div>
+
+        <div className="auth-form-panel">
+          <div className="auth-status">
+            <div>
+              <div className="auth-status-text">Status</div>
+              <h2>{statusText}</h2>
+            </div>
+            <div className={`auth-pill ${user ? "online" : "offline"}`}>
+              {user ? "Signed in" : "Signed out"}
             </div>
           </div>
-          <span>ElMoultaqa login</span>
-          <h1>Sign in to your conference account</h1>
-          <p>
-            Use your email and password or a social sign-in button to access
-            your conference profile, program, and live features.
-          </p>
-          <div className="auth-features">
-            <div>
-              <strong>Shared backend</strong>
-              <p>
-                Your user profile is synced across web and mobile via Supabase.
-              </p>
-            </div>
-            <div>
-              <strong>Secure sign-in</strong>
-              <p>
-                Authentication is managed by Clerk with enterprise-grade
-                security and session management.
-              </p>
-            </div>
-            <div>
-              <strong>Live profile sync</strong>
-              <p>
-                Any updates in the mobile app are reflected here when you sign
-                in with the same account.
-              </p>
-            </div>
-          </div>
-        </section>
 
-        <section className="auth-panel">
-          <div className="auth-card">
-            <div className="auth-status-row">
-              <div>
-                <span>Status</span>
-                <h2>{statusText}</h2>
-              </div>
-              <div className={`auth-pill ${user ? "online" : "offline"}`}>
-                {user ? "Signed in" : "Signed out"}
-              </div>
+          {error && <div className="auth-error">{error}</div>}
+          {infoMessage && <div className="auth-success">{infoMessage}</div>}
+
+          {(registrationStep === "checking" || registrationStep === "registering") && (
+            <div className="auth-spinner">
+              <div className="auth-spinner-ring" />
+              <p>{registrationStep === "checking" ? "Checking details..." : "Registering..."}</p>
             </div>
+          )}
 
-            {error && <div className="auth-error">{error}</div>}
-            {infoMessage && <div className="auth-info">{infoMessage}</div>}
-
-            {registrationStep === "checking" || registrationStep === "registering" ? (
-              <div className="auth-checking-state" style={{ padding: "2rem 0", textAlign: "center" }}>
-                <div className="spinner" style={{ margin: "0 auto 1rem", border: "4px solid #f3f3f3", borderTop: "4px solid #0d7e52", borderRadius: "50%", width: "40px", height: "40px", animation: "spin 1s linear infinite" }}></div>
-                <p>{registrationStep === "checking" ? "Checking details..." : "Registering..."}</p>
-                <style>{`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                `}</style>
+          {registrationStep === "code_required" && (
+            <>
+              <div className="auth-code-section">
+                <p>This conference is private. Enter the registration code you received to join.</p>
               </div>
-            ) : registrationStep === "code_required" ? (
-              <>
-                <div className="auth-form">
-                  <div style={{ marginBottom: "1.5rem", fontSize: "0.95rem", color: "#666" }}>
-                    This conference is private and requires a registration code to join. Please enter it below.
+              <div className="auth-form">
+                <label>
+                  Registration Code
+                  <input
+                    type="text"
+                    value={registrationCode}
+                    onChange={(e) => setRegistrationCode(e.target.value)}
+                    placeholder="e.g. XK7-M9Q"
+                    className="auth-input"
+                    style={{ textTransform: "uppercase" }}
+                  />
+                </label>
+              </div>
+              <div className="auth-actions" style={{ marginTop: 8 }}>
+                <button className="primary-button" type="button" onClick={handleJoinWithCode} disabled={loading}>
+                  Join Conference
+                </button>
+                <button className="secondary-button" type="button" onClick={handleSignOut}>
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
+
+          {!user && registrationStep === "auth" && (
+            <>
+              <div className="auth-form">
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="auth-input"
+                  />
+                </label>
+                <label>
+                  Password
+                  <div className="auth-password-wrapper">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="auth-input"
+                    />
+                    <button
+                      type="button"
+                      className="auth-toggle-password"
+                      onClick={() => setShowPassword((v) => !v)}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
                   </div>
-                  <label>
-                    Registration Code
-                    <input
-                      type="text"
-                      value={registrationCode}
-                      onChange={(event) => setRegistrationCode(event.target.value)}
-                      placeholder="e.g. XK7-M9Q"
-                      className="auth-input"
-                      style={{ textTransform: "uppercase" }}
-                    />
-                  </label>
-                </div>
-                <div className="auth-actions" style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={handleJoinWithCode}
-                    disabled={loading}
-                  >
-                    Join Conference
-                  </button>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={handleSignOut}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </>
-            ) : !user ? (
-              <>
-                <div className="auth-form">
-                  <label>
-                    Email
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="your@email.com"
-                      className="auth-input"
-                    />
-                  </label>
-                  <label>
-                    Password
-                    <div className="auth-password-wrapper">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder="Enter your password"
-                        className="auth-input"
-                      />
-                      <button
-                        type="button"
-                        className="auth-toggle-password"
-                        onClick={() => setShowPassword((value) => !value)}
-                      >
-                        {showPassword ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                  </label>
-                </div>
+                </label>
+              </div>
 
-                <div className="auth-actions">
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={handleEmailAction}
-                    disabled={loading}
-                  >
-                    {isCreatingAccount ? "Create account" : "Sign in"}
-                  </button>
-                </div>
-
-                <div className="auth-link-row">
-                  <button
-                    type="button"
-                    className={
-                      isCreatingAccount
-                        ? "auth-link-button active"
-                        : "auth-link-button"
-                    }
-                    onClick={() => setIsCreatingAccount(true)}
-                  >
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      !isCreatingAccount
-                        ? "auth-link-button active"
-                        : "auth-link-button"
-                    }
-                    onClick={() => setIsCreatingAccount(false)}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    className="auth-link-button"
-                    onClick={handlePasswordReset}
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-
-                <div className="auth-social-label">
-                  <span>Or sign in with</span>
-                </div>
-                <div className="auth-social-buttons">
-                  <button
-                    type="button"
-                    className="social-button google"
-                    onClick={handleGoogleSignIn}
-                    disabled={loading}
-                  >
-                    Continue with Google
-                  </button>
-                  <button
-                    type="button"
-                    className="social-button github"
-                    onClick={handleGithubSignIn}
-                    disabled={loading}
-                  >
-                    Continue with GitHub
-                  </button>
-                </div>
-              </>
-            ) : (
               <div className="auth-actions">
                 <button
-                  className="secondary-button"
+                  className="primary-button"
                   type="button"
-                  onClick={handleSignOut}
+                  onClick={handleEmailAction}
+                  disabled={loading}
                 >
+                  {isCreatingAccount ? "Create account" : "Sign in"}
+                </button>
+              </div>
+
+              <div className="auth-links">
+                <button
+                  type="button"
+                  className={`auth-link-btn ${isCreatingAccount ? "active" : ""}`}
+                  onClick={() => setIsCreatingAccount(true)}
+                >
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  className={`auth-link-btn ${!isCreatingAccount ? "active" : ""}`}
+                  onClick={() => setIsCreatingAccount(false)}
+                >
+                  Sign In
+                </button>
+                <button type="button" className="auth-link-btn" onClick={handlePasswordReset}>
+                  Forgot Password?
+                </button>
+              </div>
+
+              <div className="auth-divider">or continue with</div>
+
+              <div className="auth-social">
+                <button type="button" className="social-btn" onClick={handleGoogleSignIn} disabled={loading}>
+                  <svg className="social-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Continue with Google
+                </button>
+                <button type="button" className="social-btn" onClick={handleGithubSignIn} disabled={loading}>
+                  <svg className="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                  </svg>
+                  Continue with GitHub
+                </button>
+              </div>
+            </>
+          )}
+
+          {user && (
+            <>
+              <div className="auth-actions" style={{ marginBottom: 8 }}>
+                <button className="secondary-button" type="button" onClick={handleSignOut}>
                   Sign out
                 </button>
               </div>
-            )}
-
-            {user && (
-              <div className="auth-profile-grid">
-                {profileFields.map((field) => (
-                  <div key={field.label}>
-                    <span>{field.label}</span>
-                    <p>{field.value}</p>
-                  </div>
-                ))}
+              <div className="auth-profile">
+                <div>
+                  <span>Email</span>
+                  <p>{userEmail}</p>
+                </div>
+                <div>
+                  <span>Name</span>
+                  <p>{displayName}</p>
+                </div>
               </div>
-            )}
-
-            <div className="auth-meta">
-              <div>
-                <span>Display name</span>
-                <p>{displayName}</p>
-              </div>
-            </div>
-          </div>
-        </section>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

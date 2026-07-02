@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../style/ProfilePage.css";
 import { fetchUserProfile, updateUserProfile } from "../services/localService";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -84,6 +85,8 @@ function computeCompletion(profile) {
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const { signOut } = useClerk();
+  const { orgSlug } = useParams();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -157,6 +160,7 @@ export default function ProfilePage() {
   async function handleSignOut() {
     try {
       await signOut();
+      navigate(`/c/${orgSlug}/auth`, { replace: true });
     } catch (err) {
       console.error(err);
       setError("Sign out failed.");
@@ -497,6 +501,16 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="profile-extra-panel">
+              <div className="panel-title">
+                <span>Session</span>
+                <h2>Account</h2>
+              </div>
+              <button className="secondary-button" onClick={handleSignOut} style={{ width: "100%", padding: "14px", borderRadius: 14, fontWeight: 700, cursor: "pointer", border: "1px solid rgba(239,68,68,.3)", color: "#dc2626", background: "rgba(239,68,68,.06)", fontSize: ".9rem" }}>
+                Sign Out
+              </button>
             </section>
           </div>
         </div>
