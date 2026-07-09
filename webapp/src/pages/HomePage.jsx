@@ -309,39 +309,57 @@ export default function HomePage() {
         </div>
 
         <div className="download-qr-card">
-          <div className="qr-code">
-            <svg
-              viewBox="0 0 120 120"
-              role="img"
-              aria-labelledby="qrTitle"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect width="120" height="120" fill="#fff" />
-              <rect x="8" y="8" width="32" height="32" fill="#111" />
-              <rect x="80" y="8" width="32" height="32" fill="#111" />
-              <rect x="8" y="80" width="32" height="32" fill="#111" />
-              <rect x="44" y="8" width="8" height="8" fill="#111" />
-              <rect x="60" y="8" width="8" height="8" fill="#111" />
-              <rect x="8" y="44" width="8" height="8" fill="#111" />
-              <rect x="8" y="60" width="8" height="8" fill="#111" />
-              <rect x="44" y="44" width="8" height="8" fill="#111" />
-              <rect x="56" y="44" width="8" height="8" fill="#111" />
-              <rect x="76" y="44" width="8" height="8" fill="#111" />
-              <rect x="92" y="44" width="8" height="8" fill="#111" />
-              <rect x="44" y="60" width="8" height="8" fill="#111" />
-              <rect x="60" y="60" width="8" height="8" fill="#111" />
-              <rect x="76" y="60" width="8" height="8" fill="#111" />
-              <rect x="92" y="60" width="8" height="8" fill="#111" />
-              <rect x="44" y="76" width="8" height="8" fill="#111" />
-              <rect x="60" y="76" width="8" height="8" fill="#111" />
-              <rect x="76" y="76" width="8" height="8" fill="#111" />
-              <rect x="92" y="76" width="8" height="8" fill="#111" />
-            </svg>
-          </div>
-          <div className="qr-copy">
-            <strong>Scan to download</strong>
-            <span>Install the ElMoultaqa app for iOS and Android</span>
-          </div>
+          {conferenceConfig.mobileAppUrl ? (
+            <>
+              <div className="qr-code">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(conferenceConfig.mobileAppUrl)}`}
+                  alt="QR code to download the mobile app"
+                  style={{ width: 120, height: 120, background: "#fff", padding: 4, borderRadius: 8 }}
+                />
+              </div>
+              <div className="qr-copy">
+                <strong>Scan to download</strong>
+                <span>Install the branded APK on your Android device</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="qr-code">
+                <svg
+                  viewBox="0 0 120 120"
+                  role="img"
+                  aria-labelledby="qrTitle"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect width="120" height="120" fill="#fff" />
+                  <rect x="8" y="8" width="32" height="32" fill="#111" />
+                  <rect x="80" y="8" width="32" height="32" fill="#111" />
+                  <rect x="8" y="80" width="32" height="32" fill="#111" />
+                  <rect x="44" y="8" width="8" height="8" fill="#111" />
+                  <rect x="60" y="8" width="8" height="8" fill="#111" />
+                  <rect x="8" y="44" width="8" height="8" fill="#111" />
+                  <rect x="8" y="60" width="8" height="8" fill="#111" />
+                  <rect x="44" y="44" width="8" height="8" fill="#111" />
+                  <rect x="56" y="44" width="8" height="8" fill="#111" />
+                  <rect x="76" y="44" width="8" height="8" fill="#111" />
+                  <rect x="92" y="44" width="8" height="8" fill="#111" />
+                  <rect x="44" y="60" width="8" height="8" fill="#111" />
+                  <rect x="60" y="60" width="8" height="8" fill="#111" />
+                  <rect x="76" y="60" width="8" height="8" fill="#111" />
+                  <rect x="92" y="60" width="8" height="8" fill="#111" />
+                  <rect x="44" y="76" width="8" height="8" fill="#111" />
+                  <rect x="60" y="76" width="8" height="8" fill="#111" />
+                  <rect x="76" y="76" width="8" height="8" fill="#111" />
+                  <rect x="92" y="76" width="8" height="8" fill="#111" />
+                </svg>
+              </div>
+              <div className="qr-copy">
+                <strong>Scan to download</strong>
+                <span>Install the ElMoultaqa app for iOS and Android</span>
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

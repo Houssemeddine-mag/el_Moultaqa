@@ -27,7 +27,7 @@ class KeynoteSpeakersPage extends StatelessWidget {
   }
 
   Widget _buildSpeakerCard(Map<String, String> s, BuildContext context) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';
@@ -69,7 +69,7 @@ class KeynoteSpeakersPage extends StatelessWidget {
   }
 
   void _showBio(BuildContext context, Map<String, String> speaker) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';
@@ -116,7 +116,7 @@ class KeynoteSpeakersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';

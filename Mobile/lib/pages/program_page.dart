@@ -207,9 +207,9 @@ class _ProgramPageState extends State<ProgramPage>
                       color: _themeColor,
                     ),
                   ),
-                  Text(
+                   Text(
                     MobileConfig.conferenceDates,
-                    style: const TextStyle(color: Color(0xFF6B7280)),
+                    style: TextStyle(color: Color(0xFF6B7280)),
                   ),
                 ],
               ),

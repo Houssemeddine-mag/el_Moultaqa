@@ -151,7 +151,13 @@ export default function NotifyPage() {
         try {
           const users = await sa.orgQuery(schema, "users", { role: "admin" }, 1);
           const admin = users && users.length > 0 ? users[0] : null;
-          return { slug: org.slug, email: admin?.email || "", loading: false };
+          let email = admin?.email || "";
+          if (!email && org.owner_clerk_id) {
+            const ownerUsers = await sa.orgQuery(schema, "users", { clerk_user_id: org.owner_clerk_id }, 1);
+            const owner = ownerUsers && ownerUsers.length > 0 ? ownerUsers[0] : null;
+            email = owner?.email || "";
+          }
+          return { slug: org.slug, email, loading: false };
         } catch {
           return { slug: org.slug, email: "", loading: false };
         }

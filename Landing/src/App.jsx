@@ -469,6 +469,15 @@ export default function App() {
         slug: slug,
       });
 
+      // Sync admin email/name to the org schema
+      try {
+        await freshSupabase.rpc("sync_my_profile", {
+          p_email: clerkUser?.primaryEmailAddress?.emailAddress || "",
+          p_full_name: clerkUser?.fullName || "",
+        });
+      } catch (syncErr) {
+        console.warn("[Landing App] Failed to sync admin profile (non-fatal):", syncErr);
+      }
 
       setConference({ ...conference, id: conferenceId, slug: slug });
       return true;

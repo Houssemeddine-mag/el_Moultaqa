@@ -130,12 +130,13 @@ async function handleOrgCreated(payload: {
   }
 
   // Step 4: Insert the org creator as an admin in the org's users table
-  // We use raw SQL because the table is in a dynamic schema
+  // Email and full_name will be populated later by sync_my_profile
+  // (called from the Landing app after org creation)
   const { error: userError } = await supabaseAdmin.rpc("_internal_insert_org_user", {
     p_schema_name: schemaName,
     p_clerk_user_id: created_by,
-    p_email: "",       // Will be updated when user data is available
-    p_full_name: "",   // Will be updated when user data is available
+    p_email: "",
+    p_full_name: "",
     p_role: "admin",
   });
 

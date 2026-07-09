@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
+
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -9,175 +12,155 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _isRegister = false;
-
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _tryResolveOrg();
   }
 
-  void _submit() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (!_isRegister && email == 'admin' && password == 'admin') {
-      Navigator.of(context).pushReplacementNamed('/admin-notif');
-      return;
-    }
-
-    if (_formKey.currentState?.validate() ?? false) {
-      Navigator.of(context).pushReplacementNamed('/main');
-    }
+  Future<void> _tryResolveOrg() async {
+    try {
+      await SupabaseService.resolveOrg();
+      final config = await SupabaseService.getConferenceConfig();
+      MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    final themeColor = Color(int.parse(hex));
+    return ClerkAuthBuilder(
+      signedInBuilder: (context, authState) {
+        SupabaseService.tokenProvider = () async {
+          final clerkToken = await authState.sessionToken(templateName: 'supabase');
+          return clerkToken.toString();
+        };
+        return _OrgGate(authState: authState);
+      },
+      signedOutBuilder: (context, authState) {
+        return const ClerkAuthentication();
+      },
+    );
+  }
+}
 
+/// Checks that the signed-in user belongs to at least one organization.
+/// Routes to /main if they do, shows _NoOrgScreen if they don't.
+class _OrgGate extends StatefulWidget {
+  const _OrgGate({required this.authState});
+
+  final ClerkAuthState authState;
+
+  @override
+  State<_OrgGate> createState() => _OrgGateState();
+}
+
+class _OrgGateState extends State<_OrgGate> {
+  bool _checking = true;
+  bool _hasOrg = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMembership();
+  }
+
+  Future<void> _checkMembership() async {
+    // Try Clerk's organizationMemberships first (fast, local)
+    try {
+      final user = widget.authState.user;
+      if (user?.hasOrganizations == true) {
+        if (mounted) {
+          setState(() {
+            _hasOrg = true;
+            _checking = false;
+          });
+        }
+        _redirect();
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback: try resolving the org from saved slug
+    try {
+      await SupabaseService.resolveOrg();
+      if (SupabaseService.orgSlug != null && SupabaseService.orgSlug!.isNotEmpty) {
+        final config = await SupabaseService.getConferenceConfig();
+        MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+        if (mounted) {
+          setState(() {
+            _hasOrg = true;
+            _checking = false;
+          });
+        }
+        _redirect();
+        return;
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _hasOrg = false;
+        _checking = false;
+      });
+    }
+  }
+
+  void _redirect() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/main');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_hasOrg) {
+      return const _NoOrgScreen();
+    }
+
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _NoOrgScreen extends StatelessWidget {
+  const _NoOrgScreen();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FE),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.event, size: 64, color: themeColor),
-                const SizedBox(height: 20),
-                Text(
-                  _isRegister
-                      ? MobileConfig.authRegister
-                      : MobileConfig.authWelcome,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: themeColor,
-                  ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.group_off, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'No Conference Available',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  _isRegister
-                      ? 'Register to access your ${MobileConfig.appName} conference dashboard.'
-                      : 'Sign in to continue to your conference experience.',
-                  style: const TextStyle(color: Color(0xFF6B7280), height: 1.5),
-                ),
-                if (!_isRegister) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Admin access: admin / admin',
-                    style: TextStyle(
-                      color: themeColor.withValues(alpha: 0.85),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!_isRegister &&
-                                value.trim() == 'admin' &&
-                                _passwordController.text.trim() == 'admin') {
-                              return null;
-                            }
-                            if (!value.contains('@')) {
-                              return 'Enter a valid email';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 18),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (!_isRegister &&
-                                _emailController.text.trim() == 'admin' &&
-                                value.trim() == 'admin') {
-                              return null;
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: themeColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: Text(_isRegister ? 'Register' : 'Sign in'),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _isRegister = !_isRegister;
-                            });
-                          },
-                          child: Text(
-                            _isRegister
-                                ? 'Already have an account? Sign in'
-                                : 'Create a new account',
-                            style: TextStyle(color: themeColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your account is not associated with any conference. '
+                'Please contact the event organizer to get access.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
+              ),
+            ],
           ),
         ),
       ),

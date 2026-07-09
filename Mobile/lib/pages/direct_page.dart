@@ -12,7 +12,6 @@ class DirectPage extends StatefulWidget {
 
 class _DirectPageState extends State<DirectPage> {
   bool _isLive = false;
-  int _viewerCount = 0;
   final TextEditingController _questionController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   late Color themeColor;
@@ -54,7 +53,6 @@ class _DirectPageState extends State<DirectPage> {
     // Check if stream is currently live from config
     setState(() {
       _isLive = MobileConfig.liveStreamUrl.isNotEmpty;
-      _viewerCount = 0; // Start with 0 viewers
       _messages.clear(); // Start with empty chat
     });
   }
@@ -99,7 +97,7 @@ class _DirectPageState extends State<DirectPage> {
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';

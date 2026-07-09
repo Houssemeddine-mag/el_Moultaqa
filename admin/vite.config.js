@@ -17,6 +17,8 @@ export default defineConfig({
     alias: {
       "@logo": logoFile,
       "@global": globalDir,
+      "react": fileURLToPath(new URL("./node_modules/react", import.meta.url)),
+      "react-dom": fileURLToPath(new URL("./node_modules/react-dom", import.meta.url)),
       "@supabase/supabase-js": fileURLToPath(new URL("./node_modules/@supabase/supabase-js", import.meta.url)),
       "@clerk/clerk-react": fileURLToPath(new URL("./node_modules/@clerk/clerk-react", import.meta.url)),
     },

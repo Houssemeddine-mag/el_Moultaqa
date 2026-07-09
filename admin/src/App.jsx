@@ -15,6 +15,7 @@ import StreamsPage from "./pages/StreamsPage.jsx";
 import DiscoveryCardPage from "./pages/DiscoveryCardPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import ExportAllPage from "./pages/ExportAllPage.jsx";
+import ApplicationsPage from "./pages/ApplicationsPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 import { useAuth, useClerk, useOrganizationList, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { useClerkSupabase, resolveOrgSlug } from "@global/supabase";
@@ -317,6 +318,7 @@ const App = () => {
           <Route path="sponsors" element={<SponsorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="export" element={<ExportAllPage />} />
+          <Route path="applications" element={<ApplicationsPage />} />
           <Route path="*" element={<ErrorPage />} />
         </Route>
         <Route path="*" element={<ErrorPage />} />

@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:clerk_flutter/clerk_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'admin notif/admin_main_layout.dart';
 import 'admin notif/storage.dart';
@@ -12,31 +13,59 @@ import 'pages/live_page.dart';
 import 'pages/notification_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/program_page.dart';
-import 'pages/keynote_speakers_page.dart';
 import 'pages/settings_page.dart';
+import 'services/supabase_service.dart';
 import 'theme.dart';
 import 'widgets/notification_bell.dart';
 import 'widgets/sidebar.dart';
 
-void main() {
-  runApp(const ElMoultaqaMobileApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (_) {}
+
+  await SupabaseService.initialize();
+
+  try {
+    await SupabaseService.resolveOrg();
+    final config = await SupabaseService.getConferenceConfig();
+    MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+  } catch (_) {}
+
+  final publishableKey = () {
+    const env = String.fromEnvironment('CLERK_PUBLISHABLE_KEY');
+    if (env.isNotEmpty) return env;
+    try {
+      return dotenv.maybeGet('CLERK_PUBLISHABLE_KEY') ?? '';
+    } catch (_) {
+      return '';
+    }
+  }();
+
+  if (publishableKey.isEmpty) {
+    runApp(const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Text('CLERK_PUBLISHABLE_KEY not configured'),
+        ),
+      ),
+    ));
+    return;
+  }
+
+  runApp(
+    ClerkAuth(
+      config: ClerkAuthConfig(publishableKey: publishableKey),
+      child: const ElMoultaqaMobileApp(),
+    ),
+  );
 }
 
 class ElMoultaqaMobileApp extends StatelessWidget {
   const ElMoultaqaMobileApp({super.key});
-
-  Color _parseThemeColor() {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    return Color(int.parse(hex));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +83,6 @@ class ElMoultaqaMobileApp extends StatelessWidget {
   }
 }
 
-// Main Layout with navigation similar to RIF app
 class MainLayout extends StatefulWidget {
   final String userRole;
   const MainLayout({Key? key, required this.userRole}) : super(key: key);
@@ -66,14 +94,14 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  String _conferenceName = 'ElMoultaqa';
+  String _conferenceName = MobileConfig.appName;
   int _notificationCount = 0;
   Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadConferenceName();
+    _conferenceName = MobileConfig.appName;
     _refreshNotificationCount();
     _notificationTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -94,27 +122,6 @@ class _MainLayoutState extends State<MainLayout> {
         _notificationCount = notifications.length;
       });
     }
-  }
-
-  Future<void> _loadConferenceName() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final config = prefs.getString('elm_conference_config');
-      if (config != null) {
-        final nameMatch = RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(config);
-        if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
-          setState(() {
-            _conferenceName = nameMatch.group(1)!;
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      // Fallback to default
-    }
-    setState(() {
-      _conferenceName = 'ElMoultaqa';
-    });
   }
 
   String get _welcomeMessage {
@@ -207,7 +214,7 @@ class _MainLayoutState extends State<MainLayout> {
         false;
   }
 
-  Future<void> _confirmDisconnect() async {
+  Future<void> _confirmDisconnect(ClerkAuthState authState) async {
     final bool shouldDisconnect = await showDialog(
           context: context,
           barrierDismissible: false,
@@ -273,70 +280,85 @@ class _MainLayoutState extends State<MainLayout> {
         false;
 
     if (shouldDisconnect) {
-      Navigator.pushReplacementNamed(context, '/auth');
+      await authState.signOut();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/auth');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldExit = await _onWillPop();
-        if (shouldExit) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        key: _scaffoldKey,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF0D7E52)),
-            onPressed: () {
-              _scaffoldKey.currentState?.openDrawer();
-            },
-          ),
-          title: Text(
-            _welcomeMessage,
-            style: const TextStyle(
-              color: Color(0xFF0D7E52),
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: NotificationBell(
-                notificationCount: _notificationCount,
-                color: const Color(0xFF0D7E52),
+    return ClerkAuthBuilder(
+      signedInBuilder: (context, authState) {
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            final shouldExit = await _onWillPop();
+            if (shouldExit) {
+              Navigator.of(context).pop();
+            }
+          },
+          child: Scaffold(
+            key: _scaffoldKey,
+            appBar: AppBar(
+              elevation: 0,
+              backgroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(Icons.menu, color: Color(0xFF0D7E52)),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const NotificationPage(),
-                    ),
-                  );
+                  _scaffoldKey.currentState?.openDrawer();
                 },
               ),
+              title: Text(
+                _welcomeMessage,
+                style: const TextStyle(
+                  color: Color(0xFF0D7E52),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: NotificationBell(
+                    notificationCount: _notificationCount,
+                    color: const Color(0xFF0D7E52),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        drawer: Sidebar(
-          onItemSelected: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-            Navigator.pop(context);
-          },
-          selectedIndex: _selectedIndex,
-          onDisconnectRequested: _confirmDisconnect,
-        ),
-        body: _buildPage(_selectedIndex),
-      ),
+            drawer: Sidebar(
+              onItemSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+                Navigator.pop(context);
+              },
+              selectedIndex: _selectedIndex,
+              onDisconnectRequested: () => _confirmDisconnect(authState),
+            ),
+            body: _buildPage(_selectedIndex),
+          ),
+        );
+      },
+      signedOutBuilder: (context, authState) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/auth');
+          }
+        });
+        return const SizedBox.shrink();
+      },
     );
   }
 }

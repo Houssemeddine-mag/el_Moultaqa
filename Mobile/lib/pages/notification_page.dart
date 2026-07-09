@@ -40,7 +40,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';

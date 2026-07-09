@@ -206,7 +206,7 @@ BEGIN
     RAISE EXCEPTION 'No free plan found. Seed plans first.';
   END IF;
 
-  PERFORM public.provision_org_schema(p_slug, v_schema_name, p_name);
+  PERFORM public.provision_org_schema(v_schema_name);
 
   INSERT INTO public.organizations (clerk_org_id, name, slug, schema_name, owner_clerk_id)
   VALUES (v_schema_name, p_name, p_slug, v_schema_name, 'super_admin')

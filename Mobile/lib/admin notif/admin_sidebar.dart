@@ -59,7 +59,7 @@ class AdminSidebar extends StatelessWidget {
                   const Text(
                     'Admin Panel',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

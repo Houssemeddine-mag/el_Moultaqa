@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Parse theme color from config
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
+    String raw = MobileConfig.themeColor;
     String hex;
     if (raw.startsWith('#')) {
       hex = '0xff${raw.substring(1)}';

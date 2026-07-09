@@ -356,7 +356,7 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                     ),
                                     const SizedBox(height: 12),
                                     DropdownButtonFormField<String>(
-                                      value: (session['streamId'] ?? '').toString().isNotEmpty
+                                      initialValue: (session['streamId'] ?? '').toString().isNotEmpty
                                           ? (session['streamId'] ?? '').toString()
                                           : null,
                                       decoration: InputDecoration(

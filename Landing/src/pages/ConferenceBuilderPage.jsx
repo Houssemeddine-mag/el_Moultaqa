@@ -145,6 +145,14 @@ export default function ConferenceBuilderPage({
                     {adminUrl}/c/{slug}/admin
                   </a>
                 </div>
+
+                <div className="success-link-card">
+                  <h3>Mobile App</h3>
+                  <p>Build a branded Android APK for your attendees</p>
+                  <a href={`${adminUrl}/c/${slug}/admin/app/applications`} target="_blank" rel="noreferrer">
+                    {adminUrl}/c/{slug}/admin/app/applications
+                  </a>
+                </div>
               </div>
             );
           })()}

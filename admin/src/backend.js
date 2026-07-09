@@ -1161,6 +1161,48 @@ const backend = {
     }
     return { users: 0, events: 0, sessions: 0, speakers: 0, tickets: 0, notifications: 0, questions: 0 };
   },
+
+  // =========================================================================
+  // Mobile App Build Management
+  // =========================================================================
+  async getMobileBuildStatus(orgSlug) {
+    if (!activeSupabase) throw new Error("Supabase not initialized");
+    const { data, error } = await activeSupabase.rpc("get_mobile_build_status", {
+      p_org_slug: orgSlug,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async triggerMobileBuild(orgSlug) {
+    if (!activeSupabase) throw new Error("Supabase not initialized");
+    const { data, error } = await activeSupabase.functions.invoke(
+      "trigger-mobile-build",
+      { body: { org_slug: orgSlug } }
+    );
+    if (error) throw error;
+    if (data?.ok === false) throw new Error(data.error);
+    return data;
+  },
+
+  async restoreMobileBuild(orgSlug) {
+    if (!activeSupabase) throw new Error("Supabase not initialized");
+    const { data, error } = await activeSupabase.rpc("restore_mobile_build", {
+      p_org_slug: orgSlug,
+    });
+    if (error) throw error;
+    if (data?.ok === false) throw new Error(data.error);
+    return data;
+  },
+
+  async mobileConfigHash(name, logoUrl, themeColor) {
+    const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const jsonStr = `{"name": "${esc(name)}", "logo_url": "${esc(logoUrl)}", "theme_color": "${esc(themeColor)}"}`;
+    const encoded = new TextEncoder().encode(jsonStr);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  },
 };
 
 

@@ -101,7 +101,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.admin_panel_settings,
                   color: Colors.white,
                   size: 24,
@@ -114,14 +114,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   children: [
                     Text(
                       '${MobileConfig.appName} Admin',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    const Text(
+                    SizedBox(height: 2),
+                    Text(
                       'Manage your conference',
                       style: TextStyle(
                         fontSize: 13,
@@ -229,7 +229,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   ),
                   child: Text(
                     '$_notificationCount',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.red,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,

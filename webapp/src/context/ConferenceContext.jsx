@@ -120,6 +120,7 @@ export function ConferenceProvider({ children }) {
             name: storedConfig?.name || orgDetails.name || defaultConferenceConfig.name,
             themeColor: storedConfig?.themeColor || orgDetails.themeColor || defaultConferenceConfig.primaryColor,
             logoUrl: storedConfig?.logo || orgDetails.logo_url || defaultConferenceConfig.logoUrl,
+            mobileAppUrl: orgDetails.mobile_app_url || null,
             startDate: storedConfig?.startDate || null,
             endDate: storedConfig?.endDate || null,
             sponsors: storedConfig?.sponsors || [],

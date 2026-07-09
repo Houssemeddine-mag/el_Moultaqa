@@ -12,6 +12,10 @@ dependencies:
   shared_preferences: ^2.2.0
   image_picker: ^1.0.0
   webview_flutter: ^4.10.0
+  flutter_dotenv: ^5.2.1
+  flutter_secure_storage: ^9.2.4
+  supabase_flutter: ^2.8.3
+  clerk_flutter: ^0.0.16-beta
 
 dev_dependencies:
   flutter_test:

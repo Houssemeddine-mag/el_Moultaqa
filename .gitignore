@@ -38,3 +38,9 @@ coverage/
 
 # Debug
 .eslintcache
+
+# Keystore
+upload-keystore.jks
+
+# Session logs
+session-*.md
