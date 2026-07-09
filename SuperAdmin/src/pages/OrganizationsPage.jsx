@@ -159,6 +159,7 @@ export default function OrganizationsPage() {
               <th>Plan</th>
               <th>Status</th>
               <th>Blocked</th>
+              <th>Access</th>
               <th>Discovery</th>
               <th>Users</th>
               <th>Events</th>
@@ -176,6 +177,13 @@ export default function OrganizationsPage() {
                 <td>{org.plan_name || "Free"}</td>
                 <td><StatusBadge status={org.plan_status || "active"} /></td>
                 <td>{org.blocked_at ? <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span> : <span className="sa-badge" style={{ background: "#0d7e52", color: "#fff" }}>Active</span>}</td>
+                <td>
+                  {org.registration_mode === "private" ? (
+                    <span className="sa-badge" style={{ background: "#d97706", color: "#fff" }}>Private</span>
+                  ) : (
+                    <span className="sa-badge" style={{ background: "#2563eb", color: "#fff" }}>Public</span>
+                  )}
+                </td>
                 <td>
                   {org.discovery_enabled ? (
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -210,7 +218,7 @@ export default function OrganizationsPage() {
                 </td>
               </tr>
             ))}
-            {orgs.length === 0 && <tr><td colSpan="9" className="sa-empty">No organizations found</td></tr>}
+            {orgs.length === 0 && <tr><td colSpan="10" className="sa-empty">No organizations found</td></tr>}
           </tbody>
         </table>
       </div>

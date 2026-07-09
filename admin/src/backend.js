@@ -1082,6 +1082,8 @@ const backend = {
         p_location: card.location || null,
         p_logo_url: card.logo_url || null,
         p_pricing: card.pricing || "free",
+        p_official_website_url: card.official_website_url || null,
+        p_social_links: card.social_links || {},
       });
       if (error) throw error;
       return data;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Save, Eye, EyeOff, Globe, ShieldAlert, ShieldCheck, AlertCircle, ArrowLeft } from "lucide-react";
+import { Save, Eye, EyeOff, Globe, ShieldAlert, ShieldCheck, AlertCircle, ArrowLeft, MessageCircle, ExternalLink, Link2, Users, Camera } from "lucide-react";
 import backend from "../backend.js";
 
 const CATEGORIES = [
@@ -13,6 +13,13 @@ const CATEGORIES = [
 export default function DiscoveryCardPage() {
   const { orgSlug } = useParams();
   const navigate = useNavigate();
+  const SOCIAL_PLATFORMS = [
+    { key: "linkedin", label: "LinkedIn", icon: Link2, color: "#0a66c2" },
+    { key: "facebook", label: "Facebook", icon: Users, color: "#1877f2" },
+    { key: "instagram", label: "Instagram", icon: Camera, color: "#e4405f" },
+    { key: "whatsapp", label: "WhatsApp", icon: MessageCircle, color: "#25d366" },
+  ];
+
   const [card, setCard] = useState({
     title: "",
     description: "",
@@ -23,7 +30,9 @@ export default function DiscoveryCardPage() {
     location: "",
     logo_url: "",
     pricing: "free",
+    official_website_url: "",
   });
+  const [socialLinks, setSocialLinks] = useState({});
   const [isSuperEnabled, setIsSuperEnabled] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -62,7 +71,9 @@ export default function DiscoveryCardPage() {
           location: data.location || "",
           logo_url: data.logo_url || "",
           pricing: data.pricing || "free",
+          official_website_url: data.official_website_url || "",
         });
+        setSocialLinks(data.social_links || {});
         setIsSuperEnabled(!!data.is_super_enabled);
         setIsPublished(!!data.is_org_published);
         setIsBlocked(!!data.is_super_blocked);
@@ -79,17 +90,42 @@ export default function DiscoveryCardPage() {
     setCard((prev) => ({ ...prev, [field]: value }));
   }
 
+  function updateSoc(platformKey, field, value) {
+    setSocialLinks((prev) => ({
+      ...prev,
+      [platformKey]: { ...(prev[platformKey] || {}), [field]: value },
+    }));
+  }
+
+  function getSocialValue(platformKey, field) {
+    const soc = socialLinks[platformKey] || {};
+    return soc[field] || "";
+  }
+
   async function handleSave(e) {
     e.preventDefault();
     if (!card.title.trim()) {
       setError("Title is required.");
       return;
     }
+    if (!card.official_website_url.trim()) {
+      setError("Official Website URL is required.");
+      return;
+    }
+
+    for (const platform of SOCIAL_PLATFORMS) {
+      const soc = socialLinks[platform.key] || {};
+      if (soc.active && !soc.url?.trim()) {
+        setError(`${platform.label} is activated but no URL is provided. Please enter the URL or deactivate it.`);
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError("");
       setSuccess("");
-      await backend.saveDiscoveryCard(orgSlug, card);
+      await backend.saveDiscoveryCard(orgSlug, { ...card, social_links: socialLinks });
       setSuccess("Card saved! Publish it to make it visible on the discovery page.");
       await loadCard();
     } catch (err) {
@@ -231,6 +267,53 @@ export default function DiscoveryCardPage() {
             Logo URL
             <input type="url" value={card.logo_url} onChange={(e) => update("logo_url", e.target.value)} placeholder="https://.../logo.png" />
           </label>
+        </div>
+
+        <label>
+          Official Website URL *
+          <input type="url" value={card.official_website_url} onChange={(e) => update("official_website_url", e.target.value)} placeholder="https://conference-website.com" required />
+        </label>
+
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+          <h3 style={{ margin: "0 0 4px 0", fontSize: "1rem", fontWeight: 600 }}>Social Media Links</h3>
+          <p style={{ margin: "0 0 16px 0", fontSize: ".85rem", color: "#6b7280" }}>
+            Activate the platforms your conference uses and enter the corresponding URLs.
+            Activated fields are required.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {SOCIAL_PLATFORMS.map((platform) => {
+              const PlatformIcon = platform.icon;
+              const isActive = socialLinks[platform.key]?.active || false;
+              const urlValue = getSocialValue(platform.key, "url");
+              return (
+                <div key={platform.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", minWidth: 120, fontWeight: 500 }}>
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={(e) => updateSoc(platform.key, "active", e.target.checked)}
+                    />
+                    <PlatformIcon size={18} style={{ color: isActive ? platform.color : "#9ca3af" }} />
+                    {platform.label}
+                  </label>
+                  {isActive ? (
+                    <input
+                      type="url"
+                      value={urlValue}
+                      onChange={(e) => updateSoc(platform.key, "url", e.target.value)}
+                      placeholder={`https://${platform.key}.com/your-page`}
+                      required
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, color: "#9ca3af", fontSize: ".85rem", fontStyle: "italic" }}>
+                      Not activated
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <label>
