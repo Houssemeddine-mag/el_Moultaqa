@@ -248,49 +248,17 @@ jobs:
           echo "APK_NAME=${{ inputs.org_slug }}-${TIMESTAMP}.apk" >> $GITHUB_ENV
 
       # -----------------------------------------------------------------------
-      # 9. Upload APK to Supabase Storage (org-specific path, public)
+      # 9. Upload APK as a build artifact (download from Actions run page)
       # -----------------------------------------------------------------------
-      - name: Upload APK to Supabase Storage
-        id: storage_upload
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ORG_SLUG: ${{ inputs.org_slug }}
-          BUILD_NUM: ${{ steps.branding.outputs.build_number }}
-        run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            PREFIX="test-builds"
-            FILENAME="$PREFIX/${{ env.APK_NAME }}"
-          else
-            PREFIX="mobile-apps/$ORG_SLUG"
-            FILENAME="$PREFIX/app-${BUILD_NUM}.apk"
-          fi
-
-          curl -s -X POST "$SUPABASE_URL/storage/v1/object/$FILENAME" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary "@Mobile/build/app/outputs/flutter-apk/${{ env.APK_NAME }}"
-
-          STORAGE_URL="$SUPABASE_URL/storage/v1/object/public/$FILENAME"
-          echo "storage_url=$STORAGE_URL" >> $GITHUB_OUTPUT
-          echo "APK uploaded to $STORAGE_URL"
-
-      # -----------------------------------------------------------------------
-      # 9.5. Upload APK to GitHub Release (production only — backup/audit trail)
-      # -----------------------------------------------------------------------
-      - name: Upload APK to GitHub Release
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        uses: softprops/action-gh-release@v2
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: "mobile/${{ inputs.org_slug }}-${{ github.run_number }}"
-          name: "${{ steps.branding.outputs.app_name }} — Build ${{ github.run_number }}"
-          body: "Automated branded APK build for **${{ inputs.org_slug }}**."
-          files: "Mobile/build/app/outputs/flutter-apk/${{ env.APK_NAME }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ inputs.org_slug }}-apk
+          path: Mobile/build/app/outputs/flutter-apk/${{ env.APK_NAME }}
+          if-no-files-found: error
 
       # -----------------------------------------------------------------------
-      # 10. Report build result to Supabase (skip if dry_run)
+      # 10. Report build result to Supabase
       # -----------------------------------------------------------------------
       - name: Report build result to Supabase
         if: ${{ always() && github.event.inputs.dry_run != 'true' }}
@@ -298,18 +266,18 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ORG_SLUG: ${{ inputs.org_slug }}
-          STORAGE_URL: ${{ steps.storage_upload.outputs.storage_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BUILD_STATUS: ${{ job.status }}
         run: |
-          if [ "$BUILD_STATUS" = "success" ] && [ -n "$STORAGE_URL" ]; then
+          if [ "$BUILD_STATUS" = "success" ]; then
             curl -s --fail -X POST \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Content-Type: application/json" \
               "$SUPABASE_URL/rest/v1/rpc/set_mobile_build_result" \
-              -d "{\"p_org_slug\":\"$ORG_SLUG\",\"p_success\":true,\"p_app_url\":\"$STORAGE_URL\",\"p_error\":null}"
+              -d "{\"p_org_slug\":\"$ORG_SLUG\",\"p_success\":true,\"p_app_url\":\"$RUN_URL\",\"p_error\":null}"
           else
-            ERROR_MSG="Build $BUILD_STATUS. Check workflow run ${{ github.run_id }} for details."
+            ERROR_MSG="Build $BUILD_STATUS. Check $RUN_URL for details."
             curl -s --fail -X POST \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
