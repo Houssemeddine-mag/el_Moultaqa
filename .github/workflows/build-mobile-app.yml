@@ -198,6 +198,14 @@ jobs:
           channel: "stable"
 
       # -----------------------------------------------------------------------
+      # 6.5. Accept NDK license and install (avoids CI download corruption)
+      # -----------------------------------------------------------------------
+      - name: Install NDK 27
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973"
+
+      # -----------------------------------------------------------------------
       # 7. CI fast-fail — analyze before the real build
       # -----------------------------------------------------------------------
       - name: CI fast-fail — flutter analyze + test
