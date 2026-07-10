@@ -180,6 +180,12 @@ jobs:
           grep -o '^[^=]*' Mobile/.env
 
       # -----------------------------------------------------------------------
+      # 4.5. Set unique applicationId per org (side-by-side installs)
+      # -----------------------------------------------------------------------
+      - name: Set unique applicationId
+        run: echo "APP_ID=com.example.elmoultaqa.${{ inputs.org_slug }}" >> $GITHUB_ENV
+
+      # -----------------------------------------------------------------------
       # 5. Set up Java (required for Android builds)
       # -----------------------------------------------------------------------
       - name: Set up Java 17
@@ -226,7 +232,7 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Build release APK
         working-directory: Mobile
-        run: flutter build apk --release --no-shrink --build-number=${{ steps.branding.outputs.build_number }}
+        run: flutter build apk --release --no-shrink --build-number=${{ steps.branding.outputs.build_number }} -PappId=${{ env.APP_ID }}
         env:
           ANDROID_KEYSTORE_PATH: app/upload-keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
