@@ -29,9 +29,6 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return ClerkAuthBuilder(
-      loadingBuilder: (context) => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
       signedInBuilder: (context, authState) {
         SupabaseService.tokenProvider = () async {
           final clerkToken = await authState.sessionToken(templateName: 'supabase');
