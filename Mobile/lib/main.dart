@@ -64,8 +64,8 @@ void main() async {
     ClerkAuth(
       config: ClerkAuthConfig(
         publishableKey: publishableKey,
-        loading: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+        loading: const Center(
+          child: CircularProgressIndicator(),
         ),
       ),
       child: const ElMoultaqaMobileApp(),
@@ -352,6 +352,12 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return ClerkAuthBuilder(
+      signingInBuilder: (context, authState) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      signingUpBuilder: (context, authState) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
       signedInBuilder: (context, authState) {
         return PopScope(
           canPop: true,
@@ -421,6 +427,9 @@ class _MainLayoutState extends State<MainLayout> {
         });
         return const SizedBox.shrink();
       },
+      builder: (context, authState) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
     );
   }
 }
