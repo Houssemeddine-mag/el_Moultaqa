@@ -26,7 +26,9 @@ void main() async {
     await dotenv.load(fileName: ".env");
   } catch (_) {}
 
-  await SupabaseService.initialize();
+  try {
+    await SupabaseService.initialize();
+  } catch (_) {}
 
   try {
     await SupabaseService.resolveOrg();
