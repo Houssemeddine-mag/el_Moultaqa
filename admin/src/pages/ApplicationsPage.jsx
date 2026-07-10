@@ -37,7 +37,7 @@ export default function ApplicationsPage() {
   const { orgSlug } = useParams();
 
   const [buildStatus, setBuildStatus] = useState(null); // raw DB object
-  const [currentBranding, setCurrentBranding] = useState(null);
+  const [_currentBranding, setCurrentBranding] = useState(null);
   const [brandingChanged, setBrandingChanged] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -45,7 +45,6 @@ export default function ApplicationsPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const realtimeRef = useRef(null);
   const buildingRef = useRef(false);
 
   // Load current build status + check for branding drift
@@ -96,9 +95,7 @@ export default function ApplicationsPage() {
     loadStatus();
 
     // Supabase Realtime subscription on the organizations row
-    const channel = backend.activeSupabase
-      ? null // will set below
-      : null;
+    // (subscription setup placeholder)
 
     // We access activeSupabase via a small workaround — the backend exposes
     // supabaseClient through the initialized instance

@@ -867,7 +867,7 @@ const backend = {
     try {
       const raw = localStorage.getItem("elm_admin_streams");
       return raw ? JSON.parse(raw) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -1120,7 +1120,7 @@ const backend = {
   async getDatabaseStats() {
     if (activeSupabase && activeSchemaName) {
       try {
-        const [users, events, sessions, speakers, tickets, notifications, questions] =
+        const [_users, _events, _sessions, _speakers, _tickets, _notifications, _questions] =
           await Promise.all([
             queryOrgTable(activeSupabase, activeSchemaName, "users", { limit: 1 }),
             queryOrgTable(activeSupabase, activeSchemaName, "events", { limit: 1 }),
@@ -1156,8 +1156,7 @@ const backend = {
           notifications: notifsAll.length,
           questions: questionsAll.length,
         };
-      } catch (e) {
-        console.error("[admin backend] getDatabaseStats error:", e);
+      } catch {
         return { users: 0, events: 0, sessions: 0, speakers: 0, tickets: 0, notifications: 0, questions: 0 };
       }
     }

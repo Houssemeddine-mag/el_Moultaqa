@@ -24,7 +24,7 @@ function DonutChart({ data, size = 220, thickness = 36 }) {
   const circumference = 2 * Math.PI * r;
 
   let offset = 0;
-  const segments = data.map((d, i) => {
+  const segments = data.map((d, _i) => {
     const fraction = d.value / total;
     const length = fraction * circumference;
     const seg = { ...d, length, offset, fraction };
