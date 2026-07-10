@@ -82,6 +82,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 3. Update org_get_discovery_card to return new columns
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.org_get_discovery_card(TEXT);
 CREATE OR REPLACE FUNCTION public.org_get_discovery_card(p_org_slug TEXT)
 RETURNS TABLE (
   id UUID,
@@ -132,6 +133,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 4. Update get_discovery_event to return new columns
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_discovery_event(TEXT);
 CREATE OR REPLACE FUNCTION public.get_discovery_event(p_slug TEXT)
 RETURNS TABLE (
   id UUID,
@@ -184,6 +186,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 5. Update list_discovery_events to return new columns
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.list_discovery_events();
 CREATE OR REPLACE FUNCTION public.list_discovery_events()
 RETURNS TABLE (
   id UUID,
