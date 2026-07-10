@@ -24,17 +24,26 @@ void main() async {
 
   try {
     await dotenv.load(fileName: ".env");
-  } catch (_) {}
+  } catch (e) {
+    runApp(ErrorScreen(message: '[Step 1] Failed to load .env file.\n\n$e'));
+    return;
+  }
 
   try {
     await SupabaseService.initialize();
-  } catch (_) {}
+  } catch (e) {
+    runApp(ErrorScreen(message: '[Step 2] Supabase initialization failed.\n\n$e'));
+    return;
+  }
 
   try {
     await SupabaseService.resolveOrg();
     final config = await SupabaseService.getConferenceConfig();
     MobileConfig.loadFromService(SupabaseService.orgDetails, config);
-  } catch (_) {}
+  } catch (e) {
+    // Non-fatal — app works with defaults
+    print('[main] Org resolve skipped (non-fatal): $e');
+  }
 
   final publishableKey = () {
     const env = String.fromEnvironment('CLERK_PUBLISHABLE_KEY');
@@ -47,14 +56,7 @@ void main() async {
   }();
 
   if (publishableKey.isEmpty) {
-    runApp(const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Text('CLERK_PUBLISHABLE_KEY not configured'),
-        ),
-      ),
-    ));
+    runApp(ErrorScreen(message: '[Step 4] CLERK_PUBLISHABLE_KEY not found.\n\nChecked --dart-define and .env file.'));
     return;
   }
 
@@ -64,6 +66,59 @@ void main() async {
       child: const ElMoultaqaMobileApp(),
     ),
   );
+}
+
+class ErrorScreen extends StatelessWidget {
+  final String message;
+  const ErrorScreen({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Color(0xFFE94560)),
+                const SizedBox(height: 16),
+                const Text(
+                  'App Error',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16213E),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SelectableText(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      color: Color(0xFFE94560),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ElMoultaqaMobileApp extends StatelessWidget {
@@ -292,6 +347,9 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return ClerkAuthBuilder(
+      loadingBuilder: (context) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
       signedInBuilder: (context, authState) {
         return PopScope(
           canPop: true,
