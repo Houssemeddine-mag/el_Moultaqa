@@ -204,7 +204,7 @@ jobs:
         working-directory: Mobile
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings || exit 1
-          flutter test || exit 1
+          flutter test --dart-define=CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }} || exit 1
 
       # -----------------------------------------------------------------------
       # 7.1. Install dependencies
