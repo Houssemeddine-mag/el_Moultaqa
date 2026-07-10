@@ -30,7 +30,8 @@ void main() {
     if (publishableKey.isEmpty) return;
 
     await tester.pumpWidget(createApp());
+    await tester.pump();
 
-    expect(find.byType(MaterialApp), findsOneWidget);
+    expect(find.byType(ClerkAuth), findsOneWidget);
   });
 }
