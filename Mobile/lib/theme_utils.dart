@@ -16,3 +16,11 @@ Color parseThemeColor([String? rawColor]) {
     return const Color(0xFF0D7E52);
   }
 }
+
+/// Lightens a color for use as a gradient's second stop, preserving hue
+/// so every org's gradient stays visually coherent with their brand color.
+Color lightenColor(Color color, [double amount = 0.18]) {
+  final hsl = HSLColor.fromColor(color);
+  final lightness = (hsl.lightness + amount).clamp(0.0, 1.0);
+  return hsl.withLightness(lightness).toColor();
+}

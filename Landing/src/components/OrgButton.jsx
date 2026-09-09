@@ -1,41 +1,76 @@
 import { useState, useEffect } from "react";
 import { useClerkSupabase } from "@global/supabase";
+import { useOrganizationList, useUser } from "@clerk/clerk-react";
 
 export default function OrgButton() {
   const [orgs, setOrgs] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const supabase = useClerkSupabase();
+  const { userMemberships, isLoaded } = useOrganizationList({ infinite: true });
+  const { user, isLoaded: userLoaded } = useUser();
 
   useEffect(() => {
+    if (!isLoaded || !userLoaded) return;
+    let cancelled = false;
     const fetchOrgs = async () => {
       try {
-        if (!supabase) {
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("organizations")
-          .select("id, name, slug, clerk_org_id")
-          .limit(100);
-
-        if (error) {
-          console.error("Failed to fetch orgs:", error);
-          setOrgs([]);
+        // 1) Prefer Clerk memberships — shows all orgs where user is member (3, 10, etc.)
+        if (userMemberships && userMemberships.length > 0) {
+          const clerkOrgs = userMemberships.map(m => m.organization).filter(Boolean);
+          if (supabase) {
+            const { data: dbOrgs } = await supabase.from("organizations").select("id, name, slug, clerk_org_id, blocked_at").in("clerk_org_id", clerkOrgs.map(o => o.id));
+            if (cancelled) return;
+            const blockedMap = new Map((dbOrgs || []).map(o => [o.clerk_org_id, o]));
+            const filtered = clerkOrgs.filter(co => {
+              const db = blockedMap.get(co.id);
+              if (!db) return true;
+              return !db.blocked_at;
+            }).map(co => {
+              const db = blockedMap.get(co.id);
+              return {
+                id: db?.id || co.id,
+                name: db?.name || co.name,
+                slug: db?.slug || co.slug || co.name?.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "conference",
+                clerk_org_id: co.id,
+              };
+            });
+            setOrgs(filtered);
+          } else {
+            if (cancelled) return;
+            setOrgs(clerkOrgs.map(co => ({
+              id: co.id, name: co.name, slug: co.slug || co.name?.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "conference", clerk_org_id: co.id
+            })));
+          }
+        } else if (supabase && user?.id) {
+          // 2) Fallback: Clerk list empty (e.g. not yet synced) — query Supabase directly by owner
+          //    This restores original behavior but correctly fetches ALL owned orgs, filtered disabled
+          const { data: owned } = await supabase.from("organizations").select("id, name, slug, clerk_org_id, blocked_at").eq("owner_clerk_id", user.id).limit(100);
+          if (cancelled) return;
+          const filtered = (owned || []).filter(o => !o.blocked_at);
+          if (filtered.length) {
+            setOrgs(filtered);
+          } else {
+            // Last fallback: any org (original limit 100) filtered disabled — for superadmin view
+            const { data: fallback } = await supabase.from("organizations").select("id, name, slug, clerk_org_id, blocked_at").limit(100);
+            if (cancelled) return;
+            setOrgs((fallback || []).filter(o => !o.blocked_at).slice(0, 20));
+          }
         } else {
-          setOrgs(data || []);
+          if (cancelled) return;
+          setOrgs([]);
         }
       } catch (e) {
+        if (cancelled) return;
         console.error("Error fetching organizations:", e);
         setOrgs([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-
     fetchOrgs();
-  }, [supabase]);
+    return () => { cancelled = true; };
+  }, [isLoaded, userLoaded, userMemberships?.length]);
 
   if (loading || !orgs?.length) return null;
 

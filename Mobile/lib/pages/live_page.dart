@@ -1,10 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../admin notif/models.dart';
-import '../admin notif/storage.dart';
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 import 'stream_player_page.dart';
 
 class LivePage extends StatefulWidget {
@@ -25,82 +23,101 @@ class _LivePageState extends State<LivePage> {
   }
 
   Future<void> _loadStreams() async {
-    final streams = await AdminStorage.loadStreams();
-    if (mounted) {
-      setState(() {
-        _streams = streams;
-        _loading = false;
-      });
+    try {
+      final raw = await SupabaseService.getStreams();
+      if (mounted) {
+        setState(() {
+          _streams = raw
+              .map((s) => LiveStream(
+                    id: s['id']?.toString() ?? '',
+                    name: s['name']?.toString() ?? '',
+                    url: s['url']?.toString() ?? '',
+                    createdAt: DateTime.tryParse(
+                            s['createdAt']?.toString() ?? '') ??
+                        DateTime.now(),
+                  ))
+              .toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
-  }
-
-  Color _parseThemeColor() {
-    final raw = MobileConfig.themeColor;
-    final hex = raw.startsWith('#')
-        ? '0xff${raw.substring(1)}'
-        : raw.startsWith('0x') ? raw : '0xff$raw';
-    return Color(int.parse(hex));
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = _parseThemeColor();
+    final themeColor = MobileConfig.parsedThemeColor;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Live Streams',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: themeColor,
-              ),
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              24,
+              16,
+              (_loading || _streams.isEmpty) ? 24 : 0,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Choose a stream to watch live.',
-              style: TextStyle(color: Color(0xFF6B7280), height: 1.5),
-            ),
-            const SizedBox(height: 20),
-            if (_loading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 40),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_streams.isEmpty)
-              Center(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
-                    Icon(Icons.live_tv, size: 64, color: Colors.grey[400]),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No live streams available',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[600],
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Live Streams',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: themeColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Choose a stream to watch live.',
+                    style: TextStyle(color: Color(0xFF6B7280), height: 1.5),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_loading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 40),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (_streams.isEmpty)
+                    Center(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 40),
+                          Icon(Icons.live_tv, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No live streams available',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Streams will appear here once the conference admin adds them.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Streams will appear here once the conference admin adds them.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+                ],
+              ),
+            ),
+          ),
+          if (!_loading && _streams.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              sliver: SliverList.separated(
                 itemCount: _streams.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
@@ -211,8 +228,8 @@ class _LivePageState extends State<LivePage> {
                   );
                 },
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import { adminConfig } from "../adminConfig";
-import { getConferenceConfig } from "../sharedConfig";
 import defaultLogo from "@logo";
 
 const Topbar = ({ orgDetails, eventLogo }) => {
   const [dateTime, setDateTime] = useState(new Date());
-  const [conferenceConfig, setConferenceConfig] = useState(null);
   const navigate = useNavigate();
   const { signOut } = useClerk();
   const { user: clerkUser } = useUser();
@@ -24,13 +22,6 @@ const Topbar = ({ orgDetails, eventLogo }) => {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const storedConfig = getConferenceConfig();
-    if (storedConfig) {
-      setConferenceConfig(storedConfig);
-    }
-  }, []);
-
   const handleLogout = async () => {
     try {
       await signOut();
@@ -40,10 +31,10 @@ const Topbar = ({ orgDetails, eventLogo }) => {
     }
   };
 
-  // Use orgDetails name if available, otherwise fall back to conferenceConfig or default
-  const displayName = orgDetails?.name || conferenceConfig?.name || adminConfig.conferenceName || "Conference";
+  // Use orgDetails name if available, otherwise fall back to default
+  const displayName = orgDetails?.name || adminConfig.conferenceName || "Conference";
 
-  const logoSrc = eventLogo || conferenceConfig?.logo || orgDetails?.logo_url || adminConfig.conferenceLogo || defaultLogo;
+  const logoSrc = eventLogo || orgDetails?.logo_url || adminConfig.conferenceLogo || defaultLogo;
 
   return (
     <header className="topbar">

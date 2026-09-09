@@ -125,7 +125,10 @@ export default function HomePage() {
               <button
                 className="primary-button"
                 type="button"
-                onClick={() => navigate(`/c/${conferenceConfig.id || "demo"}/program`)}
+                onClick={() => {
+                  const slug = conferenceConfig.id || window.location.pathname.match(/^\/c\/([^\/]+)/)?.[1];
+                  if (slug) navigate(`/c/${slug}/program`);
+                }}
               >
                 Explore the program
               </button>

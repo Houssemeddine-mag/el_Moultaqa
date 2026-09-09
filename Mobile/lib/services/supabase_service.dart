@@ -71,7 +71,13 @@ class SupabaseService {
 
   // Resolves the org slug dynamically
   static Future<void> resolveOrg([String? slug]) async {
-    slug = slug ?? await _read("elm_org_slug") ?? MobileConfig.orgSlug;
+    final cached = await _read("elm_org_slug");
+    final envSlug = _envValue("ORG_SLUG");
+    slug = (slug != null && slug.isNotEmpty)
+        ? slug
+        : ((cached != null && cached.isNotEmpty)
+            ? cached
+            : (envSlug.isNotEmpty ? envSlug : MobileConfig.orgSlug));
     if (slug.isEmpty) {
       throw Exception("orgSlug is not configured");
     }
@@ -196,6 +202,17 @@ class SupabaseService {
     }
   }
 
+  // ── Streams API ───────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getStreams() async {
+    final events = await queryOrgTable("events", limit: 1);
+    if (events.isEmpty) return [];
+    final settings = events.first["settings"] as Map<String, dynamic>?;
+    final streams = settings?["streams"] as List<dynamic>?;
+    if (streams == null) return [];
+    return streams.map((s) => Map<String, dynamic>.from(s)).toList();
+  }
+
   // ── Attendee data APIs ────────────────────────────────────────────
   
   static Future<Map<String, dynamic>?> getConferenceConfig() async {
@@ -213,6 +230,13 @@ class SupabaseService {
       "collaborators": ev["settings"]?["collaborators"] ?? [],
       "attendees": ev["settings"]?["attendees"] ?? [],
       "stream_url": ev["settings"]?["stream_url"] ?? ev["stream_url"] ?? "",
+      "location": ev["settings"]?["location"] ?? "",
+      "description": ev["settings"]?["description"] ?? "",
+      "website": ev["website"] ??
+          ev["settings"]?["website"] ??
+          ev["settings"]?["conferenceWebsite"] ??
+          ev["settings"]?["web_url"] ??
+          "",
       "settings": ev["settings"] ?? {},
     };
   }

@@ -47,8 +47,6 @@ const Program = () => {
     const fetchSessions = async () => {
       try {
         setLoading(true);
-        console.log("Initializing Admin backend...");
-        await backend.initialize();
         console.log("Fetching programs from backend...");
         const programs = await backend.getPrograms();
         console.log("Fetched programs:", programs);
@@ -305,28 +303,10 @@ const Program = () => {
     return <div className="loading">Loading program data...</div>;
   }
 
-  const testBackendConnection = async () => {
-    try {
-      console.log("Testing backend connection...");
-      await backend.testConnection();
-      alert("✅ Backend connection successful!");
-    } catch (error) {
-      console.error("Backend connection test failed:", error);
-      alert("❌ Backend connection failed: " + error.message);
-    }
-  };
-
   return (
     <div className="program-container">
       <div className="program-header">
         <h1>Program Management</h1>
-        <button
-          className="test-connection-button"
-          onClick={testBackendConnection}
-          aria-label="Test backend connection"
-        >
-          Test
-        </button>
       </div>
       <p className="subtitle">Manage conference schedule and sessions</p>
 

@@ -60,7 +60,14 @@ export default function ApplicationsPage() {
       ]);
 
       setBuildStatus(status);
-      buildingRef.current = status?.status === "building";
+      // Stale-building guard: backend allows retry after 15 min (see 014_mobile_app.sql:59)
+      // If DB still says "building" but requested_at > 20 min ago, GitHub never callback'd → treat as stale
+      const requestedAt = status?.requested_at ? new Date(status.requested_at).getTime() : 0;
+      const isStale = status?.status === "building" && requestedAt && Date.now() - requestedAt > 20 * 60 * 1000;
+      buildingRef.current = status?.status === "building" && !isStale;
+      if (isStale) {
+        console.warn("[ApplicationsPage] Stale building detected (requested_at >20m ago), stopping poll");
+      }
 
       // Build current branding snapshot
       const themeColor = events?.[0]?.settings?.themeColor || "#0d7e52";
@@ -156,6 +163,10 @@ export default function ApplicationsPage() {
   const isReady = status === "ready";
   const isFailed = status === "failed";
   const hasPrevBuild = isReady && !!buildStatus?.prev_app_url;
+  const isStaleBuilding =
+    isBuilding &&
+    buildStatus?.requested_at &&
+    Date.now() - new Date(buildStatus.requested_at).getTime() > 20 * 60 * 1000;
 
   const webappUrl = `${WEBAPP_URL}/c/${orgSlug}`;
   const apkUrl = buildStatus?.app_url;
@@ -288,23 +299,23 @@ export default function ApplicationsPage() {
                 </div>
               )}
 
-              {/* Failed error log */}
-              {isFailed && buildStatus?.error && (
+              {/* Failed — user-friendly, not technical */}
+              {isFailed && (
                 <div
                   style={{
-                    padding: "10px 14px",
+                    padding: "12px 14px",
                     background: "#ef444422",
                     border: "1px solid #ef444455",
                     borderRadius: 8,
                     marginBottom: 16,
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    wordBreak: "break-all",
+                    fontSize: 13,
+                    lineHeight: 1.5,
                   }}
                 >
-                  <strong style={{ color: "#ef4444" }}>Build Error:</strong>
-                  <br />
-                  {buildStatus.error}
+                  <strong style={{ color: "#ef4444" }}>Build didn’t complete.</strong>
+                  <div style={{ marginTop: 4, color: "#6b7280" }}>
+                    Please try again. If the issue continues, contact support — we’ll check it for you.
+                  </div>
                 </div>
               )}
 
@@ -312,12 +323,14 @@ export default function ApplicationsPage() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
                 <button
                   onClick={handleTriggerBuild}
-                  disabled={isBuilding || triggering}
+                  disabled={(isBuilding && !isStaleBuilding) || triggering}
                   className="btn-primary"
                   style={{ minWidth: 160 }}
                 >
                   {triggering
                     ? "Starting…"
+                    : isStaleBuilding
+                    ? "⟳ Retry Build"
                     : isBuilding
                     ? "Building…"
                     : isReady

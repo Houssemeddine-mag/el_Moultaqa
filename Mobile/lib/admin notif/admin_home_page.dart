@@ -114,14 +114,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   children: [
                     Text(
                       '${MobileConfig.appName} Admin',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 2),
-                    Text(
+                    const SizedBox(height: 2),
+                    const Text(
                       'Manage your conference',
                       style: TextStyle(
                         fontSize: 13,

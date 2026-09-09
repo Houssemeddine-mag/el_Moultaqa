@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:clerk_flutter/clerk_flutter.dart';
 
 import 'package:elmoultaqa_mobile/main.dart';
-import 'package:elmoultaqa_mobile/mobile_config.dart';
 
 void main() {
   const publishableKey = String.fromEnvironment(

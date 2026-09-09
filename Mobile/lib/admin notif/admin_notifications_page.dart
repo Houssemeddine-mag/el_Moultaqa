@@ -188,7 +188,7 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
                                       isExpanded: true,
-                                      value: _type,
+                                      initialValue: _type,
                                       decoration: const InputDecoration(
                                         labelText: 'Type',
                                       ),
@@ -219,7 +219,7 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
                                       isExpanded: true,
-                                      value: _priority,
+                                      initialValue: _priority,
                                       decoration: const InputDecoration(
                                         labelText: 'Priority',
                                       ),

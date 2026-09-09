@@ -22,6 +22,11 @@ class _NotificationPageState extends State<NotificationPage> {
 
   Future<void> _loadNotifications() async {
     final notifications = await AdminStorage.loadNotifications();
+    if (notifications.isNotEmpty) {
+      await AdminStorage.markNotificationsRead(
+        notifications.map((n) => n.id).toList(),
+      );
+    }
     if (!mounted) return;
 
     setState(() {
@@ -40,16 +45,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor;
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    final themeColor = Color(int.parse(hex));
+    final themeColor = MobileConfig.parsedThemeColor;
 
     return Scaffold(
       appBar: AppBar(

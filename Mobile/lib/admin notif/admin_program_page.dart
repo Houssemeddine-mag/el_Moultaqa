@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/supabase_service.dart';
 import 'models.dart';
 import 'storage.dart';
 
@@ -30,9 +31,24 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
   }
 
   Future<void> _loadStreams() async {
-    final streams = await AdminStorage.loadStreams();
-    if (mounted) {
-      setState(() => _streams = streams);
+    try {
+      final raw = await SupabaseService.getStreams();
+      if (mounted) {
+        setState(() {
+          _streams = raw
+              .map((s) => LiveStream(
+                    id: s['id']?.toString() ?? '',
+                    name: s['name']?.toString() ?? '',
+                    url: s['url']?.toString() ?? '',
+                    createdAt: DateTime.tryParse(
+                            s['createdAt']?.toString() ?? '') ??
+                        DateTime.now(),
+                  ))
+              .toList();
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _streams = []);
     }
   }
 
@@ -42,25 +58,73 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
   }
 
   Future<void> _loadPrograms() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('elm_webapp_programs');
-    if (!mounted) return;
-
-    if (raw == null || raw.isEmpty) {
-      setState(() {
-        _programs = <Map<String, dynamic>>[];
-        _loading = false;
-      });
-      return;
-    }
-
     try {
-      final decoded = jsonDecode(raw);
-      final items = decoded is List
-          ? decoded.whereType<Map>().map((item) {
-              return Map<String, dynamic>.from(item);
-            }).toList()
-          : <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> items = [];
+
+      try {
+        final sessions = await SupabaseService.getSessions();
+        items = sessions.map((s) {
+          final startTimeStr = (s['start_time'] ?? '').toString();
+          final endTimeStr = (s['end_time'] ?? '').toString();
+          final startDt = DateTime.tryParse(startTimeStr);
+          final endDt = DateTime.tryParse(endTimeStr);
+          final metadata = s['metadata'] is Map
+              ? Map<String, dynamic>.from(s['metadata'] as Map)
+              : <String, dynamic>{};
+
+          String dateStr = '';
+          String startStr = '';
+          String endStr = '';
+          if (startDt != null) {
+            dateStr =
+                '${startDt.year}-${startDt.month.toString().padLeft(2, '0')}-${startDt.day.toString().padLeft(2, '0')}';
+            startStr =
+                '${startDt.hour.toString().padLeft(2, '0')}:${startDt.minute.toString().padLeft(2, '0')}';
+          }
+          if (endDt != null) {
+            endStr =
+                '${endDt.hour.toString().padLeft(2, '0')}:${endDt.minute.toString().padLeft(2, '0')}';
+          }
+
+          return {
+            'id': s['id'],
+            'type': s['session_type'] ?? '',
+            'title': s['title'] ?? '',
+            'date': dateStr,
+            'start': startStr,
+            'end': endStr,
+            'room': s['room'] ?? '',
+            'chairs': metadata['chairs'] is List
+                ? List<dynamic>.from(metadata['chairs'] as List)
+                : <dynamic>[],
+            'keynote': null,
+            'keynoteDescription': s['description'] ?? '',
+            'conferences': <Map<String, dynamic>>[],
+            'streamId': metadata['streamId']?.toString() ?? '',
+            'createdAt': s['created_at'] ?? '',
+            'updatedAt': s['updated_at'] ?? '',
+          };
+        }).toList();
+      } catch (_) {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('elm_webapp_programs');
+        if (!mounted) return;
+
+        if (raw == null || raw.isEmpty) {
+          setState(() {
+            _programs = <Map<String, dynamic>>[];
+            _loading = false;
+          });
+          return;
+        }
+
+        final decoded = jsonDecode(raw);
+        items = decoded is List
+            ? decoded.whereType<Map>().map((item) {
+                return Map<String, dynamic>.from(item);
+              }).toList()
+            : <Map<String, dynamic>>[];
+      }
 
       items.sort((a, b) {
         final dateCompare = (a['date'] ?? '')
@@ -356,7 +420,7 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                     ),
                                     const SizedBox(height: 12),
                                     DropdownButtonFormField<String>(
-                                      value: (session['streamId'] ?? '').toString().isNotEmpty
+                                      initialValue: (session['streamId'] ?? '').toString().isNotEmpty
                                           ? (session['streamId'] ?? '').toString()
                                           : null,
                                       decoration: InputDecoration(

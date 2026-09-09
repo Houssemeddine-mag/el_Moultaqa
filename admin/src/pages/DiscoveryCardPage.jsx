@@ -48,11 +48,10 @@ export default function DiscoveryCardPage() {
     loadCard();
   }, [orgSlug]);
 
+  // Previously auto-redirected when !isSuperEnabled — removed to allow org admin to see disabled banner and contact SuperAdmin. Keep card accessible for save before enable.
   useEffect(() => {
-    if (!loading && cardExists && !isSuperEnabled) {
-      navigate(`/c/${orgSlug}/admin/app/dashboard`, { replace: true });
-    }
-  }, [loading, cardExists, isSuperEnabled, orgSlug, navigate]);
+    // no-op: intentionally keep page visible even when discovery not yet enabled
+  }, [loading, cardExists, isSuperEnabled, orgSlug]);
 
   async function loadCard() {
     try {

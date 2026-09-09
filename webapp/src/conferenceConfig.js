@@ -1,60 +1,15 @@
 export const defaultConferenceConfig = {
-  brand: "ElMoultaqa",
-  brandInitials: "EM",
+  brand: "",
+  brandInitials: "",
   shortName: "",
-  tagline: "Conference platform for modern hybrid events",
+  tagline: "",
   name: "",
   primaryColor: "#0d7e52",
-  themeColor: "#0d7e52",
+  themeColor: "",
   logoUrl: "",
-  streamUrl: "https://example.com/stream.m3u8",
-  dates: "December 12-14, 2026",
-  location: "Algiers · Hybrid",
-  description:
-    "ElMoultaqa brings together attendees, speakers, and organizers in one polished conference experience.",
-  schedule: [
-    {
-      label: "Day 1",
-      date: "Dec 12",
-      sessions: [
-        { time: "09:00", title: "Opening keynote", speaker: "Leila Haddad" },
-        {
-          time: "10:30",
-          title: "Hybrid event design",
-          speaker: "Samir Youssef",
-        },
-        {
-          time: "14:00",
-          title: "Community engagement",
-          speaker: "Nadia Bensaid",
-        },
-      ],
-    },
-    {
-      label: "Day 2",
-      date: "Dec 13",
-      sessions: [
-        { time: "09:30", title: "Event analytics", speaker: "Amine Cherif" },
-        { time: "11:00", title: "Speaker studio tips", speaker: "Farah Kacem" },
-        { time: "15:00", title: "Networking labs", speaker: "Omar Benali" },
-      ],
-    },
-    {
-      label: "Day 3",
-      date: "Dec 14",
-      sessions: [
-        {
-          time: "10:00",
-          title: "Scaling experiences",
-          speaker: "Yasmine Djaffar",
-        },
-        { time: "11:30", title: "Roadmap reveal", speaker: "Karim Boudiaf" },
-        {
-          time: "16:00",
-          title: "Closing conversation",
-          speaker: "Sarah Delilah",
-        },
-      ],
-    },
-  ],
+  streamUrl: "",
+  dates: "",
+  location: "",
+  description: "",
+  schedule: [],
 };

@@ -385,7 +385,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => navigate(`/o/${orgSlug}/applications`)}
+                onClick={() => navigate(`/c/${orgSlug}/admin/app/applications`)}
               >
                 <Smartphone size={16} /> Create App
               </button>

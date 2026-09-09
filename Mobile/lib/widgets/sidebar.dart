@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../mobile_config.dart';
+import '../services/supabase_service.dart';
+import '../theme_utils.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(int) onItemSelected;
@@ -28,25 +31,18 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _loadConferenceName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final config = prefs.getString('elm_conference_config');
-    if (config != null) {
-      try {
-        // Parse JSON to extract name
-        final jsonStr = config;
-        final nameMatch = RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
-        if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
-          setState(() {
-            _conferenceName = nameMatch.group(1)!;
-          });
-          return;
-        }
-      } catch (e) {
-        // Fallback to default
+    try {
+      final config = await SupabaseService.getConferenceConfig();
+      if (config != null && config['name'] != null && (config['name'] as String).isNotEmpty) {
+        setState(() {
+          _conferenceName = config['name'] as String;
+        });
+        return;
       }
-    }
+    } catch (_) {}
+
     setState(() {
-      _conferenceName = 'ElMoultaqa';
+      _conferenceName = MobileConfig.heroTitle;
     });
   }
 
@@ -64,9 +60,12 @@ class _SidebarState extends State<Sidebar> {
       child: Column(
         children: [
           DrawerHeader(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0D7E52), Color(0xFF1FB69A)],
+                colors: [
+                  MobileConfig.parsedThemeColor,
+                  lightenColor(MobileConfig.parsedThemeColor),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -78,17 +77,35 @@ class _SidebarState extends State<Sidebar> {
                   SizedBox(
                     width: 80,
                     height: 80,
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.event,
-                          size: 64,
-                          color: Colors.white,
-                        );
-                      },
-                    ),
+                    child: MobileConfig.logoUrl.isNotEmpty
+                        ? Image.network(
+                            MobileConfig.logoUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.event,
+                                    size: 64,
+                                    color: Colors.white,
+                                  );
+                                },
+                              );
+                            },
+                          )
+                        : Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.event,
+                                size: 64,
+                                color: Colors.white,
+                              );
+                            },
+                          ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -142,11 +159,11 @@ class _SidebarState extends State<Sidebar> {
             index: 4,
           ),
           ListTile(
-            leading: const Icon(Icons.language, color: Color(0xFF0D7E52)),
-            title: const Text(
+            leading: Icon(Icons.language, color: MobileConfig.parsedThemeColor),
+            title: Text(
               'Visit WebApp',
               style: TextStyle(
-                color: Color(0xFF0D7E52),
+                color: MobileConfig.parsedThemeColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -171,17 +188,17 @@ class _SidebarState extends State<Sidebar> {
     return ListTile(
       leading: Icon(
         icon,
-        color: isSelected ? const Color(0xFF0D7E52) : Colors.grey,
+        color: isSelected ? MobileConfig.parsedThemeColor : Colors.grey,
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: isSelected ? const Color(0xFF0D7E52) : Colors.grey,
+          color: isSelected ? MobileConfig.parsedThemeColor : Colors.grey,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
       selected: isSelected,
-      selectedTileColor: const Color(0xFF0D7E52).withOpacity(0.1),
+      selectedTileColor: MobileConfig.parsedThemeColor.withValues(alpha: 0.1),
       onTap: () {
         widget.onItemSelected(index);
       },

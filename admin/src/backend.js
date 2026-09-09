@@ -1,32 +1,6 @@
 // admin/src/backend.js — Supabase Tenant Database Adaptor
 import { queryOrgTable } from "@global/supabase";
 
-const STORAGE_KEYS = {
-  PROGRAMS: "elm_programs",
-  KEYNOTES: "elm_keynote_speakers",
-  SPONSORS: "elm_sponsors",
-};
-
-const wait = (ms = 100) => new Promise((r) => setTimeout(r, ms));
-
-const read = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("backend.read error", e);
-    return [];
-  }
-};
-
-const write = (key, data) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error("backend.write error", e);
-  }
-};
-
 const generateId = () =>
   `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -40,424 +14,341 @@ const backend = {
     console.log("[admin backend] Initialized with schema:", schemaName);
   },
 
-  async initialize() {
-    await wait(50);
-    return true;
-  },
-
-  async testConnection() {
-    await wait(50);
-    return true;
-  },
-
   // Programs / Sessions
   async getPrograms() {
-    if (activeSupabase && activeSchemaName) {
-      try {
-        const data = await queryOrgTable(activeSupabase, activeSchemaName, "sessions");
-        return data.map((s) => {
-          let date = "";
-          let start = "";
-          let end = "";
-          let endDate = "";
-          
-          if (s.start_time) {
-            date = s.start_time.split("T")[0];
-            start = s.start_time.split("T")[1]?.substring(0, 5) || "";
-          }
-          if (s.end_time) {
-            endDate = s.end_time.split("T")[0];
-            end = s.end_time.split("T")[1]?.substring(0, 5) || "";
-          }
-
-          const meta = s.metadata || {};
-
-          return {
-            id: s.id,
-            type: s.session_type || "session",
-            title: s.title,
-            date: date,
-            start: start,
-            end: end,
-            endDate: endDate === date ? "" : endDate,
-            room: s.room || "",
-            chairs: meta.chairs || [],
-            keynote: meta.keynote || { name: "", affiliation: "", bio: "", image: "" },
-            keynoteDescription: meta.keynoteDescription || s.description || "",
-            conferences: meta.conferences || [],
-            createdAt: s.created_at,
-            updatedAt: s.updated_at,
-          };
-        });
-      } catch (e) {
-        console.error("[admin backend] getPrograms error:", e);
-      }
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-    return read(STORAGE_KEYS.PROGRAMS);
+    const data = await queryOrgTable(activeSupabase, activeSchemaName, "sessions");
+    return data.map((s) => {
+      let date = "";
+      let start = "";
+      let end = "";
+      let endDate = "";
+      
+      if (s.start_time) {
+        date = s.start_time.split("T")[0];
+        start = s.start_time.split("T")[1]?.substring(0, 5) || "";
+      }
+      if (s.end_time) {
+        endDate = s.end_time.split("T")[0];
+        end = s.end_time.split("T")[1]?.substring(0, 5) || "";
+      }
+
+      const meta = s.metadata || {};
+
+      return {
+        id: s.id,
+        type: s.session_type || "session",
+        title: s.title,
+        date: date,
+        start: start,
+        end: end,
+        endDate: endDate === date ? "" : endDate,
+        room: s.room || "",
+        chairs: meta.chairs || [],
+        keynote: meta.keynote || { name: "", affiliation: "", bio: "", image: "" },
+        keynoteDescription: meta.keynoteDescription || s.description || "",
+        conferences: meta.conferences || [],
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      };
+    });
   },
 
   async addProgram(program) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) {
-        throw new Error("No event found. Please create an event first before adding programs.");
-      }
-      const eventId = events[0].id;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
+    }
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) {
+      throw new Error("No event found. Please create an event first before adding programs.");
+    }
+    const eventId = events[0].id;
 
-      const startTime = program.date && program.start 
-        ? `${program.date}T${program.start}:00Z` 
-        : null;
-      const endTime = (program.endDate || program.date) && program.end 
-        ? `${program.endDate || program.date}T${program.end}:00Z` 
-        : null;
+    const startTime = program.date && program.start 
+      ? `${program.date}T${program.start}:00Z` 
+      : null;
+    const endTime = (program.endDate || program.date) && program.end 
+      ? `${program.endDate || program.date}T${program.end}:00Z` 
+      : null;
 
-      // Validate and map session_type to allowed values
-      const validSessionTypes = ['talk', 'workshop', 'panel', 'keynote', 'break', 'networking'];
-      let sessionType = program.type || 'talk';
-      sessionType = sessionType.toLowerCase();
-      if (!validSessionTypes.includes(sessionType)) {
-        console.warn(`Invalid session type "${program.type}". Using "talk" instead.`);
-        sessionType = 'talk';
-      }
-
-      const dbPayload = {
-        event_id: eventId,
-        title: program.title,
-        description: program.keynoteDescription || program.description || "",
-        speaker_id: null,
-        start_time: startTime,
-        end_time: endTime,
-        room: program.room || "",
-        track: program.track || "",
-        session_type: sessionType,
-        status: program.status || "scheduled",
-        metadata: {
-          chairs: program.chairs || [],
-          keynote: program.keynote || { name: "", affiliation: "", bio: "", image: "" },
-          keynoteDescription: program.keynoteDescription || "",
-          conferences: program.conferences || [],
-        },
-      };
-      
-      const { data, error } = await activeSupabase.rpc("org_insert", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "sessions",
-        p_data: dbPayload,
-      });
-
-      if (error) throw error;
-
-      let resDate = "";
-      let resStart = "";
-      let resEnd = "";
-      let resEndDate = "";
-      
-      if (data.start_time) {
-        resDate = data.start_time.split("T")[0];
-        resStart = data.start_time.split("T")[1]?.substring(0, 5) || "";
-      }
-      if (data.end_time) {
-        resEndDate = data.end_time.split("T")[0];
-        resEnd = data.end_time.split("T")[1]?.substring(0, 5) || "";
-      }
-
-      const resMeta = data.metadata || {};
-
-      return {
-        id: data.id,
-        type: data.session_type,
-        title: data.title,
-        date: resDate,
-        start: resStart,
-        end: resEnd,
-        endDate: resEndDate === resDate ? "" : resEndDate,
-        room: data.room,
-        chairs: resMeta.chairs || [],
-        keynote: resMeta.keynote || { name: "", affiliation: "", bio: "", image: "" },
-        keynoteDescription: resMeta.keynoteDescription || data.description || "",
-        conferences: resMeta.conferences || [],
-      };
+    // Validate and map session_type to allowed values
+    const validSessionTypes = ['talk', 'workshop', 'panel', 'keynote', 'break', 'networking'];
+    let sessionType = program.type || 'talk';
+    sessionType = sessionType.toLowerCase();
+    if (!validSessionTypes.includes(sessionType)) {
+      console.warn(`Invalid session type "${program.type}". Using "talk" instead.`);
+      sessionType = 'talk';
     }
 
-    await wait(80);
-    const programs = read(STORAGE_KEYS.PROGRAMS);
-    const id = generateId();
-    const now = new Date().toISOString();
-    const newProg = { id, ...program, createdAt: now, updatedAt: now };
-    programs.push(newProg);
-    write(STORAGE_KEYS.PROGRAMS, programs);
-    return newProg;
+    const dbPayload = {
+      event_id: eventId,
+      title: program.title,
+      description: program.keynoteDescription || program.description || "",
+      speaker_id: null,
+      start_time: startTime,
+      end_time: endTime,
+      room: program.room || "",
+      track: program.track || "",
+      session_type: sessionType,
+      status: program.status || "scheduled",
+      metadata: {
+        chairs: program.chairs || [],
+        keynote: program.keynote || { name: "", affiliation: "", bio: "", image: "" },
+        keynoteDescription: program.keynoteDescription || "",
+        conferences: program.conferences || [],
+      },
+    };
+    
+    const { data, error } = await activeSupabase.rpc("org_insert", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "sessions",
+      p_data: dbPayload,
+    });
+
+    if (error) throw error;
+
+    let resDate = "";
+    let resStart = "";
+    let resEnd = "";
+    let resEndDate = "";
+    
+    if (data.start_time) {
+      resDate = data.start_time.split("T")[0];
+      resStart = data.start_time.split("T")[1]?.substring(0, 5) || "";
+    }
+    if (data.end_time) {
+      resEndDate = data.end_time.split("T")[0];
+      resEnd = data.end_time.split("T")[1]?.substring(0, 5) || "";
+    }
+
+    const resMeta = data.metadata || {};
+
+    return {
+      id: data.id,
+      type: data.session_type,
+      title: data.title,
+      date: resDate,
+      start: resStart,
+      end: resEnd,
+      endDate: resEndDate === resDate ? "" : resEndDate,
+      room: data.room,
+      chairs: resMeta.chairs || [],
+      keynote: resMeta.keynote || { name: "", affiliation: "", bio: "", image: "" },
+      keynoteDescription: resMeta.keynoteDescription || data.description || "",
+      conferences: resMeta.conferences || [],
+    };
   },
 
   async updateProgram(id, data) {
-    if (activeSupabase && activeSchemaName) {
-      const startTime = data.date && data.start 
-        ? `${data.date}T${data.start}:00Z` 
-        : null;
-      const endTime = (data.endDate || data.date) && data.end 
-        ? `${data.endDate || data.date}T${data.end}:00Z` 
-        : null;
-
-      const dbPayload = {
-        title: data.title,
-        description: data.keynoteDescription || data.description || "",
-        start_time: startTime,
-        end_time: endTime,
-        room: data.room || "",
-        session_type: data.type || "session",
-        metadata: {
-          chairs: data.chairs || [],
-          keynote: data.keynote || { name: "", affiliation: "", bio: "", image: "" },
-          keynoteDescription: data.keynoteDescription || "",
-          conferences: data.conferences || [],
-        },
-      };
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "sessions",
-        p_id: id,
-        p_data: dbPayload,
-      });
-
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const startTime = data.date && data.start 
+      ? `${data.date}T${data.start}:00Z` 
+      : null;
+    const endTime = (data.endDate || data.date) && data.end 
+      ? `${data.endDate || data.date}T${data.end}:00Z` 
+      : null;
 
-    await wait(80);
-    const programs = read(STORAGE_KEYS.PROGRAMS);
-    const idx = programs.findIndex((p) => p.id === id);
-    if (idx === -1) throw new Error("Program not found");
-    programs[idx] = {
-      ...programs[idx],
-      ...data,
-      updatedAt: new Date().toISOString(),
+    const dbPayload = {
+      title: data.title,
+      description: data.keynoteDescription || data.description || "",
+      start_time: startTime,
+      end_time: endTime,
+      room: data.room || "",
+      session_type: data.type || "session",
+      metadata: {
+        chairs: data.chairs || [],
+        keynote: data.keynote || { name: "", affiliation: "", bio: "", image: "" },
+        keynoteDescription: data.keynoteDescription || "",
+        conferences: data.conferences || [],
+      },
     };
-    write(STORAGE_KEYS.PROGRAMS, programs);
+
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "sessions",
+      p_id: id,
+      p_data: dbPayload,
+    });
+
+    if (error) throw error;
     return true;
   },
 
   async deleteProgram(id) {
-    if (activeSupabase && activeSchemaName) {
-      const { error } = await activeSupabase.rpc("org_delete", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "sessions",
-        p_id: id,
-      });
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-
-    await wait(80);
-    const programs = read(STORAGE_KEYS.PROGRAMS).filter((p) => p.id !== id);
-    write(STORAGE_KEYS.PROGRAMS, programs);
+    const { error } = await activeSupabase.rpc("org_delete", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "sessions",
+      p_id: id,
+    });
+    if (error) throw error;
     return true;
   },
 
   // Keynote Speakers
   async getKeynoteSpeakers() {
-    if (activeSupabase && activeSchemaName) {
-      try {
-        const data = await queryOrgTable(activeSupabase, activeSchemaName, "speakers");
-        return data.map((s) => ({
-          id: s.id,
-          name: s.full_name,
-          bio: s.bio || "",
-          title: s.title || "",
-          company: s.company || "",
-          photo: s.photo_url || "",
-          socials: s.social_links || {},
-        }));
-      } catch (e) {
-        console.error("[admin backend] getKeynoteSpeakers error:", e);
-      }
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-    return read(STORAGE_KEYS.KEYNOTES);
+    const data = await queryOrgTable(activeSupabase, activeSchemaName, "speakers");
+    return data.map((s) => ({
+      id: s.id,
+      name: s.full_name,
+      bio: s.bio || "",
+      title: s.title || "",
+      company: s.company || "",
+      photo: s.photo_url || "",
+      socials: s.social_links || {},
+    }));
   },
 
   async addKeynoteSpeaker(speaker) {
-    if (activeSupabase && activeSchemaName) {
-      const dbPayload = {
-        full_name: speaker.name,
-        bio: speaker.bio || "",
-        title: speaker.title || "",
-        company: speaker.company || "",
-        photo_url: speaker.photo || "",
-        social_links: speaker.socials || {},
-      };
-
-      const { data, error } = await activeSupabase.rpc("org_insert", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "speakers",
-        p_data: dbPayload,
-      });
-
-      if (error) throw error;
-      return {
-        id: data.id,
-        name: data.full_name,
-        bio: data.bio,
-        title: data.title,
-        company: data.company,
-        photo: data.photo_url,
-        socials: data.social_links,
-      };
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const dbPayload = {
+      full_name: speaker.name,
+      bio: speaker.bio || "",
+      title: speaker.title || "",
+      company: speaker.company || "",
+      photo_url: speaker.photo || "",
+      social_links: speaker.socials || {},
+    };
 
-    await wait(80);
-    const list = read(STORAGE_KEYS.KEYNOTES);
-    const id = generateId();
-    const now = new Date().toISOString();
-    const newItem = { id, ...speaker, createdAt: now, updatedAt: now };
-    list.push(newItem);
-    write(STORAGE_KEYS.KEYNOTES, list);
-    return newItem;
+    const { data, error } = await activeSupabase.rpc("org_insert", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "speakers",
+      p_data: dbPayload,
+    });
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.full_name,
+      bio: data.bio,
+      title: data.title,
+      company: data.company,
+      photo: data.photo_url,
+      socials: data.social_links,
+    };
   },
 
   async updateKeynoteSpeaker(id, speaker) {
-    if (activeSupabase && activeSchemaName) {
-      const dbPayload = {};
-      if (speaker.name !== undefined) dbPayload.full_name = speaker.name;
-      if (speaker.bio !== undefined) dbPayload.bio = speaker.bio;
-      if (speaker.title !== undefined) dbPayload.title = speaker.title;
-      if (speaker.company !== undefined) dbPayload.company = speaker.company;
-      if (speaker.photo !== undefined) dbPayload.photo_url = speaker.photo;
-      if (speaker.socials !== undefined) dbPayload.social_links = speaker.socials;
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "speakers",
-        p_id: id,
-        p_data: dbPayload,
-      });
-
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const dbPayload = {};
+    if (speaker.name !== undefined) dbPayload.full_name = speaker.name;
+    if (speaker.bio !== undefined) dbPayload.bio = speaker.bio;
+    if (speaker.title !== undefined) dbPayload.title = speaker.title;
+    if (speaker.company !== undefined) dbPayload.company = speaker.company;
+    if (speaker.photo !== undefined) dbPayload.photo_url = speaker.photo;
+    if (speaker.socials !== undefined) dbPayload.social_links = speaker.socials;
 
-    await wait(80);
-    const list = read(STORAGE_KEYS.KEYNOTES);
-    const idx = list.findIndex((s) => s.id === id);
-    if (idx === -1) throw new Error("Speaker not found");
-    list[idx] = { ...list[idx], ...speaker, updatedAt: new Date().toISOString() };
-    write(STORAGE_KEYS.KEYNOTES, list);
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "speakers",
+      p_id: id,
+      p_data: dbPayload,
+    });
+
+    if (error) throw error;
     return true;
   },
 
   async deleteKeynoteSpeaker(id) {
-    if (activeSupabase && activeSchemaName) {
-      const { error } = await activeSupabase.rpc("org_delete", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "speakers",
-        p_id: id,
-      });
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-
-    await wait(80);
-    const list = read(STORAGE_KEYS.KEYNOTES).filter((s) => s.id !== id);
-    write(STORAGE_KEYS.KEYNOTES, list);
+    const { error } = await activeSupabase.rpc("org_delete", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "speakers",
+      p_id: id,
+    });
+    if (error) throw error;
     return true;
   },
 
   // Sponsors
   async getSponsors() {
-    if (activeSupabase && activeSchemaName) {
-      try {
-        const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-        if (events && events.length > 0) {
-          return events[0].settings?.sponsors || [];
-        }
-        return [];
-      } catch (e) {
-        console.error("[admin backend] getSponsors error:", e);
-      }
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-    return read(STORAGE_KEYS.SPONSORS);
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (events && events.length > 0) {
+      return events[0].settings?.sponsors || [];
+    }
+    return [];
   },
 
   async addSponsor(sponsor) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) throw new Error("No event found to update sponsors");
-      const event = events[0];
-      const sponsors = event.settings?.sponsors || [];
-      const newSponsor = { id: generateId(), ...sponsor };
-      sponsors.push(newSponsor);
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "events",
-        p_id: event.id,
-        p_data: { settings: { ...event.settings, sponsors } },
-      });
-
-      if (error) throw error;
-      return newSponsor;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) throw new Error("No event found to update sponsors");
+    const event = events[0];
+    const sponsors = event.settings?.sponsors || [];
+    const newSponsor = { id: generateId(), ...sponsor };
+    sponsors.push(newSponsor);
 
-    await wait(80);
-    const list = read(STORAGE_KEYS.SPONSORS);
-    const id = generateId();
-    const now = new Date().toISOString();
-    const newItem = { id, ...sponsor, createdAt: now, updatedAt: now };
-    list.push(newItem);
-    write(STORAGE_KEYS.SPONSORS, list);
-    return newItem;
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "events",
+      p_id: event.id,
+      p_data: { settings: { ...event.settings, sponsors } },
+    });
+
+    if (error) throw error;
+    return newSponsor;
   },
 
   async updateSponsor(id, data) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) throw new Error("No event found");
-      const event = events[0];
-      const sponsors = event.settings?.sponsors || [];
-      const idx = sponsors.findIndex((s) => s.id === id);
-      if (idx === -1) throw new Error("Sponsor not found");
-      sponsors[idx] = { ...sponsors[idx], ...data };
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "events",
-        p_id: event.id,
-        p_data: { settings: { ...event.settings, sponsors } },
-      });
-
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-
-    await wait(80);
-    const list = read(STORAGE_KEYS.SPONSORS);
-    const idx = list.findIndex((s) => s.id === id);
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) throw new Error("No event found");
+    const event = events[0];
+    const sponsors = event.settings?.sponsors || [];
+    const idx = sponsors.findIndex((s) => s.id === id);
     if (idx === -1) throw new Error("Sponsor not found");
-    list[idx] = { ...list[idx], ...data, updatedAt: new Date().toISOString() };
-    write(STORAGE_KEYS.SPONSORS, list);
+    sponsors[idx] = { ...sponsors[idx], ...data };
+
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "events",
+      p_id: event.id,
+      p_data: { settings: { ...event.settings, sponsors } },
+    });
+
+    if (error) throw error;
     return true;
   },
 
   async deleteSponsor(id) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) throw new Error("No event found");
-      const event = events[0];
-      const sponsors = (event.settings?.sponsors || []).filter((s) => s.id !== id);
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "events",
-        p_id: event.id,
-        p_data: { settings: { ...event.settings, sponsors } },
-      });
-
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) throw new Error("No event found");
+    const event = events[0];
+    const sponsors = (event.settings?.sponsors || []).filter((s) => s.id !== id);
 
-    await wait(80);
-    const list = read(STORAGE_KEYS.SPONSORS).filter((s) => s.id !== id);
-    write(STORAGE_KEYS.SPONSORS, list);
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "events",
+      p_id: event.id,
+      p_data: { settings: { ...event.settings, sponsors } },
+    });
+
+    if (error) throw error;
     return true;
   },
 
@@ -853,74 +744,55 @@ const backend = {
   // =========================================================================
 
   async getStreams() {
-    if (activeSupabase && activeSchemaName) {
-      try {
-        const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-        if (events && events.length > 0) {
-          return events[0].settings?.streams || [];
-        }
-        return [];
-      } catch (e) {
-        console.error("[admin backend] getStreams error:", e);
-      }
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
-    try {
-      const raw = localStorage.getItem("elm_admin_streams");
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (events && events.length > 0) {
+      return events[0].settings?.streams || [];
     }
+    return [];
   },
 
   async addStream(stream) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) throw new Error("No event found to update streams");
-      const event = events[0];
-      const streams = event.settings?.streams || [];
-      const newStream = { id: generateId(), ...stream };
-      streams.push(newStream);
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "events",
-        p_id: event.id,
-        p_data: { settings: { ...event.settings, streams } },
-      });
-
-      if (error) throw error;
-      return newStream;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) throw new Error("No event found to update streams");
+    const event = events[0];
+    const streams = event.settings?.streams || [];
+    const newStream = { id: generateId(), ...stream };
+    streams.push(newStream);
 
-    const streams = this.getStreams() || [];
-    const id = generateId();
-    const now = new Date().toISOString();
-    const newItem = { id, ...stream, createdAt: now };
-    streams.push(newItem);
-    localStorage.setItem("elm_admin_streams", JSON.stringify(streams));
-    return newItem;
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "events",
+      p_id: event.id,
+      p_data: { settings: { ...event.settings, streams } },
+    });
+
+    if (error) throw error;
+    return newStream;
   },
 
   async deleteStream(id) {
-    if (activeSupabase && activeSchemaName) {
-      const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
-      if (!events || events.length === 0) throw new Error("No event found");
-      const event = events[0];
-      const streams = (event.settings?.streams || []).filter((s) => s.id !== id);
-
-      const { error } = await activeSupabase.rpc("org_update", {
-        p_schema_name: activeSchemaName,
-        p_table_name: "events",
-        p_id: event.id,
-        p_data: { settings: { ...event.settings, streams } },
-      });
-
-      if (error) throw error;
-      return true;
+    if (!activeSupabase || !activeSchemaName) {
+      throw new Error("Supabase not initialized");
     }
+    const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
+    if (!events || events.length === 0) throw new Error("No event found");
+    const event = events[0];
+    const streams = (event.settings?.streams || []).filter((s) => s.id !== id);
 
-    const streams = (this.getStreams() || []).filter((s) => s.id !== id);
-    localStorage.setItem("elm_admin_streams", JSON.stringify(streams));
+    const { error } = await activeSupabase.rpc("org_update", {
+      p_schema_name: activeSchemaName,
+      p_table_name: "events",
+      p_id: event.id,
+      p_data: { settings: { ...event.settings, streams } },
+    });
+
+    if (error) throw error;
     return true;
   },
 

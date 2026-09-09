@@ -1,6 +1,14 @@
+import 'package:flutter/material.dart';
+
+import 'theme_utils.dart';
+
 class MobileConfig {
   static String appName = 'ElMoultaqa';
   static String themeColor = '0xFF0D7E52';
+
+  /// Resolved, crash-safe Color for the current org's brand.
+  /// Use this everywhere instead of re-parsing `themeColor` manually.
+  static Color get parsedThemeColor => parseThemeColor(themeColor);
   static String orgSlug = '';
   static String logoUrl = '';
 
@@ -10,6 +18,7 @@ class MobileConfig {
   static String conferenceDates = '';
   static String location = '';
   static String conferenceDescription = '';
+  static String conferenceWebsite = '';
   static String liveStreamUrl = '';
   static int participants = 0;
 
@@ -41,8 +50,18 @@ class MobileConfig {
       if (rawDates != null && rawDates.isNotEmpty) conferenceDates = rawDates;
       final rawLocation = config['location'] as String?;
       if (rawLocation != null && rawLocation.isNotEmpty) location = rawLocation;
+      final rawDescription = config['description'] as String?;
+      if (rawDescription != null && rawDescription.isNotEmpty) conferenceDescription = rawDescription;
+      final rawWebsite = config['website'] as String?;
+      if (rawWebsite != null && rawWebsite.isNotEmpty) conferenceWebsite = rawWebsite;
+      final rawLogoFromConfig = config['logo'] as String?;
+      if (rawLogoFromConfig != null && rawLogoFromConfig.isNotEmpty && logoUrl.isEmpty) {
+        logoUrl = rawLogoFromConfig;
+      }
       final rawStream = config['stream_url'] as String?;
       if (rawStream != null && rawStream.isNotEmpty) liveStreamUrl = rawStream;
+      final rawAttendees = config['attendees'];
+      if (rawAttendees is List) participants = rawAttendees.length;
       final rawTheme = config['themeColor'] as String?;
       if (rawTheme != null && rawTheme.isNotEmpty) {
         themeColor = rawTheme.startsWith('#') ? '0xff${rawTheme.substring(1)}' : '0xff$rawTheme';

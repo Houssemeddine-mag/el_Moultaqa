@@ -219,7 +219,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _notifType,
+                      initialValue: _notifType,
                       decoration:
                           const InputDecoration(labelText: 'Notification Type'),
                       items: const <DropdownMenuItem<String>>[
@@ -239,7 +239,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _notifPriority,
+                      initialValue: _notifPriority,
                       decoration: const InputDecoration(labelText: 'Priority'),
                       items: const <DropdownMenuItem<String>>[
                         DropdownMenuItem(

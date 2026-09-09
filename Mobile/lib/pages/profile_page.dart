@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userRole;
+  final String? email;
   final VoidCallback? onProfileCompleted;
 
   const ProfilePage({
     super.key,
     this.userRole = 'user',
+    this.email,
     this.onProfileCompleted,
   });
 
@@ -43,6 +45,9 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    if (widget.email != null && widget.email!.isNotEmpty) {
+      _email = widget.email!;
+    }
     _loadUserProfile();
   }
 
@@ -56,28 +61,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userProfile = prefs.getString('user_profile');
-      final themeColorHex = prefs.getString('elm_conference_config');
-
+      final profile = await SupabaseService.getMyProfile(_email);
       setState(() {
-        if (userProfile != null) {
-          try {
-            final profile = jsonDecode(userProfile);
-            _displayName = profile['displayName'] ?? 'Conference User';
-            _email = profile['email'] ?? 'user@conference.com';
-            _organization = profile['organization'] ?? '';
-            _schoolLevel = profile['schoolLevel'] ?? '';
-            _gender = profile['gender'] ?? '';
-            _profileImage = profile['profileImage'];
-            _country = profile['country'] ?? '';
-            _province = profile['province'] ?? '';
-            if (profile['birthday'] != null) {
-              _birthday = DateTime.tryParse(profile['birthday']);
-            }
-          } catch (e) {
-            // Use defaults if parsing fails
-          }
+        if (profile != null) {
+          _displayName = profile['full_name'] ?? 'Conference User';
+          _email = profile['email'] ?? 'user@conference.com';
+          _organization = profile['institution'] ?? '';
+          final metadata = profile['metadata'] is Map
+              ? profile['metadata'] as Map<String, dynamic>
+              : <String, dynamic>{};
+          _schoolLevel = metadata['schoolLevel'] ?? '';
+          _gender = metadata['gender'] ?? '';
+          _country = metadata['country'] ?? '';
+          _province = metadata['province'] ?? '';
+          _profileImage = metadata['profileImage'] as String?;
+          final birthdayStr = metadata['birthday'] as String?;
+          _birthday = birthdayStr != null ? DateTime.tryParse(birthdayStr) : null;
         }
         _nameController.text = _displayName;
         _emailController.text = _email;
@@ -92,19 +91,23 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _saveUserProfile() async {
     setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final profile = {
-        'displayName': _nameController.text,
-        'email': _emailController.text,
-        'organization': _organization,
-        'schoolLevel': _schoolLevel,
-        'gender': _gender,
-        'birthday': _birthday?.toIso8601String(),
-        'country': _country,
-        'province': _province,
-        'profileImage': _profileImage,
-      };
-      await prefs.setString('user_profile', jsonEncode(profile));
+      final email = _emailController.text;
+      final existing = await SupabaseService.getMyProfile(email);
+      if (existing != null) {
+        final id = existing['id'] as String;
+        await SupabaseService.updateMyProfile(id, {
+          'full_name': _nameController.text,
+          'institution': _organization,
+          'metadata': {
+            'schoolLevel': _schoolLevel,
+            'gender': _gender,
+            'country': _country,
+            'province': _province,
+            'profileImage': _profileImage,
+            'birthday': _birthday?.toIso8601String(),
+          },
+        });
+      }
       setState(() => _isEditing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -262,31 +265,12 @@ class _ProfilePageState extends State<ProfilePage> {
       return const Color(0xFFFF69B4); // Hot pink
     }
     // Get theme color if gender not set
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    return Color(int.parse(hex));
+    return MobileConfig.parsedThemeColor;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Parse theme color from config
-    String raw = MobileConfig.themeColor ?? '0xFF0D7E52';
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    themeColor = Color(int.parse(hex));
+    themeColor = MobileConfig.parsedThemeColor;
 
     if (_isLoading) {
       return Center(
@@ -603,7 +587,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Education Level Dropdown
                   DropdownButtonFormField<String>(
-                    value: _schoolLevel.isNotEmpty ? _schoolLevel : null,
+                    initialValue: _schoolLevel.isNotEmpty ? _schoolLevel : null,
                     items: [
                       'High School',
                       'Bachelor',
@@ -633,7 +617,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Gender Dropdown
                   DropdownButtonFormField<String>(
-                    value: _gender.isNotEmpty ? _gender : null,
+                    initialValue: _gender.isNotEmpty ? _gender : null,
                     items: ['Male', 'Female', 'Other']
                         .map((gender) => DropdownMenuItem(
                               value: gender,
@@ -687,7 +671,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Country Dropdown
                   DropdownButtonFormField<String>(
-                    value: _country.isNotEmpty ? _country : null,
+                    initialValue: _country.isNotEmpty ? _country : null,
                     items: [
                       'Algeria',
                       'Tunisia',
@@ -726,7 +710,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Province (only for Algeria)
                   if (_country == 'Algeria')
                     DropdownButtonFormField<String>(
-                      value: _province.isNotEmpty ? _province : null,
+                      initialValue: _province.isNotEmpty ? _province : null,
                       items: [
                         'Algiers',
                         'Blida',

@@ -1,42 +1,73 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static ThemeData get theme => ThemeData(
-        primaryColor: const Color(0xFF0D7E52),
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          secondary: const Color(0xFF1FB69A),
-          primary: const Color(0xFF0D7E52),
+  /// Builds the app's ThemeData from the org's resolved brand color.
+  /// [primary] should already be a fully-parsed, validated Color —
+  /// see `theme_utils.dart#parseThemeColor` for how MobileConfig.themeColor
+  /// gets turned into one.
+  static ThemeData themed(Color primary) {
+    final secondary = _deriveSecondary(primary);
+
+    return ThemeData(
+      primaryColor: primary,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primary,
+      ).copyWith(
+        primary: primary,
+        secondary: secondary,
+      ),
+      fontFamily: 'Roboto',
+      scaffoldBackgroundColor: _tintedBackground(primary),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFFEEFCF4),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0D7E52),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        labelStyle: TextStyle(color: primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: primary, width: 2),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: const TextStyle(color: Color(0xFF0D7E52)),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: primary,
+        iconTheme: IconThemeData(color: primary),
+        elevation: 0,
+        titleTextStyle: TextStyle(
+          color: primary,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF0D7E52),
-          iconTheme: IconThemeData(color: Color(0xFF0D7E52)),
-          elevation: 0,
-          titleTextStyle: TextStyle(
-            color: Color(0xFF0D7E52),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.white,
-          selectedItemColor: Color(0xFF0D7E52),
-          unselectedItemColor: Colors.grey,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-        ),
-      );
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: primary,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+      ),
+    );
+  }
+
+  /// Fallback theme for the brief window before org config has loaded
+  /// (e.g. first frame of main.dart, before MobileConfig.loadFromService runs).
+  static ThemeData get fallback => themed(const Color(0xFF0D7E52));
+
+  static Color _tintedBackground(Color primary) {
+    // Very light tint of the brand color, matching the previous
+    // 0xFFEEFCF4-style background but derived per-org instead of hardcoded.
+    return Color.alphaBlend(primary.withValues(alpha: 0.06), Colors.white);
+  }
+
+  static Color _deriveSecondary(Color primary) {
+    final hsl = HSLColor.fromColor(primary);
+    return hsl.withHue((hsl.hue + 20) % 360).withLightness(
+      (hsl.lightness + 0.1).clamp(0.0, 1.0),
+    ).toColor();
+  }
 }

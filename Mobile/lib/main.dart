@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:app_links/app_links.dart';
+import 'package:clerk_auth/clerk_auth.dart' as clerk;
 
 import 'admin notif/admin_main_layout.dart';
 import 'admin notif/storage.dart';
@@ -18,6 +20,70 @@ import 'services/supabase_service.dart';
 import 'theme.dart';
 import 'widgets/notification_bell.dart';
 import 'widgets/sidebar.dart';
+
+const _redirectionScheme = 'elmoultaqa';
+const _redirectionHost = 'example.com';
+const _oauthRedirectionPath = '/oauth';
+const _emailLinkRedirectionPath = '/email_link';
+const _redirectionPaths = [
+  _oauthRedirectionPath,
+  _emailLinkRedirectionPath
+];
+
+/// This function checks a [Uri] to see if it's a deep link that the
+/// Clerk SDK should handle. If so, the [Uri] is returned to be consumed
+/// by the SDK's `deepLinkStream`. If not, the [Uri] is handled another
+/// way, and null returned to tell the Clerk SDK to ignore it.
+Future<Uri?> handleDeepLink(Uri uri) async {
+  // Check the [Uri]] to see if it should be handled by the Clerk SDK...
+  if (uri.scheme == _redirectionScheme &&
+      uri.host == _redirectionHost &&
+      _redirectionPaths.contains(uri.path)) {
+    // ...and if so return it, telling the SDK to handle it.
+    return uri;
+  }
+
+  // If the host app deems the deep link to be not relevant to the Clerk SDK,
+  // we can choose here to process it separately. Alternatively, we can just
+  // ignore it for now, and let the app handle it in a different manner.
+  await handleDeepLinkInAnotherWay(uri);
+
+  // We then return [null] to inhibit further processing by the SDK.
+  return null;
+}
+
+/// This function handles a deep link that is not relevant to the Clerk SDK
+Future<void> handleDeepLinkInAnotherWay(Uri uri) async {
+  // do something with the deep link that is outside the remit
+  // of the Clerk SDK
+}
+
+/// A function that returns an appropriate deep link [Uri] for the oauth
+/// redirect for a given [clerk.Strategy], or [null] if redirection should
+/// be handled in-app
+Uri? generateDeepLink(BuildContext context, clerk.Strategy strategy) {
+  if (strategy.isOauth) {
+    return Uri(
+      scheme: _redirectionScheme,
+      host: _redirectionHost,
+      path: _oauthRedirectionPath,
+    );
+  }
+
+  if (strategy.isEmailLink) {
+    return Uri(
+      scheme: _redirectionScheme,
+      host: _redirectionHost,
+      path: _emailLinkRedirectionPath,
+    );
+  }
+
+  // if you want to use the default in-app SSO, just remove the
+  // [redirectionGenerator] parameter from the [ClerkAuthConfig] object
+  // below, or...
+
+  return null;
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,13 +102,24 @@ void main() async {
     return;
   }
 
+  // 3a. Resolve org details — anon-safe, sets name/colors from org row
   try {
     await SupabaseService.resolveOrg();
-    final config = await SupabaseService.getConferenceConfig();
-    MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+    if (SupabaseService.orgDetails != null) {
+      MobileConfig.loadFromService(SupabaseService.orgDetails, null);
+    }
   } catch (e) {
-    // Non-fatal — app works with defaults
     print('[main] Org resolve skipped (non-fatal): $e');
+  }
+
+  // 3b. Event config — may fail pre-auth (org_query needs Clerk JWT)
+  try {
+    final config = await SupabaseService.getConferenceConfig();
+    if (config != null) {
+      MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+    }
+  } catch (e) {
+    print('[main] Conference config not available pre-auth (non-fatal): $e');
   }
 
   final publishableKey = () {
@@ -56,7 +133,7 @@ void main() async {
   }();
 
   if (publishableKey.isEmpty) {
-    runApp(ErrorScreen(message: '[Step 4] CLERK_PUBLISHABLE_KEY not found.\n\nChecked --dart-define and .env file.'));
+    runApp(const ErrorScreen(message: '[Step 4] CLERK_PUBLISHABLE_KEY not found.\n\nChecked --dart-define and .env file.'));
     return;
   }
 
@@ -67,6 +144,8 @@ void main() async {
         loading: const Center(
           child: CircularProgressIndicator(),
         ),
+        redirectionGenerator: generateDeepLink,
+        deepLinkStream: AppLinks().uriLinkStream.asyncMap(handleDeepLink),
       ),
       child: const ElMoultaqaMobileApp(),
     ),
@@ -134,7 +213,7 @@ class ElMoultaqaMobileApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: MobileConfig.appName,
-      theme: AppTheme.theme,
+      theme: AppTheme.themed(MobileConfig.parsedThemeColor),
       initialRoute: '/auth',
       routes: {
         '/auth': (context) => const AuthPage(),
@@ -153,35 +232,51 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _conferenceName = MobileConfig.appName;
   int _notificationCount = 0;
   Timer? _notificationTimer;
+  bool _isAppActive = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _conferenceName = MobileConfig.appName;
     _refreshNotificationCount();
     _notificationTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _refreshNotificationCount(),
+      (_) {
+        if (_isAppActive) {
+          _refreshNotificationCount();
+        }
+      },
     );
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isAppActive = state == AppLifecycleState.resumed;
+    if (_isAppActive) {
+      _refreshNotificationCount();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _refreshNotificationCount() async {
-    final notifications = await AdminStorage.loadNotifications();
+    final unreadCount = await AdminStorage.getUnreadNotificationCount();
     if (mounted) {
       setState(() {
-        _notificationCount = notifications.length;
+        _notificationCount = unreadCount;
       });
     }
   }
@@ -190,7 +285,7 @@ class _MainLayoutState extends State<MainLayout> {
     return _conferenceName;
   }
 
-  Widget _buildPage(int index) {
+  Widget _buildPage(int index, ClerkAuthState authState) {
     switch (index) {
       case 0:
         return HomePage(
@@ -202,7 +297,10 @@ class _MainLayoutState extends State<MainLayout> {
       case 2:
         return const LivePage();
       case 3:
-        return ProfilePage(userRole: widget.userRole);
+        return ProfilePage(
+          userRole: widget.userRole,
+          email: authState.user?.email,
+        );
       case 4:
         return const SettingsPage();
       default:
@@ -219,18 +317,18 @@ class _MainLayoutState extends State<MainLayout> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Row(
+              title: Row(
                 children: [
                   Icon(
                     Icons.exit_to_app,
-                    color: Color(0xFF0D7E52),
+                    color: MobileConfig.parsedThemeColor,
                     size: 28,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'Quitter l\'application',
                     style: TextStyle(
-                      color: Color(0xFF0D7E52),
+                      color: MobileConfig.parsedThemeColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -258,7 +356,7 @@ class _MainLayoutState extends State<MainLayout> {
                     Navigator.of(context).pop(true);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D7E52),
+                    backgroundColor: MobileConfig.parsedThemeColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -285,18 +383,18 @@ class _MainLayoutState extends State<MainLayout> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Row(
+              title: Row(
                 children: [
                   Icon(
                     Icons.logout,
-                    color: Color(0xFF0D7E52),
+                    color: MobileConfig.parsedThemeColor,
                     size: 28,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'Déconnexion',
                     style: TextStyle(
-                      color: Color(0xFF0D7E52),
+                      color: MobileConfig.parsedThemeColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -324,7 +422,7 @@ class _MainLayoutState extends State<MainLayout> {
                     Navigator.of(context).pop(true);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D7E52),
+                    backgroundColor: MobileConfig.parsedThemeColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -351,6 +449,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = MobileConfig.parsedThemeColor;
     return ClerkAuthBuilder(
       signingInBuilder: (context, authState) => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -360,11 +459,11 @@ class _MainLayoutState extends State<MainLayout> {
       ),
       signedInBuilder: (context, authState) {
         return PopScope(
-          canPop: true,
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
             final shouldExit = await _onWillPop();
-            if (shouldExit) {
+            if (shouldExit && mounted) {
               Navigator.of(context).pop();
             }
           },
@@ -374,15 +473,16 @@ class _MainLayoutState extends State<MainLayout> {
               elevation: 0,
               backgroundColor: Colors.white,
               leading: IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF0D7E52)),
+                icon: Icon(Icons.menu, color: themeColor),
+                tooltip: 'Open menu',
                 onPressed: () {
                   _scaffoldKey.currentState?.openDrawer();
                 },
               ),
               title: Text(
                 _welcomeMessage,
-                style: const TextStyle(
-                  color: Color(0xFF0D7E52),
+                style: TextStyle(
+                  color: themeColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -392,14 +492,15 @@ class _MainLayoutState extends State<MainLayout> {
                   padding: const EdgeInsets.only(right: 4),
                   child: NotificationBell(
                     notificationCount: _notificationCount,
-                    color: const Color(0xFF0D7E52),
-                    onPressed: () {
-                      Navigator.push(
+                    color: themeColor,
+                    onPressed: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const NotificationPage(),
                         ),
                       );
+                      _refreshNotificationCount();
                     },
                   ),
                 ),
@@ -415,7 +516,7 @@ class _MainLayoutState extends State<MainLayout> {
               selectedIndex: _selectedIndex,
               onDisconnectRequested: () => _confirmDisconnect(authState),
             ),
-            body: _buildPage(_selectedIndex),
+            body: _buildPage(_selectedIndex, authState),
           ),
         );
       },

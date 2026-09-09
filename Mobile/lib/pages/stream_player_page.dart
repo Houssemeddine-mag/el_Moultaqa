@@ -4,10 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../admin notif/models.dart';
-import '../admin notif/storage.dart';
+import '../services/supabase_service.dart';
 
 class StreamPlayerPage extends StatefulWidget {
   final LiveStream stream;
@@ -36,10 +37,52 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
   String? _linkedSessionTitle;
   String? _linkedPresentationTitle;
 
+  late final WebViewController _webViewController;
+  bool _isExternalStream = false;
+
+  bool _isYouTubeUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('youtube.com') || lower.contains('youtu.be');
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    final rawUrl = widget.stream.url.trim();
+    final isYT = _isYouTubeUrl(rawUrl);
+    Uri targetUri;
+    if (isYT) {
+      final videoId = _extractVideoId(rawUrl);
+      // Only use YouTube embed when we actually extracted an 11-char id
+      if (videoId.length == 11 && videoId != rawUrl) {
+        _isExternalStream = false;
+        targetUri = Uri.parse(
+            'https://www.youtube.com/embed/$videoId?autoplay=1&modestbranding=1&rel=0');
+      } else {
+        // Malformed YouTube URL — load raw URL directly instead of broken embed
+        _isExternalStream = true;
+        targetUri = Uri.tryParse(rawUrl) ?? Uri.parse('about:blank');
+      }
+    } else if (rawUrl.isNotEmpty && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+      _isExternalStream = true;
+      targetUri = Uri.parse(rawUrl);
+    } else {
+      _isExternalStream = true;
+      targetUri = Uri.parse('about:blank');
+    }
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadRequest(targetUri)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) {
+              setState(() => _playerReady = true);
+            }
+          },
+        ),
+      );
     _loadQuestions();
     _resolveLinkedSession();
   }
@@ -73,16 +116,65 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
 
   Future<void> _resolveLinkedSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('elm_webapp_programs');
-      if (raw == null || raw.isEmpty) return;
+      List<dynamic> sessionsList = [];
 
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return;
+      try {
+        final sessions = await SupabaseService.getSessions();
+        sessionsList = sessions.map((s) {
+          final startTimeStr = (s['start_time'] ?? '').toString();
+          final endTimeStr = (s['end_time'] ?? '').toString();
+          final startDt = DateTime.tryParse(startTimeStr);
+          final endDt = DateTime.tryParse(endTimeStr);
+          final metadata = s['metadata'] is Map
+              ? Map<String, dynamic>.from(s['metadata'] as Map)
+              : <String, dynamic>{};
+
+          String dateStr = '';
+          String startStr = '';
+          String endStr = '';
+          if (startDt != null) {
+            dateStr =
+                '${startDt.year}-${startDt.month.toString().padLeft(2, '0')}-${startDt.day.toString().padLeft(2, '0')}';
+            startStr =
+                '${startDt.hour.toString().padLeft(2, '0')}:${startDt.minute.toString().padLeft(2, '0')}';
+          }
+          if (endDt != null) {
+            endStr =
+                '${endDt.hour.toString().padLeft(2, '0')}:${endDt.minute.toString().padLeft(2, '0')}';
+          }
+
+          return {
+            'id': s['id'],
+            'type': s['session_type'] ?? '',
+            'title': s['title'] ?? '',
+            'date': dateStr,
+            'start': startStr,
+            'end': endStr,
+            'room': s['room'] ?? '',
+            'chairs': metadata['chairs'] is List
+                ? List<dynamic>.from(metadata['chairs'] as List)
+                : <dynamic>[],
+            'keynote': null,
+            'keynoteDescription': s['description'] ?? '',
+            'conferences': <Map<String, dynamic>>[],
+            'streamId': metadata['streamId']?.toString() ?? '',
+            'createdAt': s['created_at'] ?? '',
+            'updatedAt': s['updated_at'] ?? '',
+          };
+        }).toList();
+      } catch (_) {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('elm_webapp_programs');
+        if (raw == null || raw.isEmpty) return;
+
+        final decoded = jsonDecode(raw);
+        if (decoded is! List) return;
+        sessionsList = decoded;
+      }
 
       final now = DateTime.now();
 
-      for (final session in decoded) {
+      for (final session in sessionsList) {
         if (session is! Map) continue;
         final sid = (session['streamId'] ?? '').toString();
         if (sid != widget.stream.id) continue;
@@ -123,12 +215,32 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
   }
 
   Future<void> _loadQuestions() async {
-    final all = await AdminStorage.loadQuestions();
-    if (mounted) {
-      setState(() {
-        _questions.addAll(all.where((q) => q.streamId == widget.stream.id));
-        _loadingQuestions = false;
-      });
+    try {
+      final all = await SupabaseService.getQuestions();
+      if (mounted) {
+        setState(() {
+          _questions.addAll(all
+              .where((q) =>
+                  (q['stream_id']?.toString() ?? '') == widget.stream.id)
+              .map((q) => StreamQuestion(
+                    id: q['id']?.toString() ?? '',
+                    author: q['author_name']?.toString() ?? 'Attendee',
+                    message: q['message']?.toString() ?? '',
+                    createdAt: DateTime.tryParse(
+                            q['created_at']?.toString() ?? '') ??
+                        DateTime.now(),
+                    isAnswered: q['is_answered'] == true,
+                    answer: q['answer']?.toString(),
+                    streamId: q['stream_id']?.toString(),
+                    sessionTitle: q['session_title']?.toString(),
+                    presentationTitle: q['presentation_title']?.toString(),
+                  ))
+              .toList());
+          _loadingQuestions = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingQuestions = false);
     }
   }
 
@@ -147,9 +259,13 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
       presentationTitle: _linkedPresentationTitle,
     );
 
-    final all = await AdminStorage.loadQuestions();
-    all.insert(0, question);
-    await AdminStorage.saveQuestions(all);
+    await SupabaseService.submitQuestion({
+      'author_name': question.author,
+      'message': question.message,
+      'stream_id': widget.stream.id,
+      'session_title': _linkedSessionTitle,
+      'presentation_title': _linkedPresentationTitle,
+    });
 
     if (mounted) {
       setState(() {
@@ -185,12 +301,8 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
 
   @override
   Widget build(BuildContext context) {
-    final videoId = _extractVideoId(widget.stream.url);
-    final embedUrl = Uri.parse(
-        'https://www.youtube.com/embed/$videoId?autoplay=1&modestbranding=1&rel=0');
-
     if (_isFullScreen) {
-      return _buildFullScreenPlayer(embedUrl);
+      return _buildFullScreenPlayer();
     }
 
     return Scaffold(
@@ -216,18 +328,7 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
             child: Stack(
               children: [
                 WebViewWidget(
-                  controller: WebViewController()
-                    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                    ..loadRequest(embedUrl)
-                    ..setNavigationDelegate(
-                      NavigationDelegate(
-                        onPageFinished: (_) {
-                          if (mounted) {
-                            setState(() => _playerReady = true);
-                          }
-                        },
-                      ),
-                    ),
+                  controller: _webViewController,
                 ),
                 Positioned(
                   right: 8,
@@ -268,7 +369,7 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
     );
   }
 
-  Widget _buildFullScreenPlayer(Uri embedUrl) {
+  Widget _buildFullScreenPlayer() {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -282,9 +383,7 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
           child: Stack(
             children: [
               WebViewWidget(
-                controller: WebViewController()
-                  ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                  ..loadRequest(embedUrl),
+                controller: _webViewController,
               ),
               Positioned(
                 right: 8,
@@ -375,6 +474,26 @@ class _StreamPlayerPageState extends State<StreamPlayerPage>
               ],
             ),
           ),
+          if (_isExternalStream) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: Icon(Icons.open_in_new, size: 18, color: widget.themeColor),
+                label: Text('Open externally', style: TextStyle(color: widget.themeColor)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: widget.themeColor),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final uri = Uri.tryParse(widget.stream.url);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 import 'admin_home_page.dart';
 import 'admin_program_page.dart';
 import 'admin_notifications_page.dart';
@@ -18,43 +18,29 @@ class AdminMainLayout extends StatefulWidget {
 class _AdminMainLayoutState extends State<AdminMainLayout> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  String _conferenceName = 'ElMoultaqa';
-  late Color _themeColor;
+  String _conferenceName = MobileConfig.appName;
+
+  Color get _themeColor => MobileConfig.parsedThemeColor;
 
   @override
   void initState() {
     super.initState();
-    _themeColor = _parseThemeColor(MobileConfig.themeColor);
     _loadConferenceName();
-  }
-
-  Color _parseThemeColor(String? rawColor) {
-    final raw = rawColor ?? '0xFF0D7E52';
-    final hex = raw.startsWith('#')
-        ? '0xff${raw.substring(1)}'
-        : raw.startsWith('0x')
-            ? raw
-            : '0xff$raw';
-    return Color(int.parse(hex));
   }
 
   Future<void> _loadConferenceName() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final config = prefs.getString('elm_conference_config');
-      if (config != null) {
-        final nameMatch = RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(config);
-        if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
-          setState(() {
-            _conferenceName = nameMatch.group(1)!;
-          });
-          return;
-        }
+      final config = await SupabaseService.getConferenceConfig();
+      if (config != null && config['name'] != null && (config['name'] as String).isNotEmpty) {
+        setState(() {
+          _conferenceName = config['name'] as String;
+        });
+        return;
       }
     } catch (_) {}
 
     setState(() {
-      _conferenceName = 'ElMoultaqa';
+      _conferenceName = MobileConfig.heroTitle;
     });
   }
 

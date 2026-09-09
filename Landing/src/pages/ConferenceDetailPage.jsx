@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useClerkSupabase } from "@global/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const PUBLIC_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const WEBAPP_URL = import.meta.env.VITE_WEBAPP_URL || "";
 
 import {
   ChevronRightIcon,
@@ -76,23 +80,38 @@ function formatShortDate(dateStr) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function resolveWebappUrl(path) {
+  if (!path) return "#";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (WEBAPP_URL) return `${WEBAPP_URL.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  return path;
+}
+
 export default function ConferenceDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const supabase = useClerkSupabase();
+  const publicSupabase = useMemo(() => {
+    if (!PUBLIC_SUPABASE_URL || !PUBLIC_SUPABASE_ANON_KEY) return null;
+    return createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+  }, []);
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!publicSupabase) {
+      setError("Missing Supabase configuration.");
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc("get_discovery_event", {
+        const { data, error: rpcError } = await publicSupabase.rpc("get_discovery_event", {
           p_slug: slug,
         });
         if (rpcError) throw rpcError;
         if (!data || data.length === 0) {
-          setError("Conference not found or not yet published.");
+          setError("Conference not found or not yet published. SuperAdmin must enable discovery (is_super_enabled) and org admin must publish (is_org_published) — both required.");
           return;
         }
         setEvent(data[0]);
@@ -103,7 +122,7 @@ export default function ConferenceDetailPage() {
         setLoading(false);
       }
     })();
-  }, [slug, supabase]);
+  }, [slug, publicSupabase]);
 
   if (loading) {
     return (
@@ -197,7 +216,7 @@ export default function ConferenceDetailPage() {
                 <span className="detail-cover-action-disabled">Conference has ended</span>
               ) : (
                 <a
-                  href={event.webapp_url}
+                  href={resolveWebappUrl(event.webapp_url)}
                   className="detail-cover-action-btn"
                   target="_blank"
                   rel="noreferrer"

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../mobile_config.dart';
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -41,6 +43,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showPrivacyPolicy(BuildContext context) {
+    final themeColor = MobileConfig.parsedThemeColor;
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -57,12 +60,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Privacy & Security',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D7E52),
+                          color: themeColor,
                         ),
                       ),
                       IconButton(
@@ -133,7 +136,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D7E52),
+                        backgroundColor: themeColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -176,7 +179,132 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  void _showLanguageDialog() {
+    final themeColor = MobileConfig.parsedThemeColor;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.language, color: themeColor),
+            const SizedBox(width: 12),
+            Text('Language', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String>(
+              title: const Text('English'),
+              value: 'en',
+              groupValue: 'en',
+              activeColor: themeColor,
+              onChanged: (_) => Navigator.pop(context),
+            ),
+            RadioListTile<String>(
+              title: const Text('Français'),
+              value: 'fr',
+              groupValue: 'en',
+              activeColor: themeColor,
+              onChanged: (_) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Français — coming soon')),
+                );
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('العربية'),
+              value: 'ar',
+              groupValue: 'en',
+              activeColor: themeColor,
+              onChanged: (_) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('العربية — coming soon')),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog() {
+    final themeColor = MobileConfig.parsedThemeColor;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.help, color: themeColor),
+            const SizedBox(width: 12),
+            Text('Help & Support', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Need assistance?\n\n• Contact your conference organizer for access issues.\n• For technical support, email support@elmoultaqa.com.\n• Check the conference website for FAQs.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClearCache() {
+    final themeColor = MobileConfig.parsedThemeColor;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete, color: themeColor),
+            const SizedBox(width: 12),
+            Text('Clear Cache', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text('This will clear cached conference data (schedules, notifications). You will stay signed in.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: Colors.grey[600]))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: themeColor, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                // Only clear conference cache keys — preserve auth/org/theme prefs
+                for (final k in ['elm_webapp_programs', 'elm_admin_notifications', 'elm_admin_streams', 'elm_stream_questions', 'elm_read_notification_ids']) {
+                  await prefs.remove(k);
+                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cache cleared'), backgroundColor: Colors.green),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to clear cache: $e'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmLogout(BuildContext context) {
+    final themeColor = MobileConfig.parsedThemeColor;
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -184,18 +312,18 @@ class _SettingsPageState extends State<SettingsPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Row(
+          title: Row(
             children: [
               Icon(
                 Icons.logout,
-                color: Color(0xFF0D7E52),
+                color: themeColor,
                 size: 28,
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Text(
                 'Logout',
                 style: TextStyle(
-                  color: Color(0xFF0D7E52),
+                  color: themeColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -219,7 +347,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.pushReplacementNamed(context, '/auth');
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D7E52),
+                backgroundColor: themeColor,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Logout'),
@@ -232,7 +360,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF0D7E52);
+    final themeColor = MobileConfig.parsedThemeColor;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -240,7 +368,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Settings',
               style: TextStyle(
                 fontSize: 28,
@@ -264,15 +392,15 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.notifications,
-                      color: Color(0xFF0D7E52),
+                      color: themeColor,
                     ),
-                    title: const Text(
+                    title: Text(
                       'Notifications',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D7E52),
+                        color: themeColor,
                       ),
                     ),
                     subtitle: const Text(
@@ -283,7 +411,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _notificationsEnabled,
                       onChanged: _saveNotificationSettings,
                       thumbColor: WidgetStateProperty.resolveWith((states) {
-                        if (states.contains(WidgetState.selected)) return const Color(0xFF0D7E52);
+                        if (states.contains(WidgetState.selected)) return themeColor;
                         return null;
                       }),
                     ),
@@ -300,12 +428,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Language',
                     'Select app language',
                     Icons.language,
+                    onTap: _showLanguageDialog,
                   ),
                   _divider(),
                   _settingTile(
                     'Help & Support',
                     'Get assistance with your conference app',
                     Icons.help,
+                    onTap: _showHelpDialog,
                   ),
                 ],
               ),
@@ -329,6 +459,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     'Clear Cache',
                     'Free up space on your device',
                     Icons.delete,
+                    onTap: _confirmClearCache,
                   ),
                   _divider(),
                   _settingTile(
@@ -354,16 +485,17 @@ class _SettingsPageState extends State<SettingsPage> {
     VoidCallback? onTap,
     bool isDestructive = false,
   }) {
+    final themeColor = MobileConfig.parsedThemeColor;
     return ListTile(
       leading: Icon(
         icon,
-        color: isDestructive ? Colors.red : const Color(0xFF0D7E52),
+        color: isDestructive ? Colors.red : themeColor,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: isDestructive ? Colors.red : const Color(0xFF0D7E52),
+          color: isDestructive ? Colors.red : themeColor,
         ),
       ),
       subtitle: Text(

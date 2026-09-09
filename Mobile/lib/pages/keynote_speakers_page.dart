@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
+import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 
 class KeynoteSpeakersPage extends StatefulWidget {
   const KeynoteSpeakersPage({super.key});
@@ -8,10 +13,8 @@ class KeynoteSpeakersPage extends StatefulWidget {
 }
 
 class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
-  // Data will be loaded from backend/API
   final List<Map<String, dynamic>> speakers = [];
   bool isLoading = false;
-  late Color themeColor;
 
   @override
   void initState() {
@@ -23,21 +26,93 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
     setState(() {
       isLoading = true;
     });
-    // This would be replaced with actual API call
-    // For now, starting with empty list to be populated from backend
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() {
-      isLoading = false;
-    });
+    try {
+      final data = await SupabaseService.getSpeakers();
+      if (!mounted) return;
+      setState(() {
+        speakers.clear();
+        speakers.addAll(data.map((s) {
+          final rawImage = s['avatar_url']?.toString() ??
+              s['photo']?.toString() ??
+              s['image_url']?.toString() ??
+              s['image']?.toString() ??
+              '';
+          return <String, dynamic>{
+            'id': s['id']?.toString() ?? '',
+            'name': s['full_name']?.toString() ?? s['name']?.toString() ?? 'Speaker',
+            'title': s['title']?.toString() ?? s['topic']?.toString() ?? s['role']?.toString() ?? 'Presenter',
+            'institution': s['affiliation']?.toString() ?? s['institution']?.toString() ?? '',
+            'biography': s['bio']?.toString() ?? s['biography']?.toString() ?? '',
+            'imageData': rawImage,
+            'image': rawImage,
+          };
+        }));
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Widget _buildSpeakerImage(String? imageData) {
+    final img = (imageData ?? '').trim();
+    if (img.isEmpty) {
+      return Container(
+        color: MobileConfig.parsedThemeColor.withValues(alpha: 0.1),
+        child: Icon(
+          Icons.person_rounded,
+          size: 70,
+          color: MobileConfig.parsedThemeColor,
+        ),
+      );
+    }
+    // HTTP(S) URL
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return Image.network(
+        img,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: MobileConfig.parsedThemeColor.withValues(alpha: 0.1),
+          child: Icon(Icons.person_rounded, size: 70, color: MobileConfig.parsedThemeColor),
+        ),
+      );
+    }
+    // Data URI or raw base64 (user confirmed backend uses base64 for some images)
+    try {
+      String base64Str = img;
+      if (img.contains(',')) {
+        base64Str = img.split(',').last;
+      }
+      // Heuristic: base64 is long and only base64 chars
+      if (base64Str.length > 100) {
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: MobileConfig.parsedThemeColor.withValues(alpha: 0.1),
+            child: Icon(Icons.person_rounded, size: 70, color: MobileConfig.parsedThemeColor),
+          ),
+        );
+      }
+    } catch (_) {}
+    // Fallback — try as network anyway, else icon
+    if (img.startsWith('data:image')) {
+      try {
+        final base64Str = img.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {}
+    }
     return Container(
-      color: const Color(0xFF0D7E52).withOpacity(0.1),
-      child: const Icon(
+      color: MobileConfig.parsedThemeColor.withValues(alpha: 0.1),
+      child: Icon(
         Icons.person_rounded,
         size: 70,
-        color: Color(0xFF0D7E52),
+        color: MobileConfig.parsedThemeColor,
       ),
     );
   }
@@ -128,13 +203,13 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0D7E52).withOpacity(0.1),
+                                color: MobileConfig.parsedThemeColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.school_rounded,
                                 size: 16,
-                                color: Color(0xFF0D7E52),
+                                color: MobileConfig.parsedThemeColor,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -167,13 +242,13 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                             Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0D7E52).withOpacity(0.1),
+                                color: MobileConfig.parsedThemeColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.apartment_rounded,
                                 size: 16,
-                                color: Color(0xFF0D7E52),
+                                color: MobileConfig.parsedThemeColor,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -226,23 +301,23 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0D7E52)
+                                    color: MobileConfig.parsedThemeColor
                                         .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.person_outline_rounded,
                                     size: 16,
-                                    color: Color(0xFF0D7E52),
+                                    color: MobileConfig.parsedThemeColor,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                const Text(
+                                Text(
                                   'About',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF0D7E52),
+                                    color: MobileConfig.parsedThemeColor,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -278,7 +353,7 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0D7E52).withOpacity(0.25),
+                        color: MobileConfig.parsedThemeColor.withOpacity(0.25),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                       ),
@@ -296,7 +371,7 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF0D7E52).withOpacity(0.3),
+                          color: MobileConfig.parsedThemeColor.withOpacity(0.3),
                           width: 1.5,
                         ),
                       ),
@@ -322,14 +397,14 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
           'Keynote Speakers',
           style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: const Color(0xFF0D7E52),
+        backgroundColor: MobileConfig.parsedThemeColor,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
       body: isLoading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF0D7E52),
+                color: MobileConfig.parsedThemeColor,
               ),
             )
           : speakers.isEmpty
@@ -340,7 +415,7 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                   ),
                 )
               : RefreshIndicator(
-                  color: const Color(0xFF0D7E52),
+                  color: MobileConfig.parsedThemeColor,
                   onRefresh: loadKeynoteSpeakers,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
@@ -356,7 +431,7 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.white,
-                              const Color(0xFF0D7E52).withOpacity(0.08),
+                              MobileConfig.parsedThemeColor.withOpacity(0.08),
                             ],
                           ),
                           boxShadow: [
@@ -379,12 +454,12 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: const Color(0xFF0D7E52),
+                                    color: MobileConfig.parsedThemeColor,
                                     width: 3,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF0D7E52)
+                                      color: MobileConfig.parsedThemeColor
                                           .withOpacity(0.3),
                                       spreadRadius: 2,
                                       blurRadius: 8,
@@ -403,10 +478,10 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                               Text(
                                 speaker['name'] ?? 'Unknown Speaker',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0D7E52),
+                                  color: MobileConfig.parsedThemeColor,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -432,17 +507,17 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0D7E52)
+                                    color: MobileConfig.parsedThemeColor
                                         .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     speaker['institution'],
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
-                                      color: Color(0xFF0D7E52),
+                                      color: MobileConfig.parsedThemeColor,
                                     ),
                                   ),
                                 ),
@@ -463,7 +538,7 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0D7E52),
+                                  backgroundColor: MobileConfig.parsedThemeColor,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 32, vertical: 16),
@@ -471,8 +546,8 @@ class _KeynoteSpeakersPageState extends State<KeynoteSpeakersPage> {
                                     borderRadius: BorderRadius.circular(30),
                                   ),
                                   elevation: 4,
-                                  shadowColor:
-                                      const Color(0xFF0D7E52).withOpacity(0.4),
+                                  shadowColor: MobileConfig.parsedThemeColor
+                                      .withOpacity(0.4),
                                 ),
                               ),
                             ],

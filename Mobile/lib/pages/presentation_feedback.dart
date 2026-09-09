@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 
 class PresentationFeedbackPage extends StatefulWidget {
   final String title;
@@ -16,7 +17,7 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
   final TextEditingController _commentController = TextEditingController();
   final List<Map<String, dynamic>> _ratings = [];
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_presenterRating == 0 &&
         _presentationRating == 0 &&
         _commentController.text.trim().isEmpty) {
@@ -25,11 +26,30 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
       return;
     }
 
+    final presenterRating = _presenterRating;
+    final presentationRating = _presentationRating;
+    final comment = _commentController.text.trim();
+
+    try {
+      await SupabaseService.submitFeedback({
+        'presentation_title': widget.title,
+        'presenter_rating': presenterRating,
+        'presentation_rating': presentationRating,
+        'comment': comment,
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not submit feedback. Please try again.')));
+      return;
+    }
+
+    if (!mounted) return;
     setState(() {
       _ratings.insert(0, {
-        'presenter': _presenterRating,
-        'presentation': _presentationRating,
-        'comment': _commentController.text.trim(),
+        'presenter': presenterRating,
+        'presentation': presentationRating,
+        'comment': comment,
         'time': DateTime.now(),
       });
       _presenterRating = 0;
@@ -57,16 +77,7 @@ class _PresentationFeedbackPageState extends State<PresentationFeedbackPage> {
 
   @override
   Widget build(BuildContext context) {
-    String raw = MobileConfig.themeColor;
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    final themeColor = Color(int.parse(hex));
+    final themeColor = MobileConfig.parsedThemeColor;
 
     return Scaffold(
       appBar: AppBar(

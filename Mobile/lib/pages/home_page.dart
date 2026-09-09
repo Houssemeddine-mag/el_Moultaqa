@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../mobile_config.dart';
+import '../services/supabase_service.dart';
 import 'keynote_speakers_page.dart';
 import 'program_page.dart';
 
@@ -20,7 +21,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late Color themeColor;
-  DateTime ceremonyDate = DateTime(2025, 12, 8, 9, 0);
+  // Sensible placeholder until real org data loads in _loadConferenceData().
+  DateTime ceremonyDate = DateTime.now().add(const Duration(days: 30));
   Duration remaining = const Duration();
   Timer? countdownTimer;
   String conferenceStartDate = "";
@@ -55,78 +57,121 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadConferenceData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final config = prefs.getString('elm_conference_config');
-
-      setState(() {
-        // Use MobileConfig values as defaults
-        conferenceName = MobileConfig.heroTitle.isNotEmpty
-            ? MobileConfig.heroTitle
-            : 'Conference';
-        conferenceLocation = MobileConfig.location.isNotEmpty
-            ? MobileConfig.location
-            : 'Conference Venue';
-        conferenceStartDate = MobileConfig.conferenceDates.isNotEmpty
-            ? MobileConfig.conferenceDates
-            : 'Dates TBD';
-        conferenceDescription = MobileConfig.conferenceDescription.isNotEmpty
-            ? MobileConfig.conferenceDescription
-            : 'A premier conference experience.';
-        totalParticipants =
-            MobileConfig.participants > 0 ? MobileConfig.participants : 0;
-      });
-
-      // Override with localStorage data if available
-      if (config != null) {
+      if (mounted) {
         setState(() {
-          // Parse conference name from elm_conference_config
-          final nameMatch =
-              RegExp(r'"name"\s*:\s*"([^"]*)"').firstMatch(config);
-          if (nameMatch != null && nameMatch.group(1)!.isNotEmpty) {
-            conferenceName = nameMatch.group(1)!;
-          }
+          conferenceName = MobileConfig.heroTitle.isNotEmpty ? MobileConfig.heroTitle : MobileConfig.appName;
+          conferenceLocation = MobileConfig.location.isNotEmpty ? MobileConfig.location : 'Conference Venue';
+          conferenceStartDate = MobileConfig.conferenceDates.isNotEmpty ? MobileConfig.conferenceDates : 'Dates TBD';
+          conferenceDescription = MobileConfig.conferenceDescription.isNotEmpty ? MobileConfig.conferenceDescription : 'A premier conference experience.';
+          conferenceWebsite = MobileConfig.conferenceWebsite;
+          totalParticipants = MobileConfig.participants > 0 ? MobileConfig.participants : 0;
 
-          // Parse description
-          final descMatch =
-              RegExp(r'"description"\s*:\s*"([^"]*)"').firstMatch(config);
-          if (descMatch != null && descMatch.group(1)!.isNotEmpty) {
-            conferenceDescription = descMatch.group(1) ?? conferenceDescription;
-          }
-
-          final websiteMatch =
-              RegExp(r'"website"\s*:\s*"([^"]*)"').firstMatch(config);
-          if (websiteMatch != null && websiteMatch.group(1)!.isNotEmpty) {
-            conferenceWebsite = websiteMatch.group(1)!;
+          final parsedCeremonyDate = DateTime.tryParse(MobileConfig.conferenceDates);
+          if (parsedCeremonyDate != null) {
+            ceremonyDate = parsedCeremonyDate;
           }
         });
       }
-    } catch (e) {
-      // Use MobileConfig defaults
-    }
+
+      final config = await SupabaseService.getConferenceConfig();
+      if (config != null) {
+        MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+        if (mounted) {
+          setState(() {
+            final name = config['name']?.toString();
+            if (name != null && name.isNotEmpty) conferenceName = name;
+            final desc = config['description']?.toString();
+            if (desc != null && desc.isNotEmpty) conferenceDescription = desc;
+            final loc = config['location']?.toString();
+            if (loc != null && loc.isNotEmpty) conferenceLocation = loc;
+            final web = config['website']?.toString();
+            if (web != null && web.isNotEmpty) conferenceWebsite = web;
+            final start = config['startDate']?.toString();
+            if (start != null && start.isNotEmpty) {
+              conferenceStartDate = start;
+              final parsed = DateTime.tryParse(start);
+              if (parsed != null) ceremonyDate = parsed;
+            }
+            if (config['attendees'] is List) {
+              totalParticipants = (config['attendees'] as List).length;
+            }
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUpcomingEvents() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('elm_webapp_programs');
+      List<dynamic> decoded = [];
 
-      if (raw == null || raw.isEmpty) {
-        if (mounted) {
-          setState(() {
-            upcomingEvents = [];
-            programStats = {
-              'totalSessions': 0,
-              'totalConferences': 0,
-              'totalSpeakers': 0,
-              'keynoteSessions': 0,
-            };
-          });
+      try {
+        final sessions = await SupabaseService.getSessions();
+        decoded = sessions.map((s) {
+          final startTimeStr = (s['start_time'] ?? '').toString();
+          final endTimeStr = (s['end_time'] ?? '').toString();
+          final startDt = DateTime.tryParse(startTimeStr);
+          final endDt = DateTime.tryParse(endTimeStr);
+          final metadata = s['metadata'] is Map
+              ? Map<String, dynamic>.from(s['metadata'] as Map)
+              : <String, dynamic>{};
+
+          String dateStr = '';
+          String startStr = '';
+          String endStr = '';
+          if (startDt != null) {
+            dateStr =
+                '${startDt.year}-${startDt.month.toString().padLeft(2, '0')}-${startDt.day.toString().padLeft(2, '0')}';
+            startStr =
+                '${startDt.hour.toString().padLeft(2, '0')}:${startDt.minute.toString().padLeft(2, '0')}';
+          }
+          if (endDt != null) {
+            endStr =
+                '${endDt.hour.toString().padLeft(2, '0')}:${endDt.minute.toString().padLeft(2, '0')}';
+          }
+
+          return {
+            'id': s['id'],
+            'type': s['session_type'] ?? '',
+            'title': s['title'] ?? '',
+            'date': dateStr,
+            'start': startStr,
+            'end': endStr,
+            'room': s['room'] ?? '',
+            'chairs': metadata['chairs'] is List
+                ? List<dynamic>.from(metadata['chairs'] as List)
+                : <dynamic>[],
+            'keynote': null,
+            'keynoteDescription': s['description'] ?? '',
+            'conferences': <Map<String, dynamic>>[],
+            'streamId': metadata['streamId']?.toString() ?? '',
+            'createdAt': s['created_at'] ?? '',
+            'updatedAt': s['updated_at'] ?? '',
+          };
+        }).toList();
+      } catch (_) {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('elm_webapp_programs');
+
+        if (raw == null || raw.isEmpty) {
+          if (mounted) {
+            setState(() {
+              upcomingEvents = [];
+              programStats = {
+                'totalSessions': 0,
+                'totalConferences': 0,
+                'totalSpeakers': 0,
+                'keynoteSessions': 0,
+              };
+            });
+          }
+          return;
         }
-        return;
-      }
 
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return;
+        final d = jsonDecode(raw);
+        if (d is! List) return;
+        decoded = d;
+      }
 
       final now = DateTime.now();
       final List<Map<String, dynamic>> allUpcoming = [];
@@ -314,17 +359,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Parse theme color from config
-    String raw = MobileConfig.themeColor;
-    String hex;
-    if (raw.startsWith('#')) {
-      hex = '0xff${raw.substring(1)}';
-    } else if (raw.startsWith('0x')) {
-      hex = raw;
-    } else {
-      hex = '0xff$raw';
-    }
-    themeColor = Color(int.parse(hex));
+    themeColor = MobileConfig.parsedThemeColor;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -717,17 +752,90 @@ class _HomePageState extends State<HomePage> {
           ),
           child: Icon(Icons.arrow_forward_ios, size: 14, color: themeColor),
         ),
-        onTap: () {},
+        onTap: () => _showEventDetailDialog(event),
+      ),
+    );
+  }
+
+  void _showEventDetailDialog(Map<String, dynamic> event) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          event['title'] ?? 'Session',
+          style: TextStyle(color: themeColor, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if ((event['speaker'] ?? '').toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(event['speaker'])),
+                  ],
+                ),
+              ),
+            if ((event['time'] ?? '').toString().isNotEmpty)
+              Row(
+                children: [
+                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 6),
+                  Text(event['time']),
+                ],
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (widget.onNavigateToProgram != null) {
+                widget.onNavigateToProgram!();
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProgramPage()),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('View full program'),
+          ),
+        ],
       ),
     );
   }
 
   Widget _organizerButton(String label) {
-    return Chip(
+    void onPressed() {
+      if (label == "Manage Notifications") {
+        Navigator.pushNamed(context, '/admin-notif');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$label — coming soon')),
+        );
+      }
+    }
+
+    return ActionChip(
       label: Text(label),
-      backgroundColor: themeColor.withOpacity(0.1),
+      backgroundColor: themeColor.withValues(alpha: 0.1),
       labelStyle: TextStyle(color: themeColor),
       side: BorderSide(color: themeColor),
+      onPressed: onPressed,
     );
   }
 }

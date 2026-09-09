@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useClerkSupabase } from "@global/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const PUBLIC_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const PUBLIC_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 import {
   SearchIcon,
@@ -211,7 +214,10 @@ function FilterChips({ label, options, active, onSelect, renderChip }) {
 
 export default function DiscoveryPage() {
   const navigate = useNavigate();
-  const supabase = useClerkSupabase();
+  const publicSupabase = useMemo(() => {
+    if (!PUBLIC_SUPABASE_URL || !PUBLIC_SUPABASE_ANON_KEY) return null;
+    return createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+  }, []);
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -220,13 +226,23 @@ export default function DiscoveryPage() {
   const [activeLocation, setActiveLocation] = useState(null);
 
   useEffect(() => {
+    if (!publicSupabase) {
+      console.error("[DiscoveryPage] Missing VITE_SUPABASE_URL/ANON_KEY — cannot load discovery");
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
-        const [{ data: eventsData }, { data: catsData }] = await Promise.all([
-          supabase.rpc("list_discovery_events"),
-          supabase.rpc("list_discovery_categories"),
+        const [{ data: eventsData, error: evErr }, { data: catsData, error: catErr }] = await Promise.all([
+          publicSupabase.rpc("list_discovery_events"),
+          publicSupabase.rpc("list_discovery_categories"),
         ]);
+        if (evErr) console.error("[DiscoveryPage] list_discovery_events error:", evErr);
+        if (catErr) console.error("[DiscoveryPage] list_discovery_categories error:", catErr);
         const items = eventsData || [];
+        if (items.length === 0) {
+          console.warn("[DiscoveryPage] 0 events returned — check public.discovery_events: is_super_enabled=true AND is_org_published=true AND is_super_blocked=false required. Also verify SuperAdmin enabled the org and Admin published the card.");
+        }
         setEvents(items);
         setCategories(catsData?.map((c) => c.category) || []);
       } catch (err) {
@@ -235,7 +251,7 @@ export default function DiscoveryPage() {
         setLoading(false);
       }
     })();
-  }, [supabase]);
+  }, [publicSupabase]);
 
   const locations = [...new Set(events.map((e) => e.location).filter(Boolean))].sort();
   const liveEvents = events.filter((e) => e.is_ongoing);
