@@ -420,9 +420,9 @@ class _AdminProgramPageState extends State<AdminProgramPage> {
                                     ),
                                     const SizedBox(height: 12),
                                     DropdownButtonFormField<String>(
-                                      initialValue: (session['streamId'] ?? '').toString().isNotEmpty
-                                          ? (session['streamId'] ?? '').toString()
-                                          : null,
+value: (session['streamId'] ?? '').toString().isNotEmpty
+                                        ? (session['streamId'] ?? '').toString()
+                                        : null,
                                       decoration: InputDecoration(
                                         labelText: 'Linked stream',
                                         contentPadding: const EdgeInsets.symmetric(

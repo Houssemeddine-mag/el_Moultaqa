@@ -587,7 +587,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Education Level Dropdown
                   DropdownButtonFormField<String>(
-                    initialValue: _schoolLevel.isNotEmpty ? _schoolLevel : null,
+                    value: _schoolLevel.isNotEmpty ? _schoolLevel : null,
                     items: [
                       'High School',
                       'Bachelor',
@@ -617,7 +617,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Gender Dropdown
                   DropdownButtonFormField<String>(
-                    initialValue: _gender.isNotEmpty ? _gender : null,
+                    value: _gender.isNotEmpty ? _gender : null,
                     items: ['Male', 'Female', 'Other']
                         .map((gender) => DropdownMenuItem(
                               value: gender,
@@ -671,7 +671,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // Country Dropdown
                   DropdownButtonFormField<String>(
-                    initialValue: _country.isNotEmpty ? _country : null,
+                    value: _country.isNotEmpty ? _country : null,
                     items: [
                       'Algeria',
                       'Tunisia',
@@ -710,7 +710,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Province (only for Algeria)
                   if (_country == 'Algeria')
                     DropdownButtonFormField<String>(
-                      initialValue: _province.isNotEmpty ? _province : null,
+                      value: _province.isNotEmpty ? _province : null,
                       items: [
                         'Algiers',
                         'Blida',
