@@ -175,6 +175,13 @@ export async function fetchConferenceConfig() {
       name: ev.title,
       shortName: ev.short_name,
       tagline: settings?.tagline || "",
+      description: ev.description || settings?.description || "",
+      website:
+        ev.website ||
+        settings?.website ||
+        settings?.conferenceWebsite ||
+        settings?.web_url ||
+        "",
       themeColor: settings?.themeColor || "#0d7e52",
       logo: ev.cover_image_url || settings?.logo_url || "",
       startDate: ev.start_date,

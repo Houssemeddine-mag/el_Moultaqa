@@ -8,13 +8,14 @@ const KeynoteInApp = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
+  // Field names match backend.getKeynoteSpeakers/updateKeynoteSpeaker vocabulary
+  // (name/title/company/bio/photo) so every field actually persists.
   const [formData, setFormData] = useState({
     name: "",
     title: "",
-    institution: "",
-    biography: "",
-    imageData: "",
-    order: 0,
+    company: "",
+    bio: "",
+    photo: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -138,7 +139,7 @@ const KeynoteInApp = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.institution) {
+    if (!formData.name?.trim() || !formData.company?.trim()) {
       alert("Please fill in at least the name and institution fields.");
       return;
     }
@@ -148,13 +149,13 @@ const KeynoteInApp = () => {
       console.log("Starting to save speaker...");
       console.log("Form data:", formData);
 
-      let imageData = editingSpeaker?.imageData || "";
+      let photo = editingSpeaker?.photo || "";
 
       if (imageFile) {
         console.log("Processing image...");
         const base64Image = await uploadImage();
         if (base64Image) {
-          imageData = base64Image;
+          photo = base64Image;
           console.log("✅ Image processed successfully");
         } else {
           setLoading(false);
@@ -164,12 +165,7 @@ const KeynoteInApp = () => {
 
       const speakerData = {
         ...formData,
-        imageData,
-        order: parseInt(formData.order) || 0,
-        createdAt: editingSpeaker
-          ? editingSpeaker.createdAt
-          : new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        photo,
       };
 
       console.log("Saving speaker data to backend...");
@@ -204,12 +200,12 @@ const KeynoteInApp = () => {
     setFormData({
       name: speaker.name || "",
       title: speaker.title || "",
-      institution: speaker.institution || "",
-      biography: speaker.biography || "",
-      imageData: speaker.imageData || "",
-      order: speaker.order || 0,
+      company: speaker.company || "",
+      bio: speaker.bio || "",
+      photo: speaker.photo || "",
     });
-    setImagePreview(speaker.imageData || "");
+    setImageFile(null);
+    setImagePreview(speaker.photo || "");
     setShowModal(true);
   };
 
@@ -235,9 +231,9 @@ const KeynoteInApp = () => {
     setFormData({
       name: "",
       title: "",
-      institution: "",
-      biography: "",
-      order: 0,
+      company: "",
+      bio: "",
+      photo: "",
     });
     setImageFile(null);
     setImagePreview("");
@@ -247,19 +243,17 @@ const KeynoteInApp = () => {
   const filteredSpeakers = speakers.filter(
     (speaker) =>
       speaker.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      speaker.institution?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      speaker.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       speaker.title?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const sortedSpeakers = [...filteredSpeakers].sort((a, b) => {
     switch (sortBy) {
-      case "name":
-        return (a.name || "").localeCompare(b.name || "");
       case "institution":
-        return (a.institution || "").localeCompare(b.institution || "");
-      case "order":
+        return (a.company || "").localeCompare(b.company || "");
+      case "name":
       default:
-        return (a.order || 0) - (b.order || 0);
+        return (a.name || "").localeCompare(b.name || "");
     }
   });
 
@@ -303,7 +297,6 @@ const KeynoteInApp = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="sort-select"
           >
-            <option value="order">Sort by Order</option>
             <option value="name">Sort by Name</option>
             <option value="institution">Sort by Institution</option>
           </select>
@@ -331,9 +324,9 @@ const KeynoteInApp = () => {
             sortedSpeakers.map((speaker) => (
               <div key={speaker.id} className="speaker-card">
                 <div className="speaker-image-container">
-                  {speaker.imageData ? (
+                  {speaker.photo ? (
                     <img
-                      src={speaker.imageData}
+                      src={speaker.photo}
                       alt={speaker.name}
                       className="speaker-image"
                     />
@@ -342,7 +335,6 @@ const KeynoteInApp = () => {
                       <User size={28} />
                     </div>
                   )}
-                  <div className="speaker-order">#{speaker.order || 0}</div>
                 </div>
 
                 <div className="speaker-info">
@@ -350,13 +342,15 @@ const KeynoteInApp = () => {
                   {speaker.title && (
                     <p className="speaker-title">{speaker.title}</p>
                   )}
-                  <p className="speaker-institution">{speaker.institution}</p>
+                  {speaker.company && (
+                    <p className="speaker-institution">{speaker.company}</p>
+                  )}
 
-                  {speaker.biography && (
+                  {speaker.bio && (
                     <p className="speaker-bio">
-                      {speaker.biography.length > 100
-                        ? `${speaker.biography.substring(0, 100)}...`
-                        : speaker.biography}
+                      {speaker.bio.length > 100
+                        ? `${speaker.bio.substring(0, 100)}...`
+                        : speaker.bio}
                     </p>
                   )}
                 </div>
@@ -424,30 +418,17 @@ const KeynoteInApp = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="institution">
+                  <label htmlFor="company">
                     Institution/Organization *
                   </label>
                   <input
                     type="text"
-                    id="institution"
-                    name="institution"
-                    value={formData.institution}
+                    id="company"
+                    name="company"
+                    value={formData.company}
                     onChange={handleInputChange}
                     placeholder="University, company, or organization"
                     required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="order">Display Order</label>
-                  <input
-                    type="number"
-                    id="order"
-                    name="order"
-                    value={formData.order}
-                    onChange={handleInputChange}
-                    placeholder="0"
-                    min="0"
                   />
                 </div>
               </div>
@@ -475,11 +456,11 @@ const KeynoteInApp = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="biography">Biography</label>
+                <label htmlFor="bio">Biography</label>
                 <textarea
-                  id="biography"
-                  name="biography"
-                  value={formData.biography}
+                  id="bio"
+                  name="bio"
+                  value={formData.bio}
                   onChange={handleInputChange}
                   placeholder="Speaker's biography, background, and achievements"
                   rows="4"

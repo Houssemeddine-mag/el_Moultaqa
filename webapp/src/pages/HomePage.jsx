@@ -2,9 +2,24 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style/HomePage.css";
 import elmLogo from "@global/logo.png";
-import KeynoteCard from "../components/KeynoteCard.jsx";
-import { fetchKeynoteSpeakers, fetchSponsors } from "../services/localService";
+import { getDefaultSponsors } from "@global/defaultSponsors";
+import { fetchKeynoteSpeakers, fetchSponsors, isServiceReady } from "../services/localService";
 import { useConferenceConfig } from "../context/ConferenceContext.jsx";
+import Reveal from "../components/Reveal.jsx";
+
+function getInitials(name = "") {
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function speakerImageSrc(speaker) {
+  const v = speaker?.photo || speaker?.image || speaker?.imageData || "";
+  if (!v || typeof v !== "string") return null;
+  if (v.startsWith("data:") || v.startsWith("http") || v.startsWith("/")) return v;
+  return `data:image/jpeg;base64,${v}`;
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -12,31 +27,58 @@ export default function HomePage() {
   const [keynotes, setKeynotes] = useState([]);
   const [loadingKeynotes, setLoadingKeynotes] = useState(true);
   const [sponsors, setSponsors] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedSpeaker, setSelectedSpeaker] = useState(null);
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState(null);
 
   useEffect(() => {
     let active = true;
 
-    async function loadKeynotes() {
-      const speakers = await fetchKeynoteSpeakers();
-      if (!active) return;
-      setKeynotes(speakers);
-      setActiveIndex(0);
-      setLoadingKeynotes(false);
+    async function loadKeynotes(isRefresh = false) {
+      try {
+        if (!isRefresh) setLoadingKeynotes(true);
+        // ConferenceProvider initializes the service async — wait briefly
+        // instead of failing on the init race (same pattern as sponsors).
+        let attempts = 0;
+        while (active && !isServiceReady() && attempts < 40) {
+          attempts += 1;
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        if (!active || !isServiceReady()) return;
+        const speakers = await fetchKeynoteSpeakers();
+        if (!active) return;
+        setKeynotes(speakers);
+      } catch (error) {
+        console.error("Failed to load keynote speakers", error);
+      } finally {
+        if (active) setLoadingKeynotes(false);
+      }
     }
 
-    loadKeynotes();
+    loadKeynotes(false);
+    // Pick up admin edits without a hard reload.
+    const onFocus = () => loadKeynotes(true);
+    window.addEventListener("focus", onFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
+  const selectedSpeaker =
+    keynotes.find((s) => s.id === selectedSpeakerId) || keynotes[0] || null;
+
   useEffect(() => {
     let active = true;
 
-    async function loadSponsors() {
+    async function loadSponsors(isRefresh = false) {
       try {
+        // ConferenceProvider initializes the service async — wait briefly
+        // instead of rendering a brand-only ribbon on the init race.
+        let attempts = 0;
+        while (active && !isServiceReady() && attempts < 40) {
+          attempts += 1;
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        if (!active || !isServiceReady()) return;
         const list = await fetchSponsors();
         if (!active) return;
 
@@ -53,44 +95,48 @@ export default function HomePage() {
         );
       } catch (error) {
         console.error("Failed to load sponsors", error);
-        setSponsors([]);
+        if (!isRefresh) setSponsors([]);
       }
     }
 
-    loadSponsors();
+    loadSponsors(false);
 
     const handleStorage = (event) => {
       if (event.key === "elm_sponsors") {
-        loadSponsors();
+        loadSponsors(true);
       }
     };
+    const onFocus = () => loadSponsors(true);
 
     window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", onFocus);
     return () => {
       active = false;
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
-  useEffect(() => {
-    if (keynotes.length <= 1) return undefined;
-    const interval = setInterval(() => {
-      setActiveIndex((current) => (current + 1) % keynotes.length);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [keynotes.length]);
-
-  const elmSponsor = {
-    id: "elmoultaqa-brand",
-    alt: "ElMoultaqa",
-    src: elmLogo,
-  };
-
-  const conferenceSponsor = {
-    id: "conference-brand",
-    alt: conferenceConfig.name || conferenceConfig.brand || "Conference",
-    src: conferenceConfig.logoUrl || elmLogo,
-  };
+  // Permanent defaults first (conference itself + El Moultaqa), then real
+  // sponsors — the ribbon is never empty and never duplicates one logo.
+  const ribbonBase = (() => {
+    const defaults = getDefaultSponsors({
+      conferenceName: conferenceConfig.brand || "Conference",
+      conferenceLogo: conferenceConfig.logoUrl || "",
+      conferenceWebsite: conferenceConfig.website || "",
+      platformLogo: elmLogo,
+    }).map((d) => ({
+      id: d.id,
+      alt: d.name,
+      name: d.name,
+      src: d.logoData || "",
+      hasLogo: Boolean(d.logoData),
+    }));
+    return [...defaults, ...sponsors];
+  })();
+  // Each logo renders exactly once — the row wraps and centers itself
+  // around however many sponsors exist.
+  const ribbonItems = ribbonBase;
 
   return (
     <div className="page-shell home-page">
@@ -160,8 +206,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {sponsors.length > 0 ? (
-      <section className="sponsor-ribbon">
+      <Reveal as="section" className="sponsor-ribbon">
         <div className="sponsor-header">
           <div>
             <h3>Official sponsors</h3>
@@ -169,7 +214,7 @@ export default function HomePage() {
         </div>
         <div className="sponsor-track-wrap">
           <div className="sponsor-track">
-            {[...sponsors, elmSponsor, conferenceSponsor, ...sponsors, elmSponsor, conferenceSponsor].map((sponsor, index) => (
+            {ribbonItems.map((sponsor, index) => (
               <div
                 key={`${sponsor.id || sponsor.alt}-${index}`}
                 className="sponsor-item"
@@ -197,10 +242,9 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
-      ) : null}
+      </Reveal>
 
-      <section id="keynote-speakers" className="home-info-grid keynote-section">
+      <Reveal as="section" id="keynote-speakers" className="home-info-grid keynote-section">
         <div className="section-header">
           <div>
             <h3>Meet the conference voices</h3>
@@ -215,112 +259,133 @@ export default function HomePage() {
             later.
           </div>
         ) : (
-          <div className="keynote-carousel">
-            {keynotes.length > 1 ? (
-              <>
-                <button
-                  type="button"
-                  className="keynote-arrow keynote-arrow-left"
-                  aria-label="Previous keynote speakers"
-                  onClick={() =>
-                    setActiveIndex(
-                      (index) =>
-                        (index - 1 + keynotes.length) % keynotes.length,
-                    )
-                  }
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="keynote-arrow keynote-arrow-right"
-                  aria-label="Next keynote speakers"
-                  onClick={() =>
-                    setActiveIndex((index) => (index + 1) % keynotes.length)
-                  }
-                >
-                  ›
-                </button>
-              </>
-            ) : null}
-
-            <div className="keynote-carousel-viewport">
-              <div
-                className="keynote-carousel-track"
-                style={{ transform: `translateX(-${activeIndex * 50}%)` }}
-              >
-                {keynotes.map((speaker) => (
-                  <div key={speaker.id} className="keynote-carousel-item">
-                    <KeynoteCard
-                      speaker={speaker}
-                      onReadBio={() => setSelectedSpeaker(speaker)}
-                    />
-                  </div>
-                ))}
-              </div>
+          <div className="speaker-select">
+            <div
+              className="speaker-roster"
+              role="listbox"
+              aria-label="Keynote speakers"
+            >
+              {keynotes.map((speaker, index) => {
+                const img = speakerImageSrc(speaker);
+                const isActive =
+                  selectedSpeaker && selectedSpeaker.id === speaker.id;
+                return (
+                  <button
+                    key={speaker.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={`speaker-pick${isActive ? " active" : ""}`}
+                    onClick={() => setSelectedSpeakerId(speaker.id)}
+                  >
+                    <span className="speaker-pick-index" aria-hidden="true">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="speaker-pick-avatar" aria-hidden="true">
+                      {img ? (
+                        <img src={img} alt="" />
+                      ) : (
+                        <span>{getInitials(speaker.name)}</span>
+                      )}
+                    </span>
+                    <span className="speaker-pick-name">
+                      {speaker.name || "Unknown"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
-        )}
 
-        {selectedSpeaker ? (
-          <div className="keynote-bio-modal" role="dialog" aria-modal="true">
-            <div className="keynote-bio-card">
-              <button
-                className="keynote-bio-close"
-                type="button"
-                onClick={() => setSelectedSpeaker(null)}
-                aria-label="Close biography dialog"
+            {selectedSpeaker && (
+              <article
+                className="speaker-showcase"
+                key={selectedSpeaker.id}
+                aria-live="polite"
               >
-                ×
-              </button>
-              <div className="keynote-bio-image">
-                <div className="keynote-speaker-avatar">
-                  {selectedSpeaker.imageData || selectedSpeaker.image ? (
+                <div className="speaker-showcase-media">
+                  {speakerImageSrc(selectedSpeaker) ? (
                     <img
-                      src={
-                        (
-                          selectedSpeaker.imageData || selectedSpeaker.image
-                        ).startsWith("data:")
-                          ? selectedSpeaker.imageData || selectedSpeaker.image
-                          : `data:image/jpeg;base64,${selectedSpeaker.imageData || selectedSpeaker.image}`
-                      }
+                      src={speakerImageSrc(selectedSpeaker)}
                       alt={selectedSpeaker.name || "Speaker image"}
                     />
                   ) : (
-                    <span>
-                      {(selectedSpeaker.name || "Speaker")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                    <span className="speaker-showcase-initials">
+                      {getInitials(selectedSpeaker.name)}
                     </span>
                   )}
+                  <span
+                    className="speaker-showcase-badge"
+                    aria-hidden="true"
+                  >
+                    ★ Keynote
+                  </span>
                 </div>
-              </div>
-              <div className="keynote-bio-content">
-                <h2>{selectedSpeaker.name || "Unknown Speaker"}</h2>
-                {selectedSpeaker.title ? (
-                  <p className="keynote-bio-title">{selectedSpeaker.title}</p>
-                ) : null}
-                {selectedSpeaker.institution ? (
-                  <div className="keynote-bio-institution">
-                    {selectedSpeaker.institution}
+                <div className="speaker-showcase-body">
+                  <span className="eyebrow">Featured speaker</span>
+                  <h2>{selectedSpeaker.name || "Unknown Speaker"}</h2>
+                  {selectedSpeaker.title && (
+                    <p className="speaker-showcase-title">
+                      {selectedSpeaker.title}
+                    </p>
+                  )}
+                  {(selectedSpeaker.company ||
+                    selectedSpeaker.institution) && (
+                    <span className="speaker-showcase-org">
+                      {selectedSpeaker.company ||
+                        selectedSpeaker.institution}
+                    </span>
+                  )}
+                  <div className="speaker-showcase-about">
+                    <span>About</span>
+                    <p>
+                      {selectedSpeaker.biography ||
+                        selectedSpeaker.bio ||
+                        selectedSpeaker.keynoteDescription ||
+                        "No biography available."}
+                    </p>
                   </div>
-                ) : null}
-                <div className="keynote-bio-section">
-                  <span>About</span>
-                  <p>
-                    {selectedSpeaker.biography ||
-                      selectedSpeaker.bio ||
-                      selectedSpeaker.keynoteDescription ||
-                      "No biography available."}
-                  </p>
                 </div>
-              </div>
+              </article>
+            )}
+          </div>
+        )}
+      </Reveal>
+
+      {(conferenceConfig.description || conferenceConfig.website) && (
+        <Reveal as="section" className="about-conference-section" aria-label="About this conference">
+          <div className="about-conference-inner">
+            <div className="about-conference-logo">
+              <img
+                src={conferenceConfig.logoUrl || elmLogo}
+                alt={`${conferenceConfig.brand || "Conference"} logo`}
+              />
+            </div>
+            <div className="about-conference-copy">
+              <span className="eyebrow">About the conference</span>
+              <h2>{conferenceConfig.brand || "Conference"}</h2>
+              {conferenceConfig.description && (
+                <p>{conferenceConfig.description}</p>
+              )}
+              {conferenceConfig.website && (
+                <a
+                  className="about-conference-link"
+                  href={
+                    conferenceConfig.website.startsWith("http")
+                      ? conferenceConfig.website
+                      : `https://${conferenceConfig.website}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Visit official website <span aria-hidden="true">↗</span>
+                </a>
+              )}
             </div>
           </div>
-        ) : null}
-      </section>
+        </Reveal>
+      )}
 
-      <section className="download-app-section">
+      <Reveal as="section" className="download-app-section">
         <div className="download-copy">
           <h2>Download the {conferenceConfig.brand} app</h2>
           <p>
@@ -383,7 +448,7 @@ export default function HomePage() {
             </>
           )}
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 }

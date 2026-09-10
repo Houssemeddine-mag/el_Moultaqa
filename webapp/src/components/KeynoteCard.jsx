@@ -8,7 +8,8 @@ function getInitials(name = "") {
 }
 
 function getImageSrc(speaker) {
-  const imageValue = speaker.imageData || speaker.image || "";
+  // fetchKeynoteSpeakers provides `photo`; keep legacy aliases as fallback.
+  const imageValue = speaker.photo || speaker.image || speaker.imageData || "";
   if (!imageValue || typeof imageValue !== "string") return null;
   if (
     imageValue.startsWith("data:") ||
@@ -32,7 +33,23 @@ export default function KeynoteCard({ speaker, onReadBio }) {
     speaker.institution || speaker.affiliation || speaker.company || "";
 
   return (
-    <article className="keynote-speaker-card">
+    <article
+      className="keynote-speaker-card"
+      onClick={onReadBio}
+      role="button"
+      tabIndex={0}
+      aria-label={`View biography of ${speaker.name || "speaker"}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onReadBio();
+        }
+      }}
+    >
+      <div className="keynote-card-cover" aria-hidden="true">
+        <span className="keynote-card-orb keynote-card-orb-1" />
+        <span className="keynote-card-orb keynote-card-orb-2" />
+      </div>
       <div className="keynote-speaker-avatar">
         {imageSrc ? (
           <img src={imageSrc} alt={speaker.name || "Speaker image"} />
@@ -47,13 +64,6 @@ export default function KeynoteCard({ speaker, onReadBio }) {
         {institution ? (
           <div className="keynote-speaker-institution">{institution}</div>
         ) : null}
-        <button
-          type="button"
-          className="keynote-read-bio-button"
-          onClick={onReadBio}
-        >
-          Read Bio
-        </button>
       </div>
     </article>
   );

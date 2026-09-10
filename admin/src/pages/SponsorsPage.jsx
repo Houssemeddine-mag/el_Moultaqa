@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Building2, Plus, User, Edit3, Trash2 } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Building2, Plus, User, Edit3, Trash2, Lock } from "lucide-react";
 import backend from "../backend.js";
+import elmLogo from "@global/logo.png";
+import { getDefaultSponsors } from "@global/defaultSponsors";
 import "../styles/keynote-speakers.css";
 
 const SponsorsPage = () => {
@@ -16,6 +18,7 @@ const SponsorsPage = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [eventInfo, setEventInfo] = useState(null);
 
   useEffect(() => {
     loadSponsors();
@@ -24,8 +27,12 @@ const SponsorsPage = () => {
   const loadSponsors = async () => {
     try {
       setLoading(true);
-      const list = await backend.getSponsors();
+      const [list, events] = await Promise.all([
+        backend.getSponsors(),
+        backend.getEvents().catch(() => []),
+      ]);
       setSponsors(list || []);
+      setEventInfo(events && events.length > 0 ? events[0] : null);
     } catch (err) {
       console.error("Error loading sponsors:", err);
       setSponsors([]);
@@ -33,6 +40,17 @@ const SponsorsPage = () => {
       setLoading(false);
     }
   };
+
+  // Permanent defaults: the conference itself + El Moultaqa. Locked upstream.
+  const displaySponsors = useMemo(() => {
+    const defaults = getDefaultSponsors({
+      conferenceName: eventInfo?.title || "",
+      conferenceLogo: eventInfo?.cover_image_url || "",
+      conferenceWebsite: "",
+      platformLogo: elmLogo,
+    });
+    return [...defaults, ...sponsors];
+  }, [sponsors, eventInfo]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -154,7 +172,7 @@ const SponsorsPage = () => {
         </div>
       ) : (
         <div className="speakers-grid">
-          {sponsors.length === 0 ? (
+          {displaySponsors.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><Building2 size={48} /></div>
               <h3>No sponsors yet</h3>
@@ -164,7 +182,7 @@ const SponsorsPage = () => {
               </p>
             </div>
           ) : (
-            sponsors.map((s) => (
+            displaySponsors.map((s) => (
               <div key={s.id} className="speaker-card">
                 <div className="speaker-image-container">
                   {s.logoData ? (
@@ -178,7 +196,17 @@ const SponsorsPage = () => {
                       <User size={28} />
                     </div>
                   )}
-                  <div className="speaker-order">#{s.order || 0}</div>
+                  {s.isDefault ? (
+                    <div
+                      className="speaker-order"
+                      title="Always displayed — cannot be edited or deleted"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Lock size={12} /> Default
+                    </div>
+                  ) : (
+                    <div className="speaker-order">#{s.order || 0}</div>
+                  )}
                 </div>
                 <div className="speaker-info">
                   <h3 className="speaker-name">{s.name}</h3>
@@ -190,20 +218,22 @@ const SponsorsPage = () => {
                     </p>
                   )}
                 </div>
-                <div className="speaker-actions">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => handleEdit(s)}
-                  >
-                    <Edit3 size={16} /> Edit
-                  </button>
-                  <button
-                    className="btn-danger"
-                    onClick={() => handleDelete(s)}
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
-                </div>
+                {!s.isDefault && (
+                  <div className="speaker-actions">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => handleEdit(s)}
+                    >
+                      <Edit3 size={16} /> Edit
+                    </button>
+                    <button
+                      className="btn-danger"
+                      onClick={() => handleDelete(s)}
+                    >
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

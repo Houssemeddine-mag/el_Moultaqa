@@ -491,15 +491,19 @@ export default function ProgramPage() {
               <p>Nothing on this day matches “{query.trim()}”. Try another keyword or day.</p>
             </div>
           ) : (
-          <div className="program-timeline">
-            {visiblePrograms.map((program) => {
+          <div className="program-timeline" key={`${selectedDate}|${query.trim()}`}>
+            {visiblePrograms.map((program, index) => {
               const hasPresentations = program.conferences?.length > 0;
               const isExpanded = expandedProgramId === program.id;
               const live = isLiveNow(program);
               const status = getProgramStatus(program);
 
               return (
-                <div key={program.id} className="program-timeline-row">
+                <div
+                  key={program.id}
+                  className="program-timeline-row row-enter"
+                  style={{ animationDelay: `${Math.min(index * 60, 600)}ms` }}
+                >
                   <div className="program-timeline-rail" aria-hidden="true">
                     <span className={`program-timeline-dot ${live ? "live" : status === "Finished" ? "done" : ""}`} />
                   </div>

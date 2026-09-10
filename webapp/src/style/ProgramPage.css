@@ -343,6 +343,27 @@
   gap: 4px;
 }
 
+.program-timeline-row.row-enter {
+  animation: program-row-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes program-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .program-timeline-row.row-enter {
+    animation: none;
+  }
+}
+
 .program-timeline-row {
   display: grid;
   grid-template-columns: 22px 1fr;

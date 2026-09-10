@@ -11,5 +11,6 @@ export const defaultConferenceConfig = {
   dates: "",
   location: "",
   description: "",
+  website: "",
   schedule: [],
 };

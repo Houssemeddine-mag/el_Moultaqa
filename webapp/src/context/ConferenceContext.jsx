@@ -150,6 +150,8 @@ export function ConferenceProvider({ children }) {
             brandInitials: getInitials(brandName || defaultConferenceConfig.brand),
             shortName: storedConfig?.shortName || "",
             tagline: storedConfig?.tagline || "",
+            description: storedConfig?.description || "",
+            website: storedConfig?.website || "",
             name: storedConfig?.name || orgDetails.name || defaultConferenceConfig.name,
             themeColor: storedConfig?.themeColor || orgDetails.themeColor || defaultConferenceConfig.primaryColor,
             logoUrl: storedConfig?.logo || orgDetails.logo_url || defaultConferenceConfig.logoUrl,
