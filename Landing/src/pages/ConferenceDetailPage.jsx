@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,7 +13,6 @@ import {
   ShieldIcon,
   TicketIcon,
   LinkIcon,
-  TwitterIcon,
   LinkedinIcon,
   FacebookIcon,
   InstagramIcon,
@@ -97,32 +96,65 @@ export default function ConferenceDetailPage() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
-  useEffect(() => {
+  async function handleCopyLink() {
+    const url = window.location.href;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      setLinkCopied(false);
+    }
+  }
+
+  const loadEvent = useCallback(async (isRefresh = false) => {
     if (!publicSupabase) {
       setError("Missing Supabase configuration.");
       setLoading(false);
       return;
     }
-    (async () => {
-      try {
-        const { data, error: rpcError } = await publicSupabase.rpc("get_discovery_event", {
-          p_slug: slug,
-        });
-        if (rpcError) throw rpcError;
-        if (!data || data.length === 0) {
-          setError("Conference not found or not yet published. SuperAdmin must enable discovery (is_super_enabled) and org admin must publish (is_org_published) — both required.");
-          return;
-        }
-        setEvent(data[0]);
-      } catch (err) {
-        console.error("[ConferenceDetailPage] load error:", err);
-        setError("Failed to load conference details.");
-      } finally {
-        setLoading(false);
+    try {
+      if (!isRefresh) setLoading(true);
+      const { data, error: rpcError } = await publicSupabase.rpc("get_discovery_event", {
+        p_slug: slug,
+      });
+      if (rpcError) throw rpcError;
+      if (!data || data.length === 0) {
+        setError("Conference not found or not yet published. SuperAdmin must enable discovery (is_super_enabled) and org admin must publish (is_org_published) — both required.");
+        return;
       }
-    })();
+      setEvent(data[0]);
+      setError("");
+    } catch (err) {
+      console.error("[ConferenceDetailPage] load error:", err);
+      if (!isRefresh) setError("Failed to load conference details.");
+    } finally {
+      setLoading(false);
+    }
   }, [slug, publicSupabase]);
+
+  useEffect(() => {
+    loadEvent(false);
+    // Keep details fresh when the org admin edits the card: poll + refetch on focus.
+    const poll = setInterval(() => loadEvent(true), 45000);
+    const onFocus = () => loadEvent(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadEvent]);
 
   if (loading) {
     return (
@@ -185,6 +217,9 @@ export default function ConferenceDetailPage() {
               <span className={`detail-badge detail-badge--${event.pricing}`}>
                 {event.pricing === "free" ? "Free" : "Paid"}
               </span>
+              {event.is_extra && (
+                <span className="detail-badge detail-badge--extra">★ Featured</span>
+              )}
             </div>
 
             <div className="detail-cover-category">
@@ -302,47 +337,68 @@ export default function ConferenceDetailPage() {
           <aside className="detail-sidebar">
             <div className="detail-sidebar-card">
               <div className="detail-sidebar-actions">
-                {event.official_website_url ? (
-                  <a
-                    href={event.official_website_url}
-                    className="detail-sidebar-btn detail-sidebar-btn--primary"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Official Website
-                    <ExternalLinkIcon size={16} />
-                  </a>
-                ) : isEnded ? (
+                {isEnded ? (
                   <button className="detail-sidebar-btn detail-sidebar-btn--disabled" disabled>
                     Conference has ended
                   </button>
                 ) : (
-                  <span className="detail-sidebar-btn detail-sidebar-btn--disabled" style={{ opacity: 0.5 }}>
-                    No website set
-                  </span>
+                  <>
+                    {event.official_website_url ? (
+                      <a
+                        href={event.official_website_url}
+                        className="detail-sidebar-btn detail-sidebar-btn--primary"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Official Website
+                        <ExternalLinkIcon size={16} />
+                      </a>
+                    ) : (
+                      <span className="detail-sidebar-btn detail-sidebar-btn--disabled" style={{ opacity: 0.5 }}>
+                        No website set
+                      </span>
+                    )}
+                    {event.pricing === "free" && (
+                      event.webapp_url ? (
+                        <a
+                          href={resolveWebappUrl(event.webapp_url)}
+                          className="detail-sidebar-btn detail-sidebar-btn--secondary"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open Conference Webapp
+                          <ExternalLinkIcon size={16} />
+                        </a>
+                      ) : (
+                        <span className="detail-sidebar-btn detail-sidebar-btn--disabled" style={{ opacity: 0.5 }}>
+                          Webapp not available
+                        </span>
+                      )
+                    )}
+                  </>
                 )}
               </div>
 
-              {event.social_links && Object.entries(event.social_links).some(([, v]) => v?.active) && (
+              {event.social_links && Object.entries(event.social_links).some(([, v]) => v?.active && v?.url) && (
                 <div className="detail-sidebar-share" style={{ marginTop: 16 }}>
                   <span>Follow</span>
                   <div className="detail-sidebar-share-links">
-                    {event.social_links?.linkedin?.active && (
+                    {event.social_links?.linkedin?.active && event.social_links.linkedin.url && (
                       <a href={event.social_links.linkedin.url} target="_blank" rel="noreferrer" title="LinkedIn">
                         <LinkedinIcon size={16} />
                       </a>
                     )}
-                    {event.social_links?.facebook?.active && (
+                    {event.social_links?.facebook?.active && event.social_links.facebook.url && (
                       <a href={event.social_links.facebook.url} target="_blank" rel="noreferrer" title="Facebook">
                         <FacebookIcon size={16} />
                       </a>
                     )}
-                    {event.social_links?.instagram?.active && (
+                    {event.social_links?.instagram?.active && event.social_links.instagram.url && (
                       <a href={event.social_links.instagram.url} target="_blank" rel="noreferrer" title="Instagram">
                         <InstagramIcon size={16} />
                       </a>
                     )}
-                    {event.social_links?.whatsapp?.active && (
+                    {event.social_links?.whatsapp?.active && event.social_links.whatsapp.url && (
                       <a href={event.social_links.whatsapp.url} target="_blank" rel="noreferrer" title="WhatsApp">
                         <MessageCircleIcon size={16} />
                       </a>
@@ -354,32 +410,17 @@ export default function ConferenceDetailPage() {
               <div className="detail-sidebar-share">
                 <span>Share</span>
                 <div className="detail-sidebar-share-links">
-                  <button
-                    title="Share on Twitter"
-                    onClick={() => window.open(
-                      `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${event.title} on ElMoultaqa!`)}&url=${encodeURIComponent(window.location.href)}`,
-                      "_blank"
-                    )}
-                  >
-                    <TwitterIcon size={16} />
-                  </button>
-                  <button
-                    title="Share on LinkedIn"
-                    onClick={() => window.open(
-                      `https://linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`,
-                      "_blank"
-                    )}
-                  >
-                    <LinkedinIcon size={16} />
-                  </button>
-                  <button
-                    title="Copy link"
-                    onClick={() => { navigator.clipboard.writeText(window.location.href); }}
-                  >
+                  <button title="Copy link" onClick={handleCopyLink} aria-live="polite">
                     <LinkIcon size={16} />
                   </button>
+                  {linkCopied && (
+                    <span className="detail-copy-feedback" role="status">
+                      ✓ Link copied!
+                    </span>
+                  )}
                 </div>
               </div>
+
             </div>
           </aside>
         </div>

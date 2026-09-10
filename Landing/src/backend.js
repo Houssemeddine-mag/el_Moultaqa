@@ -51,6 +51,38 @@ export async function saveConferenceConfig(supabase, conference) {
   }
 
   console.log("[saveConferenceConfig] Event created in schema successfully. ID:", data);
+
+  // Persist the builder-chosen category into the event settings so the admin
+  // Discovery Card can prefill it later (non-fatal — admin can set it manually).
+  // "Other" stores the custom text as the effective category.
+  if (conference.category) {
+    try {
+      const effectiveCategory =
+        conference.category === "other" && conference.categoryOther?.trim()
+          ? conference.categoryOther.trim()
+          : conference.category;
+      const { resolveOrgSlug } = await import("@global/supabase");
+      const orgDetails = await resolveOrgSlug(supabase, slug);
+      if (orgDetails?.schema_name) {
+        await supabase.rpc("org_update", {
+          p_schema_name: orgDetails.schema_name,
+          p_table_name: "events",
+          p_id: data,
+          p_data: {
+            settings: {
+              themeColor: conference.themeColor,
+              sponsors: payload.sponsors,
+              category: effectiveCategory,
+            },
+          },
+        });
+        console.log("[saveConferenceConfig] Category saved to event settings.");
+      }
+    } catch (catErr) {
+      console.warn("[saveConferenceConfig] Category not saved (non-fatal):", catErr?.message || catErr);
+    }
+  }
+
   return slug;
 }
 

@@ -124,11 +124,16 @@ export function useSuperAdmin() {
     return rpc("super_admin_toggle_discovery_block", { p_org_slug: slug, p_blocked: blocked });
   }
 
+  async function toggleDiscoveryExtra(slug, extra) {
+    return rpc("super_admin_toggle_discovery_extra", { p_org_slug: slug, p_extra: extra });
+  }
+
   return {
     supabase, isSuperAdmin, listOrganizations, getStats, getDetailedStats, getChartData,
     createOrganization, deleteOrganization, blockOrganization, unblockOrganization,
     listPlans, upsertPlan, togglePlan, deletePlan,
     orgQuery, orgInsert, orgUpdate, orgDelete, getOrgTableCounts,
     listOrgsDiscoveryStatus, toggleDiscoveryEnable, toggleDiscoveryBlock,
+    toggleDiscoveryExtra,
   };
 }

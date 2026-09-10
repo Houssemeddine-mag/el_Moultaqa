@@ -89,6 +89,9 @@ function ConferenceCard({ event, onClick }) {
             {status.type === "live" && <span className="disc-live-dot" />}
             {status.label}
           </span>
+          {event.is_extra && (
+            <span className="disc-card-badge disc-card-badge--extra">★ Featured</span>
+          )}
           {event.pricing === "free" && (
             <span className="disc-card-badge disc-card-badge--free">Free</span>
           )}
@@ -231,16 +234,21 @@ export default function DiscoveryPage() {
       setLoading(false);
       return;
     }
-    (async () => {
+    let active = true;
+    async function load(isRefresh = false) {
       try {
         const [{ data: eventsData, error: evErr }, { data: catsData, error: catErr }] = await Promise.all([
           publicSupabase.rpc("list_discovery_events"),
           publicSupabase.rpc("list_discovery_categories"),
         ]);
+        if (!active) return;
         if (evErr) console.error("[DiscoveryPage] list_discovery_events error:", evErr);
         if (catErr) console.error("[DiscoveryPage] list_discovery_categories error:", catErr);
         const items = eventsData || [];
-        if (items.length === 0) {
+        // Extra (paid spotlight) first — DB already orders this way, but keep it
+        // correct even before the migration is applied.
+        items.sort((a, b) => Number(b.is_extra || false) - Number(a.is_extra || false));
+        if (items.length === 0 && !isRefresh) {
           console.warn("[DiscoveryPage] 0 events returned — check public.discovery_events: is_super_enabled=true AND is_org_published=true AND is_super_blocked=false required. Also verify SuperAdmin enabled the org and Admin published the card.");
         }
         setEvents(items);
@@ -248,9 +256,19 @@ export default function DiscoveryPage() {
       } catch (err) {
         console.error("[DiscoveryPage] load error:", err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    })();
+    }
+    load(false);
+    // Keep cards fresh when an admin edits/publishes: poll + refetch on focus.
+    const poll = setInterval(() => load(true), 45000);
+    const onFocus = () => load(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      clearInterval(poll);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [publicSupabase]);
 
   const locations = [...new Set(events.map((e) => e.location).filter(Boolean))].sort();
@@ -412,6 +430,9 @@ export default function DiscoveryPage() {
                           <div className="disc-featured-content">
                             <div className="disc-featured-top">
                               <span className="disc-card-badge disc-card-badge--upcoming">Upcoming</span>
+                              {event.is_extra && (
+                                <span className="disc-card-badge disc-card-badge--extra">★ Featured</span>
+                              )}
                               {event.pricing === "free" && (
                                 <span className="disc-card-badge disc-card-badge--free">Free</span>
                               )}

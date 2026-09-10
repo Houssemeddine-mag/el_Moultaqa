@@ -39,7 +39,14 @@ class MobileConfig {
       if (rawLogo != null && rawLogo.isNotEmpty) logoUrl = rawLogo;
       final rawColor = orgDetails['theme_color'] as String?;
       if (rawColor != null && rawColor.isNotEmpty) {
-        themeColor = rawColor.startsWith('#') ? '0xff${rawColor.substring(1)}' : '0xff$rawColor';
+        final c = rawColor.trim();
+        if (c.startsWith('#')) {
+          themeColor = '0xff${c.substring(1)}';
+        } else if (c.startsWith('0x') || c.startsWith('0X')) {
+          themeColor = c;
+        } else {
+          themeColor = '0xff$c';
+        }
       }
     }
 
@@ -64,7 +71,14 @@ class MobileConfig {
       if (rawAttendees is List) participants = rawAttendees.length;
       final rawTheme = config['themeColor'] as String?;
       if (rawTheme != null && rawTheme.isNotEmpty) {
-        themeColor = rawTheme.startsWith('#') ? '0xff${rawTheme.substring(1)}' : '0xff$rawTheme';
+        final c = rawTheme.trim();
+        if (c.startsWith('#')) {
+          themeColor = '0xff${c.substring(1)}';
+        } else if (c.startsWith('0x') || c.startsWith('0X')) {
+          themeColor = c;
+        } else {
+          themeColor = '0xff$c';
+        }
       }
     }
   }

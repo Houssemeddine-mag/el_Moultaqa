@@ -106,6 +106,12 @@
   max-width: 480px;
 }
 
+.home-page .hero-tagline {
+  font-size: 19px;
+  font-weight: 500;
+  animation: fadeInUp 1s ease-out 0.35s both;
+}
+
 .home-page .hero-dates-location {
   display: flex;
   flex-direction: column;

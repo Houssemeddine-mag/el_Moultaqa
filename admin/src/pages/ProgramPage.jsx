@@ -38,6 +38,7 @@ const Program = () => {
       start: "",
       end: "",
       resume: "",
+      room: "",
     },
   });
   const [editingId, setEditingId] = useState(null);
@@ -208,6 +209,7 @@ const Program = () => {
           start: "",
           end: "",
           resume: "",
+          room: "",
         },
       });
       setEditingId(null);
@@ -221,7 +223,7 @@ const Program = () => {
 
   const handleEdit = (session) => {
     setFormData({
-      type: session.type || "session",
+      type: session.type || "talk",
       title: session.title || "",
       date: session.date || "",
       start: session.start || "",
@@ -267,6 +269,7 @@ const Program = () => {
         start: "",
         end: "",
         resume: "",
+        room: "",
       },
     });
     setEditingId(session.id);
@@ -764,6 +767,24 @@ const Program = () => {
                   }
                 />
               </div>
+              <div className="form-group">
+                <label>Room (optional)</label>
+                <input
+                  type="text"
+                  name="conferenceRoom"
+                  placeholder="e.g. Hall A"
+                  value={formData.conferenceInput.room || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      conferenceInput: {
+                        ...prev.conferenceInput,
+                        room: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </div>
               <div className="form-group" style={{ alignItems: "flex-end" }}>
                 <button
                   type="button"
@@ -792,6 +813,7 @@ const Program = () => {
                               start: "",
                               end: "",
                               resume: "",
+                              room: "",
                             },
                           };
                         });
@@ -807,6 +829,7 @@ const Program = () => {
                             start: "",
                             end: "",
                             resume: "",
+                            room: "",
                           },
                         }));
                       }
@@ -835,6 +858,7 @@ const Program = () => {
                       <span>
                         <b>{conf.title}</b> by {conf.presenter} (
                         {conf.affiliation}) [{conf.start} - {conf.end}]
+                        {conf.room ? ` — ${conf.room}` : ""}
                       </span>
                       <button
                         type="button"
@@ -871,6 +895,7 @@ const Program = () => {
                                 start: "",
                                 end: "",
                                 resume: "",
+                                room: "",
                               },
                             }));
                             setEditingConferenceIdx(null);
@@ -912,6 +937,7 @@ const Program = () => {
                             start: "",
                             end: "",
                             resume: "",
+                            room: "",
                           },
                         }));
                         setEditingConferenceIdx(null);
@@ -938,7 +964,7 @@ const Program = () => {
               className="cancel-button"
               onClick={() => {
                 setFormData({
-                  type: "session",
+                  type: "talk",
                   title: "",
                   date: "",
                   start: "",
@@ -959,6 +985,7 @@ const Program = () => {
                     start: "",
                     end: "",
                     resume: "",
+                    room: "",
                   },
                 });
                 setEditingId(null);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useClerkSupabase } from "@global/supabase";
 import { listPlans } from "../backend.js";
 
@@ -18,6 +18,44 @@ export default function ConferenceBuilderPage({
   const [logoPreview, setLogoPreview] = useState(
     config.logo && config.logo.startsWith("data:image/") ? config.logo : ""
   );
+  const [logoUrlDraft, setLogoUrlDraft] = useState(
+    config.logo && !config.logo.startsWith("data:image/") ? config.logo : ""
+  );
+  const [logoDragging, setLogoDragging] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const [showLogoUrl, setShowLogoUrl] = useState(false);
+  const logoFileRef = useRef(null);
+
+  const handleLogoFile = (file) => {
+    setLogoError("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoError("That file is not an image. Please choose a PNG, JPG, or SVG file.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError(`"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 2 MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoPreview(reader.result);
+      setLogoMode("upload");
+      updateField("logo", reader.result);
+      extractDominantColor(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearLogo = () => {
+    setLogoPreview("");
+    setLogoUrlDraft("");
+    setLogoError("");
+    setShowLogoUrl(false);
+    setLogoMode("url");
+    updateField("logo", "");
+    if (logoFileRef.current) logoFileRef.current.value = "";
+  };
   const [stepErrors, setStepErrors] = useState({});
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
@@ -84,6 +122,9 @@ export default function ConferenceBuilderPage({
       const errors = {};
       if (!config.name?.trim()) errors.name = "Conference name is required";
       if (!config.shortName?.trim()) errors.shortName = "Short name is required";
+      if (!config.category?.trim()) errors.category = "Please choose a category";
+      if (config.category === "other" && !config.categoryOther?.trim())
+        errors.categoryOther = "Please tell us what the category is";
       if (!config.startDate?.trim()) errors.startDate = "Start date is required";
       if (!config.endDate?.trim()) errors.endDate = "End date is required";
       setStepErrors(errors);
@@ -256,64 +297,152 @@ export default function ConferenceBuilderPage({
                 {stepErrors.shortName && <span className="field-error">{stepErrors.shortName}</span>}
               </label>
               <div className="form-field" style={{ gridColumn: "1 / -1" }}>
-                <span className="field-label">Logo</span>
-                {!logoPreview && (
-                <div className="logo-mode-toggle">
-                  <button
-                    type="button"
-                    className={`logo-mode-btn${logoMode === "url" ? " selected" : ""}`}
-                    onClick={() => setLogoMode("url")}
-                  >
-                    URL Link
-                  </button>
-                  <button
-                    type="button"
-                    className={`logo-mode-btn${logoMode === "upload" ? " selected" : ""}`}
-                    onClick={() => setLogoMode("upload")}
-                  >
-                    Local Upload
-                  </button>
-                </div>
-                )}
-                {logoPreview ? (
-                  <div className="uploaded-logo">
-                    <img src={logoPreview} alt="Logo preview" className="logo-preview" />
-                    <button type="button" className="change-logo-btn"
+                <span className="field-label">Category</span>
+                <span className="field-hint">Pick what fits best — this is how attendees will discover your conference.</span>
+                <div className="category-chip-grid" role="radiogroup" aria-label="Conference category">
+                  {[
+                    ["computer_science", "Computer Science", "💻"],
+                    ["technology", "Technology", "🔧"],
+                    ["medicine", "Medicine", "⚕️"],
+                    ["engineering", "Engineering", "🏗️"],
+                    ["physics", "Physics", "⚛️"],
+                    ["mathematics", "Mathematics", "🔢"],
+                    ["biology", "Biology", "🧬"],
+                    ["chemistry", "Chemistry", "🧪"],
+                    ["agriculture", "Agriculture", "🌾"],
+                    ["education", "Education", "📚"],
+                    ["economics", "Economics", "📊"],
+                    ["social_sciences", "Social Sciences", "👥"],
+                    ["arts", "Arts", "🎨"],
+                    ["law", "Law", "⚖️"],
+                    ["literature", "Literature", "📖"],
+                    ["philosophy", "Philosophy", "🧠"],
+                    ["other", "Other", "🌐"],
+                  ].map(([value, label, emoji]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={config.category === value}
+                      className={`category-chip${config.category === value ? " selected" : ""}${stepErrors.category ? " has-error" : ""}`}
                       onClick={() => {
-                        setLogoPreview("");
-                        updateField("logo", "");
-                      }}>
+                        setStepErrors((prev) => ({ ...prev, category: "", categoryOther: "" }));
+                        onChange({
+                          ...config,
+                          category: value,
+                          categoryOther: value === "other" ? config.categoryOther || "" : "",
+                        });
+                      }}
+                    >
+                      <span className="category-chip-emoji" aria-hidden="true">{emoji}</span>
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+                {config.category === "other" && (
+                  <div className="category-other-row">
+                    <label>
+                      What is the category? *
+                      <input
+                        type="text"
+                        value={config.categoryOther || ""}
+                        onChange={(event) =>
+                          updateField("categoryOther", event.target.value)
+                        }
+                        placeholder="e.g. Renewable Energy, Digital Humanities…"
+                        maxLength={60}
+                        className={stepErrors.categoryOther ? "input-error" : ""}
+                      />
+                    </label>
+                    {stepErrors.categoryOther && <span className="field-error">{stepErrors.categoryOther}</span>}
+                  </div>
+                )}
+                {stepErrors.category && <span className="field-error">{stepErrors.category}</span>}
+              </div>
+              <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                <span className="field-label">Logo</span>
+                {logoPreview || (logoMode === "url" && logoUrlDraft.trim()) ? (
+                  <div className="logo-preview-card">
+                    <img
+                      src={logoPreview || logoUrlDraft.trim()}
+                      alt="Logo preview"
+                      className="logo-preview"
+                      onError={() => setLogoError("Could not load that image URL. Check the link and try again.")}
+                    />
+                    <div className="logo-preview-info">
+                      <strong>Looking good!</strong>
+                      <span>This logo will represent your conference everywhere.</span>
+                    </div>
+                    <button type="button" className="change-logo-btn" onClick={clearLogo}>
                       Change logo
                     </button>
                   </div>
-                ) : logoMode === "url" ? (
-                  <input type="text" value={config.logo}
-                    onChange={(e) => updateField("logo", e.target.value)}
-                    onBlur={(e) => {
-                      if (e.target.value.trim()) {
-                        setLogoPreview(e.target.value);
-                        extractDominantColor(e.target.value);
-                      }
-                    }}
-                    placeholder="https://.../logo.png" />
                 ) : (
-                  <input type="file" accept="image/*" className="file-input"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (!file) return;
-                      if (file.size > 2 * 1024 * 1024) {
-                        alert("Image too large (max 2MB)");
-                        e.target.value = "";
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setLogoPreview(reader.result);
-                        updateField("logo", reader.result);
-                        extractDominantColor(reader.result);
-                      };
-                      reader.readAsDataURL(file);
-                    }} />
+                  <>
+                    <div
+                      className={`logo-dropzone${logoDragging ? " logo-dropzone--dragging" : ""}${logoError ? " logo-dropzone--error" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Upload conference logo"
+                      onClick={() => logoFileRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          logoFileRef.current?.click();
+                        }
+                      }}
+                      onDragOver={(e) => { e.preventDefault(); setLogoDragging(true); }}
+                      onDragLeave={() => setLogoDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setLogoDragging(false);
+                        handleLogoFile(e.dataTransfer.files?.[0]);
+                      }}
+                    >
+                      <span className="logo-dropzone-icon" aria-hidden="true">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="3" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-3.5-3.5a2 2 0 0 0-3 0L6 20" />
+                        </svg>
+                      </span>
+                      <strong>{logoDragging ? "Drop it — we've got it!" : "Drag & drop your logo here"}</strong>
+                      <span className="logo-dropzone-hint">or <u>browse your files</u> · PNG, JPG or SVG · max 2 MB</span>
+                      <input
+                        ref={logoFileRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          handleLogoFile(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                    </div>
+                    {logoError && <span className="field-error">{logoError}</span>}
+                    {!showLogoUrl ? (
+                      <button type="button" className="logo-url-toggle" onClick={() => setShowLogoUrl(true)}>
+                        …or paste an image link instead
+                      </button>
+                    ) : (
+                      <div className="logo-url-row">
+                        <input
+                          type="url"
+                          value={logoUrlDraft}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setLogoUrlDraft(v);
+                            setLogoError("");
+                            setLogoMode("url");
+                            updateField("logo", v);
+                            if (v.trim()) extractDominantColor(v.trim());
+                          }}
+                          placeholder="https://.../logo.png"
+                          aria-label="Logo image URL"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <label>
@@ -476,6 +605,7 @@ export default function ConferenceBuilderPage({
                 <div className="review-grid">
                   <div><span>Name</span><p>{config.name}</p></div>
                   <div><span>Short name</span><p>{config.shortName}</p></div>
+                  <div><span>Category</span><p>{config.category === "other" ? (config.categoryOther?.trim() || "Other") : config.category ? config.category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—"}</p></div>
                   <div><span>Start date</span><p>{config.startDate}</p></div>
                   <div><span>End date</span><p>{config.endDate}</p></div>
                   <div><span>Theme color</span><p><span className="color-swatch" style={{ background: config.themeColor }} />{config.themeColor}</p></div>

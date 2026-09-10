@@ -43,6 +43,13 @@ export default function DiscoveryCardPage() {
   const [success, setSuccess] = useState("");
 
   const [cardExists, setCardExists] = useState(false);
+  // Dates + logo are owned by the conference (Event Manager / Settings).
+  // When the event has them, the card auto-syncs and the fields lock.
+  const [syncedFields, setSyncedFields] = useState({
+    start_date: "",
+    end_date: "",
+    logo_url: "",
+  });
 
   useEffect(() => {
     loadCard();
@@ -57,18 +64,49 @@ export default function DiscoveryCardPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await backend.getDiscoveryCard(orgSlug);
+      const [data, events, sessions] = await Promise.all([
+        backend.getDiscoveryCard(orgSlug),
+        backend.getEvents().catch(() => []),
+        backend.getPrograms().catch(() => []),
+      ]);
+      // Source of truth for dates: the program sessions (earliest → latest day).
+      // Falls back to the event dates when the program has no dated sessions yet.
+      // Logo comes from Settings → Conference Logo.
+      const datedSessions = (sessions || [])
+        .map((s) => s.date)
+        .filter((d) => d && /^\d{4}-\d{2}-\d{2}/.test(d))
+        .sort();
+      const ev = events && events.length > 0 ? events[0] : null;
+      const synced = {
+        start_date:
+          datedSessions.length > 0
+            ? datedSessions[0].slice(0, 10)
+            : ev?.start_date
+              ? String(ev.start_date).slice(0, 10)
+              : "",
+        end_date:
+          datedSessions.length > 0
+            ? datedSessions[datedSessions.length - 1].slice(0, 10)
+            : ev?.end_date
+              ? String(ev.end_date).slice(0, 10)
+              : "",
+        logo_url: ev?.cover_image_url || "",
+      };
+      setSyncedFields(synced);
+      // Category chosen at conference creation (stored in event settings).
+      const evCategory = ev?.settings?.category || "";
       if (data) {
         setCardExists(true);
         setCard({
           title: data.title || "",
           description: data.description || "",
-          category: data.category || "",
-          start_date: data.start_date || "",
-          end_date: data.end_date || "",
+          category: data.category || evCategory,
+          // Auto-synced from the conference when available; otherwise keep card values.
+          start_date: synced.start_date || data.start_date || "",
+          end_date: synced.end_date || data.end_date || "",
           start_time: data.start_time || "",
           location: data.location || "",
-          logo_url: data.logo_url || "",
+          logo_url: synced.logo_url || data.logo_url || "",
           pricing: data.pricing || "free",
           official_website_url: data.official_website_url || "",
         });
@@ -76,6 +114,15 @@ export default function DiscoveryCardPage() {
         setIsSuperEnabled(!!data.is_super_enabled);
         setIsPublished(!!data.is_org_published);
         setIsBlocked(!!data.is_super_blocked);
+      } else if (ev) {
+        // No card yet — prefill from the conference so nothing is typed twice.
+        setCard((prev) => ({
+          ...prev,
+          category: prev.category || evCategory,
+          start_date: synced.start_date,
+          end_date: synced.end_date,
+          logo_url: synced.logo_url,
+        }));
       }
     } catch (err) {
       console.error("[DiscoveryCardPage] load error:", err);
@@ -124,7 +171,16 @@ export default function DiscoveryCardPage() {
       setSaving(true);
       setError("");
       setSuccess("");
-      await backend.saveDiscoveryCard(orgSlug, { ...card, social_links: socialLinks });
+      // Dates come from the program, logo from Settings — always persist synced
+      // values so the card can never drift from the conference.
+      const payload = {
+        ...card,
+        start_date: syncedFields.start_date || card.start_date,
+        end_date: syncedFields.end_date || card.end_date,
+        logo_url: syncedFields.logo_url || card.logo_url,
+        social_links: socialLinks,
+      };
+      await backend.saveDiscoveryCard(orgSlug, payload);
       setSuccess("Card saved! Publish it to make it visible on the discovery page.");
       await loadCard();
     } catch (err) {
@@ -233,6 +289,9 @@ export default function DiscoveryCardPage() {
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</option>
               ))}
+              {card.category && !CATEGORIES.includes(card.category) && (
+                <option value={card.category}>Custom: {card.category}</option>
+              )}
             </select>
           </label>
         </div>
@@ -245,11 +304,25 @@ export default function DiscoveryCardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
           <label>
             Start Date
-            <input type="date" value={card.start_date} onChange={(e) => update("start_date", e.target.value)} />
+            {syncedFields.start_date ? (
+              <>
+                <input type="date" value={card.start_date} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+                <small style={{ color: "#6b7280", fontWeight: 400 }}>Synced from Program (first session day)</small>
+              </>
+            ) : (
+              <input type="date" value={card.start_date} onChange={(e) => update("start_date", e.target.value)} />
+            )}
           </label>
           <label>
             End Date
-            <input type="date" value={card.end_date} onChange={(e) => update("end_date", e.target.value)} />
+            {syncedFields.end_date ? (
+              <>
+                <input type="date" value={card.end_date} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+                <small style={{ color: "#6b7280", fontWeight: 400 }}>Synced from Program (last session day)</small>
+              </>
+            ) : (
+              <input type="date" value={card.end_date} onChange={(e) => update("end_date", e.target.value)} />
+            )}
           </label>
           <label>
             Start Time
@@ -264,7 +337,14 @@ export default function DiscoveryCardPage() {
           </label>
           <label>
             Logo URL
-            <input type="url" value={card.logo_url} onChange={(e) => update("logo_url", e.target.value)} placeholder="https://.../logo.png" />
+            {syncedFields.logo_url ? (
+              <>
+                <input type="url" value={card.logo_url} disabled style={{ opacity: 0.7, cursor: "not-allowed" }} />
+                <small style={{ color: "#6b7280", fontWeight: 400 }}>Synced from Settings → Conference Logo</small>
+              </>
+            ) : (
+              <input type="url" value={card.logo_url} onChange={(e) => update("logo_url", e.target.value)} placeholder="https://.../logo.png" />
+            )}
           </label>
         </div>
 

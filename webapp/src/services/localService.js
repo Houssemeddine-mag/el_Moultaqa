@@ -20,6 +20,10 @@ export function initializeService(supabase, schemaName) {
   console.log("[localService] Initialized with schema:", schemaName);
 }
 
+export function isServiceReady() {
+  return Boolean(activeSupabase && activeSchemaName);
+}
+
 function readJson(key, fallback) {
   if (typeof window === "undefined") return fallback;
   try {
@@ -158,18 +162,28 @@ export async function fetchConferenceConfig() {
   const events = await queryOrgTable(activeSupabase, activeSchemaName, "events");
   if (events && events.length > 0) {
     const ev = events[0];
+    // settings is JSONB, but normalize in case a legacy row returns text
+    let settings = ev.settings || {};
+    if (typeof settings === "string") {
+      try {
+        settings = JSON.parse(settings);
+      } catch {
+        settings = {};
+      }
+    }
     return {
       name: ev.title,
       shortName: ev.short_name,
-      themeColor: ev.settings?.themeColor || "#0d7e52",
-      logo: ev.cover_image_url || ev.settings?.logo_url || "",
+      tagline: settings?.tagline || "",
+      themeColor: settings?.themeColor || "#0d7e52",
+      logo: ev.cover_image_url || settings?.logo_url || "",
       startDate: ev.start_date,
       endDate: ev.end_date,
-      sponsors: ev.settings?.sponsors || [],
-      collaborators: ev.settings?.collaborators || [],
-      attendees: ev.settings?.attendees || [],
-      stream_url: ev.settings?.stream_url || ev.stream_url || null,
-      settings: ev.settings || {},
+      sponsors: settings?.sponsors || [],
+      collaborators: settings?.collaborators || [],
+      attendees: settings?.attendees || [],
+      stream_url: settings?.stream_url || ev.stream_url || null,
+      settings,
     };
   }
   return null;
@@ -204,26 +218,26 @@ export async function fetchSponsors() {
   }
   const config = await fetchConferenceConfig();
   if (config && Array.isArray(config.sponsors)) {
-    return config.sponsors
-      .map((s, index) => {
-        if (typeof s === "string") {
-          // legacy: sponsors as string names — no logo, keep but mark no image
-          return { id: `sponsor-${index}`, name: s, tier: "partner", logoData: "", image: "", imageData: "" };
-        }
-        // sponsors as objects from admin: {name, logo, logoUrl, image, tier, order}
-        const name = s.name || s.title || `Sponsor ${index + 1}`;
-        const logo = s.logoData || s.logo || s.logoUrl || s.image || s.imageData || s.photo || "";
-        return {
-          id: s.id || `sponsor-${index}`,
-          name,
-          tier: s.tier || "partner",
-          order: s.order ?? index,
-          logoData: logo,
-          image: logo,
-          imageData: logo,
-        };
-      })
-      .filter((s) => s.logoData || s.image || s.imageData);
+    // Keep logo-less sponsors too — HomePage renders them as text chips.
+    return config.sponsors.map((s, index) => {
+      if (typeof s === "string") {
+        // legacy: sponsors as string names — no logo
+        return { id: `sponsor-${index}`, name: s, tier: "partner", logoData: "", image: "", imageData: "", hasLogo: false };
+      }
+      // sponsors as objects from admin: {name, logo, logoUrl, image, tier, order}
+      const name = s.name || s.title || `Sponsor ${index + 1}`;
+      const logo = s.logoData || s.logo || s.logoUrl || s.image || s.imageData || s.photo || "";
+      return {
+        id: s.id || `sponsor-${index}`,
+        name,
+        tier: s.tier || "partner",
+        order: s.order ?? index,
+        logoData: logo,
+        image: logo,
+        imageData: logo,
+        hasLogo: Boolean(logo),
+      };
+    });
   }
   return [];
 }
@@ -340,33 +354,80 @@ export async function fetchAllPrograms() {
 
   const programs = sessions.map((session) => {
     const sp = session.speaker_id ? speakerMap.get(session.speaker_id) : null;
-    const startDt = session.start_time ? new Date(session.start_time) : null;
-    const endDt = session.end_time ? new Date(session.end_time) : null;
+    const meta = session.metadata || {};
+    // Same wall-clock parsing as admin getPrograms (string split, no TZ conversion).
+    // Using `new Date()` here shifted times by the viewer's timezone and mixed
+    // UTC date with local time, so admin 09:00 showed as 10:00 in webapp (UTC+1).
+    let dateStr = "";
+    let startStr = "";
+    let endStr = "";
+    let endDateStr = "";
+    if (session.start_time) {
+      dateStr = session.start_time.split("T")[0] || "";
+      startStr = session.start_time.split("T")[1]?.substring(0, 5) || "";
+    }
+    if (session.end_time) {
+      endDateStr = session.end_time.split("T")[0] || "";
+      endStr = session.end_time.split("T")[1]?.substring(0, 5) || "";
+      if (endDateStr === dateStr) endDateStr = "";
+    }
 
-    const dateStr = startDt ? startDt.toISOString().split("T")[0] : "";
-    const startStr = startDt ? startDt.toTimeString().slice(0, 5) : "";
-    const endStr = endDt ? endDt.toTimeString().slice(0, 5) : "";
+    // Admin stores presentations in sessions.metadata.conferences —
+    // previously dropped (hardcoded to []), hence "0 presentations".
+    const rawConferences = Array.isArray(meta.conferences) ? meta.conferences : [];
+    const conferences = rawConferences.map((c, idx) => ({
+      id: c.id || `${session.id}-conf-${idx}`,
+      title: c.title || "",
+      presenter: c.presenter || "",
+      affiliation: c.affiliation || "",
+      start: c.start || "",
+      end: c.end || "",
+      time: c.time || "",
+      room: c.room || "",
+      resume: c.resume || c.description || "",
+      description: c.resume || c.description || "",
+      isKeynote: Boolean(c.isKeynote),
+    }));
+
+    // Keynote: prefer linked speaker, fall back to metadata.keynote saved by admin.
+    const metaKeynote = meta.keynote || null;
+    const keynote = sp
+      ? {
+          name: sp.full_name,
+          title: sp.title || "",
+          company: sp.company || "",
+          affiliation: sp.company || metaKeynote?.affiliation || "",
+          photo: sp.photo_url || "",
+          image: sp.photo_url || metaKeynote?.image || "",
+          bio: sp.bio || "",
+        }
+      : metaKeynote && metaKeynote.name
+        ? {
+            name: metaKeynote.name,
+            title: metaKeynote.title || "",
+            company: metaKeynote.company || metaKeynote.affiliation || "",
+            affiliation: metaKeynote.affiliation || "",
+            photo: metaKeynote.image || metaKeynote.photo || "",
+            image: metaKeynote.image || metaKeynote.photo || "",
+            bio: metaKeynote.bio || "",
+          }
+        : null;
 
     return {
       id: session.id,
-      type: session.session_type,
+      type: session.session_type || "talk",
       title: session.title,
       date: dateStr,
       start: startStr,
-      end: endStr,
+      end: endStr || null,
+      endDate: endDateStr || null,
       room: session.room || "",
-      chairs: session.metadata?.chairs || [],
-      keynote: sp ? {
-        name: sp.full_name,
-        title: sp.title || "",
-        company: sp.company || "",
-        photo: sp.photo_url || "",
-        bio: sp.bio || "",
-      } : null,
-      keynoteDescription: session.description || "",
-      keynoteHasConference: false,
-      conferences: [],
-      streamId: session.metadata?.streamId || null,
+      chairs: Array.isArray(meta.chairs) ? meta.chairs : [],
+      keynote,
+      keynoteDescription: meta.keynoteDescription || session.description || "",
+      keynoteHasConference: conferences.some((c) => c.isKeynote),
+      conferences,
+      streamId: meta.streamId || null,
       createdAt: session.created_at,
       updatedAt: session.updated_at,
     };
@@ -401,27 +462,77 @@ export async function fetchKeynoteSpeakers() {
 }
 
 export function subscribePrograms(onUpdate, onError) {
-  if (activeSupabase && activeSchemaName) {
-    fetchAllPrograms()
-      .then(onUpdate)
-      .catch(onError);
-    return () => {};
-  }
-
   if (typeof window === "undefined") {
     return () => {};
   }
 
-  try {
-    onUpdate(sortByDateThenTime(readPrograms()));
-  } catch (error) {
-    if (onError) onError(error);
+  let cancelled = false;
+  let channel = null;
+  let pollTimer = null;
+
+  let authFailed = false;
+
+  const pushUpdate = async () => {
+    if (cancelled || authFailed) return;
+    // Service may not be initialized yet (ConferenceProvider resolves org async).
+    // Don't report this as a "realtime failure" — just wait for init.
+    if (!activeSupabase || !activeSchemaName) return;
+    try {
+      const data = await fetchAllPrograms();
+      if (!cancelled) onUpdate(data);
+    } catch (error) {
+      const msg = error?.message || "";
+      // Auth failures will not fix themselves by polling — stop and surface once.
+      if (msg.includes("not authenticated") || msg.includes("not a registered user")) {
+        authFailed = true;
+        if (pollTimer) window.clearInterval(pollTimer);
+      }
+      if (!cancelled && onError) onError(error);
+    }
+  };
+
+  // Local-storage fallback path (template/offline mode)
+  if (!activeSupabase || !activeSchemaName) {
+    try {
+      onUpdate(sortByDateThenTime(readPrograms()));
+    } catch (error) {
+      if (onError) onError(error);
+    }
+  } else {
+    pushUpdate();
+
+    // Light polling so an admin edit appears without a hard reload.
+    pollTimer = window.setInterval(pushUpdate, 30000);
+
+    // Supabase Realtime on sessions table, if the project has it enabled.
+    try {
+      if (typeof activeSupabase.channel === "function") {
+        channel = activeSupabase
+          .channel(`sessions-${activeSchemaName}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: activeSchemaName, table: "sessions" },
+            () => pushUpdate()
+          )
+          .subscribe((status, err) => {
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && err && onError) {
+              console.warn("[localService] Realtime channel issue:", status, err);
+            }
+          });
+      }
+    } catch (realtimeErr) {
+      console.warn("[localService] Realtime not available, using polling:", realtimeErr);
+    }
   }
 
   const handleStorage = (event) => {
     if (event.key === PROGRAMS_STORAGE_KEY) {
       try {
-        onUpdate(sortByDateThenTime(readPrograms()));
+        if (!activeSupabase || !activeSchemaName) {
+          onUpdate(sortByDateThenTime(readPrograms()));
+        } else {
+          pushUpdate();
+        }
       } catch (error) {
         if (onError) onError(error);
       }
@@ -429,7 +540,18 @@ export function subscribePrograms(onUpdate, onError) {
   };
 
   window.addEventListener("storage", handleStorage);
-  return () => window.removeEventListener("storage", handleStorage);
+  return () => {
+    cancelled = true;
+    window.removeEventListener("storage", handleStorage);
+    if (pollTimer) window.clearInterval(pollTimer);
+    if (channel) {
+      try {
+        activeSupabase.removeChannel(channel);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  };
 }
 
 export async function fetchNotifications(limitCount = 4) {
@@ -515,6 +637,56 @@ export async function submitStreamQuestion({ author, message, clerkUserId = null
   };
 }
 
+
+export async function fetchPresentationFeedback(presentationKey) {
+  if (!activeSupabase || !activeSchemaName) {
+    throw new Error("Supabase not initialized");
+  }
+  const data = await queryOrgTable(activeSupabase, activeSchemaName, "feedback", {
+    filters: { session_title: presentationKey },
+    orderBy: "created_at",
+    orderDir: "DESC",
+    limit: 100,
+  });
+  return (data || []).map((f) => ({
+    id: f.id,
+    rating: Number(f.presentation_rating ?? f.presenter_rating ?? 0) || 0,
+    comment: f.comment || "",
+    userEmail: f.user_email || "",
+    createdAt: f.created_at,
+  }));
+}
+
+export async function submitPresentationFeedback({ presentationKey, rating, comment, userEmail }) {
+  if (!activeSupabase || !activeSchemaName) {
+    throw new Error("Supabase not initialized");
+  }
+  if (!presentationKey) throw new Error("Missing presentation reference");
+  const safeRating = Math.min(5, Math.max(1, Number(rating) || 0));
+  if (!safeRating) throw new Error("Please select a star rating");
+  const { data, error } = await activeSupabase.rpc("org_insert", {
+    p_schema_name: activeSchemaName,
+    p_table_name: "feedback",
+    p_data: {
+      session_title: presentationKey,
+      presentation_rating: safeRating,
+      presenter_rating: safeRating,
+      comment: (comment || "").trim(),
+      user_email: userEmail || "",
+    },
+  });
+  if (error) {
+    console.error("[localService.submitPresentationFeedback] RPC failed:", error);
+    throw error;
+  }
+  return {
+    id: data.id,
+    rating: Number(data.presentation_rating ?? safeRating) || safeRating,
+    comment: data.comment || "",
+    userEmail: data.user_email || "",
+    createdAt: data.created_at,
+  };
+}
 
 export async function updateUserProfile(uid, profileId, updatedData) {
   if (!activeSupabase || !activeSchemaName) {

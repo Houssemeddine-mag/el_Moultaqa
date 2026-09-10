@@ -6,11 +6,13 @@ const generateId = () =>
 
 let activeSupabase = null;
 let activeSchemaName = null;
+let activeOrgSlug = null;
 
 const backend = {
-  initializeService(supabase, schemaName) {
+  initializeService(supabase, schemaName, orgSlug = null) {
     activeSupabase = supabase;
     activeSchemaName = schemaName;
+    if (orgSlug) activeOrgSlug = orgSlug;
     console.log("[admin backend] Initialized with schema:", schemaName);
   },
 
@@ -39,7 +41,7 @@ const backend = {
 
       return {
         id: s.id,
-        type: s.session_type || "session",
+        type: s.session_type || "talk",
         title: s.title,
         date: date,
         start: start,
@@ -125,7 +127,7 @@ const backend = {
 
     const resMeta = data.metadata || {};
 
-    return {
+    const created = {
       id: data.id,
       type: data.session_type,
       title: data.title,
@@ -139,18 +141,69 @@ const backend = {
       keynoteDescription: resMeta.keynoteDescription || data.description || "",
       conferences: resMeta.conferences || [],
     };
+    // Keep the discovery card dates in sync with the program (never blocks save).
+    this.syncDiscoveryDates().catch(() => {});
+    return created;
+  },
+
+  // Recomputes the discovery card range from the program sessions and persists
+  // it when it changed. No-op when no card exists yet. Never throws.
+  async syncDiscoveryDates() {
+    try {
+      if (!activeSupabase || !activeSchemaName || !activeOrgSlug) return;
+      const [card, programs] = await Promise.all([
+        this.getDiscoveryCard(activeOrgSlug),
+        this.getPrograms(),
+      ]);
+      if (!card) return;
+      const days = (programs || [])
+        .map((p) => p.date)
+        .filter((d) => d && /^\d{4}-\d{2}-\d{2}/.test(d))
+        .sort();
+      if (days.length === 0) return;
+      const start = days[0].slice(0, 10);
+      const end = days[days.length - 1].slice(0, 10);
+      const curStart = card.start_date ? String(card.start_date).slice(0, 10) : "";
+      const curEnd = card.end_date ? String(card.end_date).slice(0, 10) : "";
+      if (curStart === start && curEnd === end) return;
+      await this.saveDiscoveryCard(activeOrgSlug, {
+        title: card.title,
+        description: card.description,
+        category: card.category,
+        start_date: start,
+        end_date: end,
+        start_time: card.start_time,
+        location: card.location,
+        logo_url: card.logo_url,
+        pricing: card.pricing,
+        official_website_url: card.official_website_url,
+        social_links: card.social_links || {},
+      });
+      console.log("[admin backend] Discovery dates synced from program:", start, "→", end);
+    } catch (e) {
+      console.warn("[admin backend] syncDiscoveryDates skipped:", e?.message || e);
+    }
   },
 
   async updateProgram(id, data) {
     if (!activeSupabase || !activeSchemaName) {
       throw new Error("Supabase not initialized");
     }
-    const startTime = data.date && data.start 
-      ? `${data.date}T${data.start}:00Z` 
+    const startTime = data.date && data.start
+      ? `${data.date}T${data.start}:00Z`
       : null;
-    const endTime = (data.endDate || data.date) && data.end 
-      ? `${data.endDate || data.date}T${data.end}:00Z` 
+    const endTime = (data.endDate || data.date) && data.end
+      ? `${data.endDate || data.date}T${data.end}:00Z`
       : null;
+
+    // Same whitelist as addProgram + DB CHECK constraint.
+    // Prevents 'session' (legacy UI value) from violating the CHECK.
+    const validSessionTypes = ['talk', 'workshop', 'panel', 'keynote', 'break', 'networking'];
+    let sessionType = (data.type || 'talk').toLowerCase();
+    if (!validSessionTypes.includes(sessionType)) {
+      console.warn(`Invalid session type "${data.type}". Using "talk" instead.`);
+      sessionType = 'talk';
+    }
 
     const dbPayload = {
       title: data.title,
@@ -158,7 +211,7 @@ const backend = {
       start_time: startTime,
       end_time: endTime,
       room: data.room || "",
-      session_type: data.type || "session",
+      session_type: sessionType,
       metadata: {
         chairs: data.chairs || [],
         keynote: data.keynote || { name: "", affiliation: "", bio: "", image: "" },
@@ -175,6 +228,7 @@ const backend = {
     });
 
     if (error) throw error;
+    this.syncDiscoveryDates().catch(() => {});
     return true;
   },
 
@@ -188,6 +242,7 @@ const backend = {
       p_id: id,
     });
     if (error) throw error;
+    this.syncDiscoveryDates().catch(() => {});
     return true;
   },
 

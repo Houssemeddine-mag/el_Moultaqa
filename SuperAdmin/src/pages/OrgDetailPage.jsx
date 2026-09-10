@@ -255,6 +255,9 @@ export default function OrgDetailPage() {
             {discStatus?.card_blocked && (
               <span className="sa-badge" style={{ background: "#dc2626", color: "#fff" }}>Blocked</span>
             )}
+            {discStatus?.card_extra && (
+              <span className="sa-badge" style={{ background: "#d97706", color: "#fff" }}>★ Extra</span>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
@@ -286,6 +289,22 @@ export default function OrgDetailPage() {
               disabled={discAction === "block" || !discStatus?.discovery_enabled}
             >
               {discAction === "block" ? "..." : discStatus?.card_blocked ? "Unblock" : "Block"}
+            </button>
+            <button
+              className={`sa-btn sa-btn-sm ${discStatus?.card_extra ? "sa-btn-primary" : "sa-btn-sm-outline-warn"}`}
+              title="Paid spotlight: pins this conference to the top of the Discover list"
+              onClick={async () => {
+                setDiscAction("extra");
+                try {
+                  await sa.toggleDiscoveryExtra(orgSlug, !discStatus?.card_extra);
+                  const list = await sa.listOrgsDiscoveryStatus();
+                  setDiscStatus(list.find((d) => d.org_slug === orgSlug) || null);
+                } catch (e) { setError(e.message); }
+                finally { setDiscAction(null); }
+              }}
+              disabled={discAction === "extra" || !discStatus?.discovery_enabled}
+            >
+              {discAction === "extra" ? "..." : discStatus?.card_extra ? "★ Remove Extra" : "★ Mark Extra"}
             </button>
           </div>
           {discStatus && (

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useSession } from "@clerk/clerk-react";
 import { defaultConferenceConfig } from "../conferenceConfig";
 import { fetchConferenceConfig, initializeService } from "../services/localService";
 import { useClerkSupabase, resolveOrgSlug } from "@global/supabase";
@@ -83,7 +84,9 @@ function applyThemeVariables(config) {
 
 export function ConferenceProvider({ children }) {
   const [config, setConfig] = useState(defaultConferenceConfig);
+  const [authError, setAuthError] = useState("");
   const supabase = useClerkSupabase();
+  const { session, isLoaded: sessionLoaded } = useSession();
   const location = useLocation();
 
   // Parse the slug from the URL pathname, e.g. /c/algeria-tech/home -> algeria-tech
@@ -98,8 +101,32 @@ export function ConferenceProvider({ children }) {
         console.log("[ConferenceProvider] No org slug found in path.");
         return;
       }
+      // Wait for Clerk to load. Without a session, org_query (events) rejects
+      // with "user is not authenticated" — don't spam 400s, just wait.
+      if (!sessionLoaded) return;
+      if (!session) {
+        // Public slug resolve is anon-safe; authed config loads after sign-in.
+        try {
+          const orgDetails = await resolveOrgSlug(supabase, orgSlug);
+          if (!active) return;
+          if (orgDetails) {
+            setConfig({
+              ...defaultConferenceConfig,
+              id: orgSlug,
+              brand: orgDetails.name || defaultConferenceConfig.brand,
+              brandInitials: getInitials(orgDetails.name || defaultConferenceConfig.brand),
+              logoUrl: orgDetails.logo_url || defaultConferenceConfig.logoUrl,
+              mobileAppUrl: orgDetails.mobile_app_url || null,
+            });
+          }
+        } catch (e) {
+          console.warn("[ConferenceProvider] public org resolve failed:", e?.message || e);
+        }
+        return;
+      }
 
       try {
+        setAuthError("");
         console.log("[ConferenceProvider] Resolving org slug:", orgSlug);
         const orgDetails = await resolveOrgSlug(supabase, orgSlug);
         if (!active) return;
@@ -111,12 +138,18 @@ export function ConferenceProvider({ children }) {
           const storedConfig = await fetchConferenceConfig();
           if (!active) return;
 
+          // Conference name comes from Settings (event title), not the org record —
+          // otherwise renaming in Settings never reaches the webapp.
+          const brandName =
+            storedConfig?.name || orgDetails.name || defaultConferenceConfig.brand;
+
           setConfig({
             ...defaultConferenceConfig,
             id: orgSlug,
-            brand: orgDetails.name || defaultConferenceConfig.brand,
-            brandInitials: getInitials(orgDetails.name || defaultConferenceConfig.brand),
+            brand: brandName,
+            brandInitials: getInitials(brandName || defaultConferenceConfig.brand),
             shortName: storedConfig?.shortName || "",
+            tagline: storedConfig?.tagline || "",
             name: storedConfig?.name || orgDetails.name || defaultConferenceConfig.name,
             themeColor: storedConfig?.themeColor || orgDetails.themeColor || defaultConferenceConfig.primaryColor,
             logoUrl: storedConfig?.logo || orgDetails.logo_url || defaultConferenceConfig.logoUrl,
@@ -130,17 +163,22 @@ export function ConferenceProvider({ children }) {
         }
       } catch (error) {
         console.error("Unable to load conference configuration", error);
+        if (!active) return;
+        const msg = error?.message || "";
+        if (msg.includes("not authenticated")) {
+          setAuthError("Your session expired or is missing. Please sign in again.");
+        }
       }
     }
 
-    if (supabase) {
+    if (supabase && sessionLoaded) {
       loadConfig();
     }
 
     return () => {
       active = false;
     };
-  }, [supabase, orgSlug]);
+  }, [supabase, orgSlug, session, sessionLoaded]);
 
 
   useEffect(() => {

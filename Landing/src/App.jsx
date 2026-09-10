@@ -26,6 +26,8 @@ import OrgButton from "./components/OrgButton.jsx";
 const initialConference = {
   name: "",
   shortName: "",
+  category: "",
+  categoryOther: "",
   themeColor: "#0d7e52",
   logo: "",
   startDate: "2026-12-12",
@@ -57,10 +59,17 @@ function AppRoutes({
 }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setMenuOpen(false);
   }, [pathname]);
+
+  const go = (path) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
 
   const onAuthSubmit = async (event) => {
     const success = await handleAuthSubmit(event);
@@ -77,6 +86,7 @@ function AppRoutes({
   };
 
   const logoutAndHome = async () => {
+    setMenuOpen(false);
     await handleLogout();
     navigate("/");
   };
@@ -125,6 +135,48 @@ function AppRoutes({
             </>
           ) : (
             <button className="landing-cta" onClick={() => navigate("/auth")}>
+              Sign in
+            </button>
+          )}
+        </div>
+        <button
+          className="nav-hamburger"
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span aria-hidden="true">{menuOpen ? "✕" : "☰"}</span>
+        </button>
+        <div className={`nav-mobile-panel${menuOpen ? " open" : ""}`}>
+          <button className="discover-btn nav-mobile-btn" onClick={() => go("/discovery")}>
+            <svg className="discover-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+            </svg>
+            <span>Discover</span>
+          </button>
+          {user ? (
+            <>
+              <div className="nav-mobile-user">
+                {user.imageUrl ? (
+                  <img className="nav-user-avatar-img" src={user.imageUrl} alt="" />
+                ) : (
+                  <div className="nav-user-avatar">
+                    {user.email.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="nav-mobile-email">{user.email}</span>
+              </div>
+              <OrgButton />
+              <button className="landing-cta nav-mobile-btn" onClick={() => go("/builder")}>
+                Create Conference
+              </button>
+              <button className="secondary-button nav-mobile-btn" onClick={logoutAndHome}>
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button className="landing-cta nav-mobile-btn" onClick={() => go("/auth")}>
               Sign in
             </button>
           )}

@@ -202,10 +202,10 @@ export default function ApplicationsPage() {
               style={{
                 flex: 1,
                 padding: "8px 12px",
-                background: "var(--bg-input, #1a1a2e)",
-                border: "1px solid var(--border, rgba(255,255,255,0.1))",
+                background: "#ffffff",
+                border: "1px solid #d1d5db",
                 borderRadius: 8,
-                color: "inherit",
+                color: "#111111",
                 fontFamily: "monospace",
                 fontSize: 13,
               }}

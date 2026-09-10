@@ -48,14 +48,30 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // @param {Function} getToken — A function that returns a Promise<string|null>.
 //   Typically: () => getToken({ template: 'supabase' })
 // ---------------------------------------------------------------------------
+let _anonClient = null;
+const _sessionClients = new Map();
+let _warnedMissingToken = false;
+
 export function createClerkSupabaseClient(getToken) {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
     global: {
       fetch: async (url, options = {}) => {
-        const token = await getToken();
+        let token = null;
+        try {
+          token = await getToken();
+        } catch (e) {
+          console.warn("[supabase] getToken failed (is the 'supabase' JWT template configured?):", e?.message || e);
+        }
         const headers = new Headers(options.headers || {});
         if (token) {
           headers.set("Authorization", `Bearer ${token}`);
+        } else if (!_warnedMissingToken) {
+          _warnedMissingToken = true;
+          console.warn(
+            "[supabase] Clerk token is null — requests will be unauthenticated and org_query will reject with 'user is not authenticated'. " +
+            "Check Clerk Dashboard → JWT Templates → 'supabase' template exists."
+          );
         }
         return fetch(url, {
           ...options,
@@ -64,6 +80,15 @@ export function createClerkSupabaseClient(getToken) {
       },
     },
   });
+}
+
+export function getAnonClient() {
+  if (!_anonClient) {
+    _anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return _anonClient;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,17 +105,31 @@ export function createClerkSupabaseClient(getToken) {
 // ---------------------------------------------------------------------------
 export function useClerkSupabase() {
   const { session } = useSession();
+  const sessionId = session?.id || null;
 
   const supabase = useMemo(() => {
     if (!session) {
-      // Return an unauthenticated client (will be blocked by RLS for protected tables)
-      return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Unauthenticated singleton (will be blocked by RLS for protected tables)
+      return getAnonClient();
     }
 
-    return createClerkSupabaseClient(() =>
+    // Cache per session id — avoids "Multiple GoTrueClient instances" churn
+    // when the session object identity changes on re-render.
+    if (_sessionClients.has(session.id)) {
+      return _sessionClients.get(session.id);
+    }
+    const client = createClerkSupabaseClient(() =>
       session.getToken({ template: "supabase" })
     );
-  }, [session]);
+    _sessionClients.set(session.id, client);
+    // Keep cache small (single active session in practice)
+    if (_sessionClients.size > 3) {
+      const firstKey = _sessionClients.keys().next().value;
+      _sessionClients.delete(firstKey);
+    }
+    return client;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   return supabase;
 }

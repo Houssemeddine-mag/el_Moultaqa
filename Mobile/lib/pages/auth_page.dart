@@ -51,7 +51,9 @@ class _AuthPageState extends State<AuthPage> {
       signedInBuilder: (context, authState) {
         SupabaseService.tokenProvider = () async {
           final clerkToken = await authState.sessionToken(templateName: 'supabase');
-          return clerkToken.toString();
+          final tokenStr = clerkToken.toString();
+          if (tokenStr.isEmpty || tokenStr == 'null') return null;
+          return tokenStr;
         };
         return _OrgGate(authState: authState);
       },
@@ -74,7 +76,7 @@ class _SocialSignInPage extends StatelessWidget {
     final logoUrl = MobileConfig.logoUrl;
     final showLogo = logoUrl.isNotEmpty
         ? NetworkImage(logoUrl) as ImageProvider
-        : const AssetImage('global/logo.png') as ImageProvider;
+        : const AssetImage('assets/images/logo.png') as ImageProvider;
 
     return Scaffold(
       backgroundColor: Colors.white,

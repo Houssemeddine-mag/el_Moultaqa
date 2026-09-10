@@ -16,7 +16,6 @@ export const adminConfig = {
     { path: "/app/sponsors", label: "Sponsors" },
     { path: "/app/discovery-card", label: "Discovery Card" },
     { path: "/app/database", label: "Database" },
-    { path: "/app/export", label: "Export Data" },
     { path: "/app/applications", label: "Applications" },
     { path: "/app/settings", label: "Settings" },
   ],

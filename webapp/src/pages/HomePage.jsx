@@ -42,15 +42,13 @@ export default function HomePage() {
 
         setSponsors(
           list
-            .filter(
-              (sponsor) =>
-                sponsor.logoData || sponsor.image || sponsor.imageData,
-            )
             .sort((a, b) => (a.order || 0) - (b.order || 0))
             .map((sponsor) => ({
               id: sponsor.id,
               alt: sponsor.name || "Sponsor",
-              src: sponsor.logoData || sponsor.image || sponsor.imageData,
+              name: sponsor.name || "Sponsor",
+              src: sponsor.logoData || sponsor.image || sponsor.imageData || "",
+              hasLogo: Boolean(sponsor.hasLogo ?? (sponsor.logoData || sponsor.image || sponsor.imageData)),
             })),
         );
       } catch (error) {
@@ -103,10 +101,6 @@ export default function HomePage() {
               <span className="eyebrow">{conferenceConfig.shortName}</span>
             )}
             <h1>{conferenceConfig.brand || "Conference"}</h1>
-            <p>
-              {conferenceConfig.description ||
-                "Welcome to the official conference experience."}
-            </p>
             <div className="hero-dates-location">
               {conferenceConfig.dates && (
                 <div className="date-info">
@@ -121,6 +115,11 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+            {(conferenceConfig.tagline || conferenceConfig.description) && (
+              <p className="hero-tagline">
+                {conferenceConfig.tagline || conferenceConfig.description}
+              </p>
+            )}
             <div className="hero-actions">
               <button
                 className="primary-button"
@@ -161,10 +160,11 @@ export default function HomePage() {
         </div>
       </section>
 
+      {sponsors.length > 0 ? (
       <section className="sponsor-ribbon">
         <div className="sponsor-header">
           <div>
-            <h3>Official sponsor logos</h3>
+            <h3>Official sponsors</h3>
           </div>
         </div>
         <div className="sponsor-track-wrap">
@@ -174,12 +174,31 @@ export default function HomePage() {
                 key={`${sponsor.id || sponsor.alt}-${index}`}
                 className="sponsor-item"
               >
-                <img src={sponsor.src} alt={sponsor.alt} />
+                {sponsor.src ? (
+                  <img src={sponsor.src} alt={sponsor.alt} />
+                ) : (
+                  <span
+                    className="sponsor-text-chip"
+                    title={sponsor.alt}
+                    style={{
+                      display: "inline-block",
+                      padding: "10px 18px",
+                      borderRadius: 999,
+                      background: "var(--bg, #f2f5f3)",
+                      border: "1px solid var(--border, #e2e8e4)",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {sponsor.name || sponsor.alt}
+                  </span>
+                )}
               </div>
             ))}
           </div>
         </div>
       </section>
+      ) : null}
 
       <section id="keynote-speakers" className="home-info-grid keynote-section">
         <div className="section-header">

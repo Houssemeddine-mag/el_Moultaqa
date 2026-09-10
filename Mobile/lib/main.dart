@@ -109,7 +109,7 @@ void main() async {
       MobileConfig.loadFromService(SupabaseService.orgDetails, null);
     }
   } catch (e) {
-    print('[main] Org resolve skipped (non-fatal): $e');
+    debugPrint('[main] Org resolve skipped (non-fatal): $e');
   }
 
   // 3b. Event config — may fail pre-auth (org_query needs Clerk JWT)
@@ -119,7 +119,7 @@ void main() async {
       MobileConfig.loadFromService(SupabaseService.orgDetails, config);
     }
   } catch (e) {
-    print('[main] Conference config not available pre-auth (non-fatal): $e');
+    debugPrint('[main] Conference config not available pre-auth (non-fatal): $e');
   }
 
   final publishableKey = () {
@@ -217,8 +217,18 @@ class ElMoultaqaMobileApp extends StatelessWidget {
       initialRoute: '/auth',
       routes: {
         '/auth': (context) => const AuthPage(),
-        '/main': (context) => const MainLayout(userRole: 'user'),
         '/admin-notif': (context) => const AdminMainLayout(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/main') {
+          final args = settings.arguments;
+          final role = args is String && args.isNotEmpty ? args : 'user';
+          return MaterialPageRoute(
+            builder: (context) => MainLayout(userRole: role),
+            settings: settings,
+          );
+        }
+        return null;
       },
     );
   }

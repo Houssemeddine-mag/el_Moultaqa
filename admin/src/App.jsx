@@ -8,13 +8,12 @@ import EventManagerPage from "./pages/EventManagerPage.jsx";
 import ProgramPage from "./pages/ProgramPage.jsx";
 import PresentationsPage from "./pages/PresentationsPage.jsx";
 import UsersPage from "./pages/UsersPage.jsx";
-import DatabaseManagerPage from "./pages/DatabaseManagerPage.jsx";
+import DatabasePage from "./pages/DatabasePage.jsx";
 import KeynoteInApp from "./pages/KeynoteInApp.jsx";
 import SponsorsPage from "./pages/SponsorsPage.jsx";
 import StreamsPage from "./pages/StreamsPage.jsx";
 import DiscoveryCardPage from "./pages/DiscoveryCardPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
-import ExportAllPage from "./pages/ExportAllPage.jsx";
 import ApplicationsPage from "./pages/ApplicationsPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 import { useAuth, useClerk, useOrganizationList, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
@@ -84,7 +83,7 @@ function AdminLayout() {
           }
 
           setOrgDetails(details);
-          backend.initializeService(supabase, details.schema_name);
+          backend.initializeService(supabase, details.schema_name, orgSlug);
 
           // Fetch conference logo from the events table
           backend.getEvents().then((events) => {
@@ -311,13 +310,13 @@ const App = () => {
           <Route path="program" element={<ProgramPage />} />
           <Route path="presentations" element={<PresentationsPage />} />
           <Route path="users" element={<UsersPage />} />
-          <Route path="database" element={<DatabaseManagerPage />} />
+          <Route path="database" element={<DatabasePage />} />
           <Route path="keynote-in-app" element={<KeynoteInApp />} />
           <Route path="streams" element={<StreamsPage />} />
           <Route path="discovery-card" element={<DiscoveryCardPage />} />
           <Route path="sponsors" element={<SponsorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="export" element={<ExportAllPage />} />
+          <Route path="export" element={<Navigate to="../database" replace />} />
           <Route path="applications" element={<ApplicationsPage />} />
           <Route path="*" element={<ErrorPage />} />
         </Route>
