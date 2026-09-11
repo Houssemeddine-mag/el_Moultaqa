@@ -227,16 +227,17 @@ export async function fetchSponsors() {
   if (config && Array.isArray(config.sponsors)) {
     // Keep logo-less sponsors too — HomePage renders them as text chips.
     return config.sponsors.map((s, index) => {
-      if (typeof s === "string") {
-        // legacy: sponsors as string names — no logo
-        return { id: `sponsor-${index}`, name: s, tier: "partner", logoData: "", image: "", imageData: "", hasLogo: false };
-      }
+        if (typeof s === "string") {
+          // legacy: sponsors as string names — no logo
+          return { id: `sponsor-${index}`, name: s, website: "", tier: "partner", logoData: "", image: "", imageData: "", hasLogo: false };
+        }
       // sponsors as objects from admin: {name, logo, logoUrl, image, tier, order}
       const name = s.name || s.title || `Sponsor ${index + 1}`;
       const logo = s.logoData || s.logo || s.logoUrl || s.image || s.imageData || s.photo || "";
       return {
         id: s.id || `sponsor-${index}`,
         name,
+        website: s.website || s.url || "",
         tier: s.tier || "partner",
         order: s.order ?? index,
         logoData: logo,

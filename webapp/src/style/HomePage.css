@@ -1,6 +1,7 @@
 .home-page {
   width: 100%;
   animation: fadeIn 0.8s ease-out;
+  overflow-x: clip;
 }
 
 /* Hero Section */
@@ -202,24 +203,16 @@
 
 /* Sponsor Ribbon */
 .home-page .sponsor-ribbon {
-  max-width: 1400px;
-  margin: 48px auto;
-  padding: 32px;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.8) 0%,
-    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.04) 100%);
-  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
-  backdrop-filter: blur(10px);
+  margin: 64px calc(50% - 50vw) 0;
+  padding: 36px 0 40px;
   animation: fadeInUp 1s ease-out 0.4s both;
 }
 
 .home-page .sponsor-header {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  justify-content: center;
   margin-bottom: 28px;
+  padding: 0 20px;
 }
 
 .home-page .sponsor-header h3 {
@@ -227,6 +220,7 @@
   font-size: 28px;
   color: var(--accent);
   font-weight: 700;
+  text-align: center;
 }
 
 .home-page .sponsor-track-wrap {
@@ -251,17 +245,10 @@
 
 .home-page .sponsor-item {
   flex: 0 0 auto;
-  width: 110px;
-  height: 110px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1.5px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.2);
-  padding: 12px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  animation: fadeInUp 0.6s ease-out;
+  padding: 6px 10px;
+  transition: transform 0.3s ease;
 }
 
 .home-page .sponsor-item:nth-child(1) { animation-delay: 0.1s; }
@@ -273,32 +260,94 @@
     gap: 12px;
   }
 
-  .home-page .sponsor-item {
-    width: 84px;
-    height: 84px;
-    padding: 8px;
+  .home-page .sponsor-item img {
+    max-height: 56px;
+    max-width: 120px;
   }
 }
 .home-page .sponsor-item:nth-child(4) { animation-delay: 0.4s; }
 .home-page .sponsor-item:nth-child(5) { animation-delay: 0.5s; }
 
 .home-page .sponsor-item:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: var(--accent);
-  transform: translateY(-8px);
-  box-shadow: 0 12px 32px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.2);
+  transform: translateY(-4px);
 }
 
 .home-page .sponsor-item img {
   width: auto;
-  max-height: 64px;
-  max-width: 80px;
+  max-height: 72px;
+  max-width: 160px;
   object-fit: contain;
-  transition: filter 0.3s ease;
+  transition: transform 0.3s ease, filter 0.3s ease;
 }
 
 .home-page .sponsor-item:hover img {
-  filter: brightness(1.1);
+  transform: scale(1.08);
+}
+
+.home-page .sponsor-text-chip {
+  display: inline-block;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: var(--accent-dark);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* SponsorLoop: slow infinite loop in webapp style */
+.home-page .sponsor-loop {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+
+.home-page .sponsor-loop-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  user-select: none;
+}
+
+.home-page .sponsor-loop-list {
+  display: flex;
+  align-items: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.home-page .sponsor-loop-item {
+  flex: 0 0 auto;
+  margin-right: var(--sponsor-loop-gap, 20px);
+  display: flex;
+}
+
+.home-page .sponsor-loop-item .sponsor-item {
+  animation: none;
+  margin: 0;
+}
+
+.home-page .sponsor-loop-item .sponsor-item:hover {
+  transform: translateY(-4px);
+}
+
+.home-page .sponsor-loop-link {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.home-page .sponsor-loop--static {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: stretch;
+  justify-content: center;
+  padding: 12px 0;
 }
 
 /* Keynote Section */
@@ -699,6 +748,10 @@
   padding: 32px;
   border-radius: 24px;
   background: linear-gradient(140deg, #0d1f17 0%, var(--accent-dark) 55%, var(--accent) 130%);
+  background: linear-gradient(140deg,
+    color-mix(in srgb, #0d1f17 86%, transparent) 0%,
+    color-mix(in srgb, var(--accent-dark) 86%, transparent) 55%,
+    color-mix(in srgb, var(--accent) 86%, transparent) 130%);
   color: #fff;
   position: relative;
   overflow: hidden;

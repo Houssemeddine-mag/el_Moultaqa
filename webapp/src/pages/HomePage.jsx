@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../style/HomePage.css";
 import elmLogo from "@global/logo.png";
 import { getDefaultSponsors } from "@global/defaultSponsors";
+import SponsorLoop from "../components/SponsorLoop.jsx";
 import { fetchKeynoteSpeakers, fetchSponsors, isServiceReady } from "../services/localService";
 import { useConferenceConfig } from "../context/ConferenceContext.jsx";
 import Reveal from "../components/Reveal.jsx";
@@ -90,6 +91,7 @@ export default function HomePage() {
               alt: sponsor.name || "Sponsor",
               name: sponsor.name || "Sponsor",
               src: sponsor.logoData || sponsor.image || sponsor.imageData || "",
+              website: sponsor.website || "",
               hasLogo: Boolean(sponsor.hasLogo ?? (sponsor.logoData || sponsor.image || sponsor.imageData)),
             })),
         );
@@ -118,8 +120,9 @@ export default function HomePage() {
   }, []);
 
   // Permanent defaults first (conference itself + El Moultaqa), then real
-  // sponsors — the ribbon is never empty and never duplicates one logo.
-  const ribbonBase = (() => {
+  // sponsors — each logo listed once; the loop clones sequences internally
+  // (aria-hidden) purely for seamless motion.
+  const ribbonItems = (() => {
     const defaults = getDefaultSponsors({
       conferenceName: conferenceConfig.brand || "Conference",
       conferenceLogo: conferenceConfig.logoUrl || "",
@@ -130,13 +133,17 @@ export default function HomePage() {
       alt: d.name,
       name: d.name,
       src: d.logoData || "",
-      hasLogo: Boolean(d.logoData),
+      website: d.website || "",
     }));
-    return [...defaults, ...sponsors];
+    const real = sponsors.map((s) => ({
+      id: s.id,
+      alt: s.alt || s.name,
+      name: s.name,
+      src: s.src || "",
+      website: s.website || "",
+    }));
+    return [...defaults, ...real];
   })();
-  // Each logo renders exactly once — the row wraps and centers itself
-  // around however many sponsors exist.
-  const ribbonItems = ribbonBase;
 
   return (
     <div className="page-shell home-page">
@@ -212,36 +219,7 @@ export default function HomePage() {
             <h3>Official sponsors</h3>
           </div>
         </div>
-        <div className="sponsor-track-wrap">
-          <div className="sponsor-track">
-            {ribbonItems.map((sponsor, index) => (
-              <div
-                key={`${sponsor.id || sponsor.alt}-${index}`}
-                className="sponsor-item"
-              >
-                {sponsor.src ? (
-                  <img src={sponsor.src} alt={sponsor.alt} />
-                ) : (
-                  <span
-                    className="sponsor-text-chip"
-                    title={sponsor.alt}
-                    style={{
-                      display: "inline-block",
-                      padding: "10px 18px",
-                      borderRadius: 999,
-                      background: "var(--bg, #f2f5f3)",
-                      border: "1px solid var(--border, #e2e8e4)",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {sponsor.name || sponsor.alt}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <SponsorLoop items={ribbonItems} speed={40} gap={20} ariaLabel="Conference sponsors" />
       </Reveal>
 
       <Reveal as="section" id="keynote-speakers" className="home-info-grid keynote-section">
