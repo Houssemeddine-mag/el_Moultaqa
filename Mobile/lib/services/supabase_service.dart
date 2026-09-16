@@ -73,17 +73,36 @@ class SupabaseService {
   static Future<void> resolveOrg([String? slug]) async {
     final cached = await _read("elm_org_slug");
     final envSlug = _envValue("ORG_SLUG");
+    // Env (.env / --dart-define) takes precedence over cached — lets you switch orgs (e.g. moh → sakura) without clearing app data
     slug = (slug != null && slug.isNotEmpty)
         ? slug
-        : ((cached != null && cached.isNotEmpty)
-            ? cached
-            : (envSlug.isNotEmpty ? envSlug : MobileConfig.orgSlug));
+        : (envSlug.isNotEmpty
+            ? envSlug
+            : ((cached != null && cached.isNotEmpty) ? cached : MobileConfig.orgSlug));
     if (slug.isEmpty) {
       throw Exception("orgSlug is not configured");
     }
 
     orgSlug = slug;
-    final data = await client.rpc("resolve_org_slug", params: {"p_slug": slug});
+    dynamic data;
+    try {
+      data = await client.rpc("resolve_org_slug", params: {"p_slug": slug});
+    } catch (e) {
+      // If Clerk JWT is misconfigured (PGRST301), retry as anon for public orgs like sakura
+      final msg = e.toString();
+      if (msg.contains('PGRST301') || msg.contains('JWT') || msg.contains('Unauthorized')) {
+        print('[SupabaseService] JWT failed for $slug, retrying as anon: $e');
+        final saved = tokenProvider;
+        tokenProvider = null;
+        try {
+          data = await client.rpc("resolve_org_slug", params: {"p_slug": slug});
+        } finally {
+          tokenProvider = saved;
+        }
+      } else {
+        rethrow;
+      }
+    }
     if (data == null) {
       throw Exception("Failed to resolve organization slug: $slug");
     }
@@ -104,7 +123,11 @@ class SupabaseService {
     await _write("elm_org_slug", slug);
   }
 
-  // Dynamic helper to execute org_query RPC
+  // Dynamic helper to execute org_query RPC.
+  // NOTE: org_query REQUIRES an authenticated JWT (v_requesting_user NOT NULL
+  // per 007_attendee_security_access.sql:62). Anon retry can never succeed here,
+  // so we do NOT retry as anon — a PGRST301/P0001 means the Clerk JWT itself is
+  // bad and must be fixed at the source (tokenProvider `.jwt`, active org).
   static Future<List<Map<String, dynamic>>> queryOrgTable(
     String tableName, {
     Map<String, dynamic> filters = const {},
@@ -116,8 +139,8 @@ class SupabaseService {
     if (schemaName == null) {
       await resolveOrg();
     }
-    
-    final List<dynamic> response = await client.rpc("org_query", params: {
+
+    final dynamic raw = await client.rpc("org_query", params: {
       "p_schema_name": schemaName,
       "p_table_name": tableName,
       "p_filters": filters,
@@ -127,6 +150,7 @@ class SupabaseService {
       "p_order_dir": orderDir,
     }).timeout(const Duration(seconds: 10));
 
+    final List<dynamic> response = raw as List<dynamic>;
     return response.map((item) => Map<String, dynamic>.from(item)).toList();
   }
 

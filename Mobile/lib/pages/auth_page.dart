@@ -50,10 +50,26 @@ class _AuthPageState extends State<AuthPage> {
       ),
       signedInBuilder: (context, authState) {
         SupabaseService.tokenProvider = () async {
-          final clerkToken = await authState.sessionToken(templateName: 'supabase');
-          final tokenStr = clerkToken.toString();
-          if (tokenStr.isEmpty || tokenStr == 'null') return null;
-          return tokenStr;
+          try {
+            final dynamic t = await authState.sessionToken(templateName: 'supabase');
+            if (t == null) return null;
+            // SessionToken object holds the raw JWT in `.jwt` — NEVER use toString()
+            // (InformativeToStringMixin would send "SessionToken(...)" → PGRST301).
+            try {
+              final String? raw = (t as dynamic).jwt as String?;
+              if (raw != null && raw.contains('.') && raw.split('.').length == 3) {
+                return raw;
+              }
+            } catch (_) {}
+            if (t is String && t.contains('.')) return t;
+            final fallback = t.toString();
+            if (fallback.contains('.') && fallback.split('.').length == 3) return fallback;
+            print('[Auth] sessionToken returned non-JWT shape: $fallback');
+            return null;
+          } catch (e) {
+            print('[Auth] Clerk JWT fetch failed, falling back to anon: $e');
+            return null;
+          }
         };
         return _OrgGate(authState: authState);
       },
@@ -288,25 +304,62 @@ class _OrgGateState extends State<_OrgGate> {
     return 'user';
   }
 
+  String _errorDetail = '';
   Future<void> _checkMembership() async {
     try {
+      print('[OrgGate] Resolving org with ORG_SLUG=${SupabaseService.orgSlug ?? "null"} env=${MobileConfig.orgSlug}');
       await SupabaseService.resolveOrg();
+      print('[OrgGate] Resolved orgSlug=${SupabaseService.orgSlug} schema=${SupabaseService.schemaName}');
+      // Set Clerk active organization to match the requested org slug, so the
+      // `supabase` JWT template carries the correct org_id for ANY org
+      // (sakura, moh, or future orgs) — not just the last-active one.
+      try {
+        final targetClerkOrgId = SupabaseService.orgDetails?['clerk_org_id']?.toString();
+        if (targetClerkOrgId != null && targetClerkOrgId.isNotEmpty) {
+          final memberships = widget.authState.user?.organizationMemberships;
+          clerk.Organization? match;
+          if (memberships != null) {
+            for (final m in memberships) {
+              if (m.organization.id == targetClerkOrgId) {
+                match = m.organization;
+                break;
+              }
+            }
+          }
+          if (match != null) {
+            print('[OrgGate] Setting active Clerk org to $targetClerkOrgId');
+            await widget.authState.setActiveOrganization(match);
+          } else {
+            print('[OrgGate] User not in Clerk org $targetClerkOrgId — JWT org_id stays as-is (public tables still readable)');
+          }
+        }
+      } catch (e) {
+        print('[OrgGate] setActiveOrganization failed (non-fatal): $e');
+      }
       if (SupabaseService.orgSlug != null && SupabaseService.orgSlug!.isNotEmpty) {
+        print('[OrgGate] Fetching conference config for ${SupabaseService.orgSlug}');
         final config = await SupabaseService.getConferenceConfig();
+        print('[OrgGate] Config: $config');
         MobileConfig.loadFromService(SupabaseService.orgDetails, config);
         // Derive role from Supabase users table (role: admin/speaker/attendee/moderator)
         try {
           final email = widget.authState.user?.email;
+          print('[OrgGate] Deriving role for email=$email');
           if (email != null && email.isNotEmpty) {
             SupabaseService.currentUserEmail = email;
             final profile = await SupabaseService.getMyProfile(email);
+            print('[OrgGate] Profile for $email: $profile');
             if (profile != null) {
               final rawRole = profile['role']?.toString() ??
                   (profile['metadata'] is Map ? (profile['metadata'] as Map)['role']?.toString() : null);
               _derivedRole = _mapRoleToUserRole(rawRole);
+            } else {
+              print('[OrgGate] No profile yet — will auto-create as attendee on next fetchUserProfile');
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          print('[OrgGate] Role derive failed: $e');
+        }
         if (mounted) {
           setState(() {
             _hasOrg = true;
@@ -316,7 +369,10 @@ class _OrgGateState extends State<_OrgGate> {
         _redirect();
         return;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      print('[OrgGate] FAILED: $e\n$st');
+      _errorDetail = e.toString();
+    }
 
     if (mounted) {
       setState(() {
@@ -343,7 +399,7 @@ class _OrgGateState extends State<_OrgGate> {
     }
 
     if (!_hasOrg) {
-      return const _NoOrgScreen();
+      return _NoOrgScreen(errorDetail: _errorDetail);
     }
 
     return const Scaffold(
@@ -353,7 +409,8 @@ class _OrgGateState extends State<_OrgGate> {
 }
 
 class _NoOrgScreen extends StatelessWidget {
-  const _NoOrgScreen();
+  final String errorDetail;
+  const _NoOrgScreen({this.errorDetail = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -381,6 +438,29 @@ class _NoOrgScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
               ),
+              if (errorDetail.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                  ),
+                  child: SelectableText(
+                    'Debug: $errorDetail\nSlug tried: ${SupabaseService.orgSlug ?? MobileConfig.orgSlug}',
+                    style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.red),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  errorDetail.contains('PGRST301') || errorDetail.contains('JWT')
+                      ? 'JWT error (PGRST301): Clerk Supabase JWT template "supabase" is misconfigured. In Clerk Dashboard → JWT Templates → check "supabase" template exists and Supabase JWT secret matches Supabase project (Supabase Dashboard → Project Settings → API → JWT Secret). Then reinstall: adb shell pm clear com.example.elmoultaqa_mobile'
+                      : 'Fix: Ensure Mobile/.env has ORG_SLUG=sakura and reinstall: adb shell pm clear com.example.elmoultaqa_mobile',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
+              ],
             ],
           ),
         ),
