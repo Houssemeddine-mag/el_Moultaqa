@@ -1,4 +1,7 @@
 export { default as MainLayout } from './MainLayout';
+export { default as DiscoveryPage } from './DiscoveryPage';
+export { default as DiscoveryLayout } from './DiscoveryLayout';
+export { default as ConferenceDetailPage } from './ConferenceDetailPage';
 export { default as AppDrawer } from './AppDrawer';
 export { default as HomePage } from './HomePage';
 export { default as ProgramPage } from './ProgramPage';

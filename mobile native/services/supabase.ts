@@ -213,6 +213,30 @@ class SupabaseService {
     await writeCache(ORG_SLUG_KEY, slug);
   }
 
+  // ── Discovery API (public, anon-safe — mirrors Landing DiscoveryPage) ──
+
+  static async listDiscoveryEvents(): Promise<Row[]> {
+    const result = (await withTimeout(
+      Promise.resolve(SupabaseService.client.rpc('list_discovery_events')),
+    )) as unknown as { data: Row[]; error: unknown };
+    if (result.error) throw result.error;
+    return (result.data ?? []).map((item) => ({ ...item }));
+  }
+
+  static async listDiscoveryCategories(): Promise<string[]> {
+    const result = (await withTimeout(
+      Promise.resolve(SupabaseService.client.rpc('list_discovery_categories')),
+    )) as unknown as { data: Row[] | string[]; error: unknown };
+    if (result.error) throw result.error;
+    return ((result.data ?? []) as Array<Row | string>)
+      .map((item) =>
+        typeof item === 'string'
+          ? item
+          : (item['category']?.toString() ?? ''),
+      )
+      .filter((category) => category.length > 0);
+  }
+
   static async fetchOrgDetails(slug: string): Promise<Row | null> {
     try {
       const data = await rpc<Row | Row[]>(
@@ -302,6 +326,29 @@ class SupabaseService {
       orderBy: 'created_at',
       orderDir: 'DESC',
     });
+  }
+
+  // Fetches notifications for one org without disturbing the currently
+  // selected org (context is saved and restored). Call sequentially —
+  // never in parallel — because the org context is global.
+  static async getNotificationsForOrg(slug: string): Promise<Row[]> {
+    const prevSlug = SupabaseService.orgSlug;
+    const prevSchema = SupabaseService.schemaName;
+    const prevDetails = SupabaseService.orgDetails;
+    try {
+      await SupabaseService.resolveOrg(slug);
+      return await SupabaseService.getNotifications();
+    } finally {
+      SupabaseService.orgSlug = prevSlug;
+      SupabaseService.schemaName = prevSchema;
+      SupabaseService.orgDetails = prevDetails;
+      if (prevSlug) {
+        await writeCache(ORG_SLUG_KEY, prevSlug);
+      }
+      if (prevSchema) {
+        await writeCache(SCHEMA_KEY, prevSchema);
+      }
+    }
   }
 
   static async getQuestions(): Promise<Row[]> {

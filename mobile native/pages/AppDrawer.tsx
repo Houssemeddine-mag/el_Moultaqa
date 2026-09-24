@@ -16,6 +16,7 @@ type AppDrawerProps = {
   selectedIndex: number;
   conferenceName?: string;
   onSelect: (index: number) => void;
+  onBrowse?: () => void;
 };
 
 const drawerLogo = require('../assets/images/logo.png');
@@ -24,6 +25,7 @@ export default function AppDrawer({
   selectedIndex,
   conferenceName = 'ElMoultaqa',
   onSelect,
+  onBrowse,
 }: AppDrawerProps) {
   return (
     <View style={styles.drawer}>
@@ -87,6 +89,21 @@ export default function AppDrawer({
       <View style={styles.spacer} />
 
       <View style={styles.divider} />
+
+      {onBrowse && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBrowse}
+          style={styles.item}
+        >
+          <MaterialCommunityIcons
+            name="compass-outline"
+            size={24}
+            color={THEME_COLOR}
+          />
+          <Text style={styles.webappLabel}>Browse conferences</Text>
+        </Pressable>
+      )}
 
       <Pressable
         accessibilityRole="link"

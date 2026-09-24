@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -8,20 +9,73 @@ import {
   timeAgo,
   withAlpha,
 } from './theme';
-import { MOCK_NOTIFICATIONS } from './mock';
+import { MOCK_NOTIFICATIONS, NotificationItem } from './mock';
+import SupabaseService from '../services/supabase';
 
 export default function NotificationPage() {
+  // Live announcements for the current conference; falls back to the
+  // bundled preview when the backend is unreachable (e.g. no auth yet).
+  const [items, setItems] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.getNotifications();
+        if (!active || rows.length === 0) return;
+        setItems(
+          rows.map((row, index) => {
+            const raw = row['created_at'];
+            const parsed =
+              typeof raw === 'number' ? raw : Date.parse(String(raw ?? ''));
+            return {
+              id: String(row['id'] ?? `live-${index}`),
+              title: String(row['title'] ?? 'Update'),
+              message: String(row['content'] ?? row['message'] ?? ''),
+              type: String(row['type'] ?? 'info'),
+              createdAt: Number.isNaN(parsed) ? Date.now() : parsed,
+            };
+          }),
+        );
+        setLive(true);
+      } catch {
+        // Offline preview stays in place.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <View style={styles.safe}>
       <View style={styles.body}>
-        <Text style={styles.header}>Latest updates</Text>
-        {MOCK_NOTIFICATIONS.length === 0 ? (
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>Latest updates</Text>
+          <View
+            style={[
+              styles.sourceBadge,
+              live ? styles.sourceLive : styles.sourcePreview,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sourceLabel,
+                live ? styles.sourceLabelLive : styles.sourceLabelPreview,
+              ]}
+            >
+              {live ? 'Live' : 'Preview'}
+            </Text>
+          </View>
+        </View>
+        {items.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>No notifications published yet.</Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.list}>
-            {MOCK_NOTIFICATIONS.map((notification) => (
+            {items.map((notification) => (
               <View key={notification.id} style={styles.card}>
                 <View style={styles.iconBox}>
                   <MaterialCommunityIcons
@@ -61,6 +115,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: THEME_COLOR,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sourceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  sourceLive: {
+    backgroundColor: '#E8F5E9',
+  },
+  sourcePreview: {
+    backgroundColor: '#F3F4F6',
+  },
+  sourceLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  sourceLabelLive: {
+    color: '#2E7D32',
+  },
+  sourceLabelPreview: {
+    color: GREY_600,
   },
   list: {
     marginTop: 12,

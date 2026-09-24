@@ -21,6 +21,7 @@ type AuthScreenProps = {
   onGooglePress?: () => void;
   onGithubPress?: () => void;
   onGoRegister?: () => void;
+  onGoAdminLogin?: () => void;
 };
 
 // Brand logo carried over from the Flutter app (Mobile/assets/images/logo.png).
@@ -34,6 +35,7 @@ export default function AuthScreen({
   onGooglePress,
   onGithubPress,
   onGoRegister,
+  onGoAdminLogin,
 }: AuthScreenProps) {
   const [logoFailed, setLogoFailed] = useState(false);
   // Dev test credentials (no backend yet).
@@ -50,10 +52,9 @@ export default function AuthScreen({
       setError('Please enter your email address.');
       return;
     }
-    // Dev bypass: test/test1 + 123456 always pass (no backend yet).
-    const isTestCreds =
-      (email.trim() === 'test' || email.trim() === 'test1') &&
-      password === '123456';
+    // Dev bypass (user side only): test + 123456 always passes.
+    // test1 is admin-only and is rejected here (not a valid email).
+    const isTestCreds = email.trim() === 'test' && password === '123456';
     if (!isTestCreds && !isValidEmail(email)) {
       setError('Please enter a valid email address.');
       return;
@@ -73,26 +74,25 @@ export default function AuthScreen({
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.inner}>
-          <View
-            style={[
-              styles.logoWrap,
-              { backgroundColor: withAlpha(themeColor, '1A') },
-            ]}
-          >
-            {showRemoteLogo ? (
-              <Image
-                source={{ uri: logoUrl }}
-                style={styles.logo}
-                onError={() => setLogoFailed(true)}
-              />
-            ) : (
-              <Image
-                source={flutterLogo}
-                style={styles.logo}
-                onError={() => setLogoFailed(true)}
-              />
-            )}
-          </View>
+          {showRemoteLogo ? (
+            <Image
+              source={{ uri: logoUrl }}
+              style={styles.logo}
+              resizeMode="contain"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : logoFailed ? (
+            <Text style={[styles.logoFallback, { color: themeColor }]}>
+              {appName.slice(0, 1).toUpperCase()}
+            </Text>
+          ) : (
+            <Image
+              source={flutterLogo}
+              style={styles.logo}
+              resizeMode="contain"
+              onError={() => setLogoFailed(true)}
+            />
+          )}
 
           <Text style={styles.welcome}>Welcome back to</Text>
           <Text style={[styles.appName, { color: themeColor }]}>{appName}</Text>
@@ -223,6 +223,19 @@ export default function AuthScreen({
             </Pressable>
           </View>
 
+          <View style={styles.adminLinkRow}>
+            <Text style={styles.switchText}>Are you an administrator? </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Login as administrator"
+              onPress={onGoAdminLogin}
+            >
+              <Text style={[styles.switchLink, { color: themeColor }]}>
+                Login here
+              </Text>
+            </Pressable>
+          </View>
+
           <Text style={styles.terms}>
             By continuing, you agree to our Terms of Service
           </Text>
@@ -249,17 +262,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
   },
-  logoWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
+  },
+  logoFallback: {
+    fontSize: 48,
+    fontWeight: 'bold',
   },
   welcome: {
     marginTop: 24,
@@ -386,6 +395,11 @@ const styles = StyleSheet.create({
   switchLink: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  adminLinkRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   terms: {
     marginTop: 24,

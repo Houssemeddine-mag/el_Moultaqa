@@ -32,6 +32,7 @@ type Pushed =
 type MainLayoutProps = {
   userRole?: string;
   onLogout?: () => void;
+  onBrowse?: () => void;
 };
 
 function pushedTitle(pushed: Pushed) {
@@ -50,6 +51,7 @@ function pushedTitle(pushed: Pushed) {
 export default function MainLayout({
   userRole = 'user',
   onLogout,
+  onBrowse,
 }: MainLayoutProps) {
   const [tab, setTab] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -178,6 +180,7 @@ export default function MainLayout({
               selectedIndex={tab}
               conferenceName={orgName}
               onSelect={selectTab}
+              onBrowse={onBrowse}
             />
           </View>
           <Pressable
