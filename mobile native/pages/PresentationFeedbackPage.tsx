@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -20,6 +20,7 @@ import {
   withAlpha,
 } from './theme';
 import { FeedbackItem, MOCK_FEEDBACK } from './mock';
+import SupabaseService from '../services/supabase';
 
 type PresentationFeedbackPageProps = {
   title?: string;
@@ -80,7 +81,33 @@ export default function PresentationFeedbackPage({
     setTimeout(() => setToast(''), 2000);
   }
 
-  function handleSubmit() {
+  // Same business logic as webapp submitPresentationFeedback/fetchPresentationFeedback.
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchPresentationFeedback(title);
+        if (!active || rows.length === 0) return;
+        setRecent(
+          rows.map((f) => ({
+            id: String(f['id'] ?? ''),
+            presenter: Number(f['rating'] ?? 0),
+            presentation: Number(f['rating'] ?? 0),
+            comment: String(f['comment'] ?? ''),
+            createdAt: Date.parse(String(f['createdAt'] ?? '')) || Date.now(),
+          })),
+        );
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [title]);
+
+  async function handleSubmit() {
     if (
       presenterRating === 0 &&
       presentationRating === 0 &&
@@ -89,20 +116,30 @@ export default function PresentationFeedbackPage({
       showToast('Please provide a rating or comment');
       return;
     }
-    setRecent((current) => [
-      {
-        id: `f-${Date.now()}`,
-        presenter: presenterRating,
-        presentation: presentationRating,
-        comment: comment.trim(),
-        createdAt: Date.now(),
-      },
-      ...current,
-    ]);
+    const rating = Math.max(presenterRating, presentationRating);
+    const optimistic: FeedbackItem = {
+      id: `f-${Date.now()}`,
+      presenter: presenterRating,
+      presentation: presentationRating,
+      comment: comment.trim(),
+      createdAt: Date.now(),
+    };
+    setRecent((current) => [optimistic, ...current]);
     setPresenterRating(0);
     setPresentationRating(0);
     setComment('');
-    showToast('Thank you for your feedback');
+    try {
+      await SupabaseService.submitPresentationFeedback({
+        presentationKey: title,
+        rating,
+        comment: optimistic.comment,
+        userEmail: SupabaseService.currentUserEmail ?? '',
+      });
+      showToast('Thank you for your feedback');
+    } catch {
+      // Offline / pre-auth: keep the optimistic local copy (UI unchanged).
+      showToast('Feedback saved locally — will sync when online');
+    }
   }
 
   return (

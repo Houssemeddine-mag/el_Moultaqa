@@ -305,6 +305,115 @@ class _OrgGateState extends State<_OrgGate> {
   }
 
   String _errorDetail = '';
+  bool _needsCode = false;
+  final TextEditingController _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  bool _isNotRegisteredError(Object e) {
+    final m = e.toString().toLowerCase();
+    return m.contains('not registered') || m.contains('not a registered user');
+  }
+
+  bool _isCodeError(Object e) {
+    final m = e.toString().toLowerCase();
+    return m.contains('registration code') || m.contains('invalid registration code');
+  }
+
+  /// Try register_attendee (public auto-joins with null code).
+  /// Returns true if registered (or already registered), false if a code is needed.
+  Future<bool> _tryAutoRegister() async {
+    final slug = SupabaseService.orgSlug;
+    final user = widget.authState.user;
+    final clerkId = user?.id;
+    final email = user?.email;
+    if (slug == null || slug.isEmpty || clerkId == null || clerkId.isEmpty || email == null || email.isEmpty) {
+      print('[OrgGate] Auto-register skipped: missing slug/clerkId/email');
+      return false;
+    }
+    final fullName = user?.name ?? '';
+    try {
+      print('[OrgGate] Auto-registering $email into $slug (public, no code)');
+      final res = await SupabaseService.registerAttendee(
+        slug: slug,
+        clerkUserId: clerkId,
+        email: email,
+        fullName: fullName,
+      );
+      print('[OrgGate] register_attendee result: $res');
+      return true;
+    } catch (e) {
+      print('[OrgGate] Auto-register failed: $e');
+      if (_isCodeError(e)) {
+        // Private org — ask for code instead of failing
+        if (mounted) setState(() => _needsCode = true);
+        _errorDetail = e.toString();
+        return false;
+      }
+      _errorDetail = e.toString();
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _loadConfigWithAutoJoin() async {
+    try {
+      return await SupabaseService.getConferenceConfig();
+    } catch (e) {
+      if (!_isNotRegisteredError(e)) rethrow;
+      print('[OrgGate] Not registered in ${SupabaseService.orgSlug} — attempting auto-join');
+      final ok = await _tryAutoRegister();
+      if (!ok) {
+        // Either needs code (private) or register failed — surface original error
+        if (_needsCode) throw Exception('CODE_REQUIRED');
+        rethrow;
+      }
+      // Retry config now that we're registered — works for ANY org (public)
+      return await SupabaseService.getConferenceConfig();
+    }
+  }
+
+  Future<void> _submitCodeAndRetry() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty || SupabaseService.orgSlug == null) return;
+    final user = widget.authState.user;
+    if (user == null || user.id.isEmpty || (user.email ?? '').isEmpty) return;
+    setState(() {
+      _checking = true;
+      _errorDetail = '';
+    });
+    try {
+      await SupabaseService.registerAttendee(
+        slug: SupabaseService.orgSlug!,
+        clerkUserId: user.id,
+        email: user.email!,
+        fullName: user.name,
+        code: code,
+      );
+      final config = await SupabaseService.getConferenceConfig();
+      MobileConfig.loadFromService(SupabaseService.orgDetails, config);
+      if (mounted) {
+        setState(() {
+          _hasOrg = true;
+          _checking = false;
+          _needsCode = false;
+        });
+      }
+      _redirect();
+    } catch (e, st) {
+      print('[OrgGate] Code submit failed: $e\n$st');
+      if (mounted) {
+        setState(() {
+          _checking = false;
+          _errorDetail = e.toString();
+        });
+      }
+    }
+  }
+
   Future<void> _checkMembership() async {
     try {
       print('[OrgGate] Resolving org with ORG_SLUG=${SupabaseService.orgSlug ?? "null"} env=${MobileConfig.orgSlug}');
@@ -338,7 +447,7 @@ class _OrgGateState extends State<_OrgGate> {
       }
       if (SupabaseService.orgSlug != null && SupabaseService.orgSlug!.isNotEmpty) {
         print('[OrgGate] Fetching conference config for ${SupabaseService.orgSlug}');
-        final config = await SupabaseService.getConferenceConfig();
+        final config = await _loadConfigWithAutoJoin();
         print('[OrgGate] Config: $config');
         MobileConfig.loadFromService(SupabaseService.orgDetails, config);
         // Derive role from Supabase users table (role: admin/speaker/attendee/moderator)
@@ -371,6 +480,18 @@ class _OrgGateState extends State<_OrgGate> {
       }
     } catch (e, st) {
       print('[OrgGate] FAILED: $e\n$st');
+      // CODE_REQUIRED sentinel means private org — show code entry, not generic failure
+      if (e.toString().contains('CODE_REQUIRED')) {
+        _errorDetail = '';
+        if (mounted) {
+          setState(() {
+            _needsCode = true;
+            _hasOrg = false;
+            _checking = false;
+          });
+        }
+        return;
+      }
       _errorDetail = e.toString();
     }
 
@@ -395,6 +516,67 @@ class _OrgGateState extends State<_OrgGate> {
     if (_checking) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_needsCode) {
+      final themeColor = MobileConfig.parsedThemeColor;
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline, size: 64, color: themeColor),
+                const SizedBox(height: 16),
+                Text(
+                  'Private Conference',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This conference (${SupabaseService.orgSlug ?? ''}) requires a registration code. Enter the code from your organizer.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _codeController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'Registration code',
+                    hintText: 'e.g. XK7-M9Q',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: themeColor, width: 2),
+                    ),
+                  ),
+                  onSubmitted: (_) => _submitCodeAndRetry(),
+                ),
+                if (_errorDetail.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(_errorDetail, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submitCodeAndRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Join Conference'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -456,7 +638,7 @@ class _NoOrgScreen extends StatelessWidget {
                 SelectableText(
                   errorDetail.contains('PGRST301') || errorDetail.contains('JWT')
                       ? 'JWT error (PGRST301): Clerk Supabase JWT template "supabase" is misconfigured. In Clerk Dashboard → JWT Templates → check "supabase" template exists and Supabase JWT secret matches Supabase project (Supabase Dashboard → Project Settings → API → JWT Secret). Then reinstall: adb shell pm clear com.example.elmoultaqa_mobile'
-                      : 'Fix: Ensure Mobile/.env has ORG_SLUG=sakura and reinstall: adb shell pm clear com.example.elmoultaqa_mobile',
+                      : 'Fix: Ensure Mobile/.env has ORG_SLUG=${SupabaseService.orgSlug ?? "your-slug"} and reinstall: adb shell pm clear com.example.elmoultaqa_mobile. If this org is public, the app auto-joins on next login; if private, you will see a code screen instead.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),

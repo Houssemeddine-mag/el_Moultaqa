@@ -7,12 +7,17 @@ import {
   Dimensions,
   Easing,
   Image,
+  Platform,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ClerkProvider, useAuth, useSSO, useUser } from '@clerk/expo';
+import { useSignIn, useSignUp } from '@clerk/expo/legacy';
+import { tokenCache } from '@clerk/expo/token-cache';
+import * as WebBrowser from 'expo-web-browser';
 
 import AuthScreen from './auth/AuthScreen';
 import RegisterScreen from './auth/RegisterScreen';
@@ -30,11 +35,16 @@ import {
 } from './pages/discovery/storage';
 import type { AlertItem } from './pages/discovery/types';
 import { toAlertItem } from './pages/discovery/utils';
+import ClerkBridge from './auth/ClerkBridge';
 import MainLayout from './pages/MainLayout';
 import AdminLayout from './admin/AdminLayout';
+import OrgGate from './pages/OrgGate';
 import SupabaseService from './services/supabase';
 
+WebBrowser.maybeCompleteAuthSession();
+
 const bootLogo = require('./assets/images/logo.png');
+const CLERK_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 
 // Slide-over transition between the auth screens (user login <->
 // register <-> admin login). The incoming screen mounts on top as a
@@ -92,15 +102,45 @@ function BootSplash() {
   );
 }
 
-export default function App() {
-  const [route, setRoute] = useState<
-    'login' | 'register' | 'admin-login' | 'discovery' | 'main' | 'admin'
-  >('login');
-  // Dev only: test creds sign in as organizer to preview the full UI.
+function friendlyError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/password/i.test(msg) && /incorrect|invalid/i.test(msg)) {
+    return 'Incorrect email or password.';
+  }
+  if (/not found|could not find/i.test(msg)) {
+    return 'No account found for this email. Please sign up first.';
+  }
+  if (/network|fetch|connection/i.test(msg)) {
+    return 'Network error. Check your connection and retry.';
+  }
+  return msg || 'Authentication failed. Please try again.';
+}
+
+type Route =
+  | 'login'
+  | 'register'
+  | 'admin-login'
+  | 'discovery'
+  | 'gate'
+  | 'main'
+  | 'admin';
+
+function InnerApp() {
+  const [route, setRoute] = useState<Route>('login');
   const [userRole, setUserRole] = useState('user');
   const [ready, setReady] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
 
-  // Mirrors Flutter main(): init Supabase, then resolve the org (anon-safe).
+  const { isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
+  const { user } = useUser();
+  const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } =
+    useSignIn();
+  const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } =
+    useSignUp();
+  const { startSSOFlow } = useSSO();
+
+  // Mirrors Flutter main(): init Supabase, then best-effort anon org resolve.
   // Conference data loads stay on mocks until Clerk provides a JWT.
   useEffect(() => {
     (async () => {
@@ -128,13 +168,127 @@ export default function App() {
     })();
   }, []);
 
-  function handleSignIn(email: string) {
-    const id = email.trim();
-    // User side only: test signs in as organizer, everything else as user.
-    // test1 is admin-only and never reaches here (rejected by AuthScreen).
-    // Everyone lands on conference discovery first (like the landing page).
-    setUserRole(id === 'test' ? 'organizer' : 'user');
-    setRoute('discovery');
+  // Warm the in-app browser for Android SSO.
+  useEffect(() => {
+    WebBrowser.warmUpAsync().catch(() => {});
+    return () => {
+      WebBrowser.coolDownAsync().catch(() => {});
+    };
+  }, []);
+
+  // Signed-in session (restored or fresh) always lands on discovery —
+  // the hub is the picker for ANY org, never a baked-in one.
+  useEffect(() => {
+    if (
+      authLoaded &&
+      isSignedIn &&
+      (route === 'login' || route === 'register')
+    ) {
+      setVerificationPending(false);
+      setVerificationError('');
+      setRoute('discovery');
+    }
+    if (
+      authLoaded &&
+      !isSignedIn &&
+      (route === 'gate' ||
+        route === 'discovery' ||
+        route === 'main' ||
+        route === 'admin')
+    ) {
+      setRoute('login');
+    }
+  }, [authLoaded, isSignedIn, route]);
+
+  async function signInWithPassword(email: string, password: string) {
+    if (!signInLoaded) return;
+    try {
+      const created = await signIn.create({ identifier: email.trim() });
+      if (created.status === 'complete') {
+        await setActiveSignIn({ session: created.createdSessionId });
+        setRoute('discovery');
+        return;
+      }
+      const attempt = await signIn.attemptFirstFactor({
+        strategy: 'password',
+        password,
+      });
+      if (attempt.status === 'complete') {
+        await setActiveSignIn({ session: attempt.createdSessionId });
+        setRoute('discovery');
+      } else {
+        Alert.alert(
+          'Sign in',
+          'Additional verification is required on the web. Please sign in via the webapp.',
+        );
+      }
+    } catch (e) {
+      Alert.alert('Sign in failed', friendlyError(e));
+    }
+  }
+
+  async function signInWithSSO(strategy: 'oauth_google' | 'oauth_github') {
+    try {
+      // Native must exactly match the Clerk Dashboard allowed redirect
+      // (added Aug 2026): elmoultaqa://example.com/oauth.
+      // Web lets Clerk use its default web redirect instead.
+      const redirectUrl =
+        Platform.OS === 'web' ? undefined : 'elmoultaqa://example.com/oauth';
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy,
+        redirectUrl,
+      });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        setRoute('discovery');
+      }
+    } catch (e) {
+      Alert.alert('Sign in failed', friendlyError(e));
+    }
+  }
+
+  async function signUpWithPassword(
+    name: string,
+    email: string,
+    password: string,
+  ) {
+    if (!signUpLoaded) return;
+    try {
+      const parts = name.trim().split(/\s+/);
+      const created = await signUp.create({
+        firstName: parts[0] ?? '',
+        lastName: parts.slice(1).join(' ') || undefined,
+        emailAddress: email.trim(),
+        password,
+      });
+      if (created.status === 'complete') {
+        await setActiveSignUp({ session: created.createdSessionId });
+        setRoute('discovery');
+        return;
+      }
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setVerificationPending(true);
+      setVerificationError('');
+    } catch (e) {
+      Alert.alert('Sign up failed', friendlyError(e));
+    }
+  }
+
+  async function verifyEmailCode(code: string) {
+    if (!signUpLoaded || code.length === 0) return;
+    try {
+      const attempt = await signUp.attemptEmailAddressVerification({ code });
+      if (attempt.status === 'complete') {
+        await setActiveSignUp({ session: attempt.createdSessionId });
+        setVerificationPending(false);
+        setVerificationError('');
+        setRoute('discovery');
+      } else {
+        setVerificationError('Verification incomplete — please try again.');
+      }
+    } catch (e) {
+      setVerificationError(friendlyError(e));
+    }
   }
 
   function handleAdminSignIn() {
@@ -148,7 +302,9 @@ export default function App() {
   // Conference preview (profile) opened from discovery lists.
   const [preview, setPreview] = useState<DiscoveryEvent | null>(null);
 
-  // Entering a conference from its profile: resolve its org, then open it.
+  // Entering a conference from its profile: resolve its org, auto-join
+  // public orgs, then open it. Private orgs fall through to the org gate,
+  // which shows the registration-code screen.
   const [entering, setEntering] = useState(false);
   const [enteringName, setEnteringName] = useState('');
   const [enterError, setEnterError] = useState('');
@@ -242,7 +398,12 @@ export default function App() {
           setPreview(null);
           return true;
         }
-        if (route === 'admin' || route === 'discovery' || route === 'main') {
+        if (
+          route === 'admin' ||
+          route === 'discovery' ||
+          route === 'gate' ||
+          route === 'main'
+        ) {
           if (confirmingExit.current) return true;
           confirmingExit.current = true;
           Alert.alert(
@@ -265,9 +426,12 @@ export default function App() {
                 },
               },
             ],
-            { cancelable: true, onDismiss: () => {
-              confirmingExit.current = false;
-            } },
+            {
+              cancelable: true,
+              onDismiss: () => {
+                confirmingExit.current = false;
+              },
+            },
           );
           return true;
         }
@@ -299,6 +463,33 @@ export default function App() {
     try {
       await SupabaseService.resolveOrg(event.org_slug);
       console.log('[enter] Org resolved:', SupabaseService.orgSlug);
+      // Best-effort auto-join for public orgs (same as webapp
+      // registerAttendee with a null code). Private orgs throw a
+      // code-required error — fall through to the org gate, which
+      // shows the registration-code screen.
+      try {
+        if (user?.id && user?.primaryEmailAddress?.emailAddress) {
+          await SupabaseService.registerAttendee({
+            slug: event.org_slug,
+            clerkUserId: user.id,
+            email: user.primaryEmailAddress.emailAddress,
+            fullName: user.fullName ?? '',
+            code: null,
+          });
+        }
+      } catch (joinErr) {
+        const msg =
+          joinErr instanceof Error ? joinErr.message : String(joinErr);
+        if (
+          /registration code|invalid registration code|private/i.test(msg)
+        ) {
+          setPreview(null);
+          setEntering(false);
+          setRoute('gate');
+          return;
+        }
+        throw joinErr;
+      }
       const next = [
         event,
         ...myConferences.filter((item) => item.org_slug !== event.org_slug),
@@ -325,9 +516,16 @@ export default function App() {
     };
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
     if (pushTimer.current) clearTimeout(pushTimer.current);
     setPending(null);
+    try {
+      await signOut();
+    } catch {
+      // fall through to local reset
+    }
+    SupabaseService.tokenProvider = null;
+    setUserRole('user');
     setRoute('login');
   }
 
@@ -350,7 +548,9 @@ export default function App() {
         return (
           <AuthScreen
             appName="ElMoultaqa"
-            onSignIn={handleSignIn}
+            onSignIn={signInWithPassword}
+            onGooglePress={() => signInWithSSO('oauth_google')}
+            onGithubPress={() => signInWithSSO('oauth_github')}
             onGoRegister={() => goAuth('register')}
             onGoAdminLogin={() => goAuth('admin-login')}
           />
@@ -368,17 +568,17 @@ export default function App() {
         return (
           <RegisterScreen
             appName="ElMoultaqa"
-            onSignUp={() => {
-              setUserRole('user');
-              setRoute('discovery');
-            }}
+            onSignUp={signUpWithPassword}
             onGoLogin={() => goAuth('login')}
+            verificationPending={verificationPending}
+            verificationError={verificationError}
+            onVerifyCode={verifyEmailCode}
           />
         );
     }
   }
 
-  if (!ready) {
+  if (!ready || !authLoaded) {
     return (
       <SafeAreaProvider>
         <BootSplash />
@@ -397,6 +597,16 @@ export default function App() {
           onLogout={handleLogout}
           onBrowse={() => setRoute('discovery')}
         />
+      ) : route === 'gate' ? (
+        <OrgGate
+          onDone={(slug, role) => {
+            void slug;
+            setUserRole(role);
+            // Organizers land on the admin panel (mirrors /admin-notif),
+            // attendees on the main app — for ANY org.
+            setRoute(role === 'organizer' ? 'admin' : 'main');
+          }}
+        />
       ) : route === 'discovery' ? (
         <View style={styles.authStack}>
           {preview ? (
@@ -409,30 +619,30 @@ export default function App() {
               entering={entering}
             />
           ) : (
-          <DiscoveryLayout
-            savedSlugs={savedSlugs}
-            onToggleSave={toggleSave}
-            myConferences={myConferences}
-            onSelect={(event) => setPreview(event)}
-            onLogout={handleLogout}
-            notice={enterError}
-            alerts={alerts}
-            alertsLoading={alertsLoading}
-            alertsError={alertsError}
-            alertsFailed={alertsFailed}
-            unreadAlerts={
-              alerts.filter((item) => item.createdAt > lastSeen).length
-            }
-            lastAlertsSeen={lastSeen}
-            onRefreshAlerts={() => loadAlerts(myConferences)}
-            onAlertsOpened={handleAlertsOpened}
-            onOpenConference={(orgSlug) => {
-              const found = myConferences.find(
-                (item) => item.org_slug === orgSlug,
-              );
-              if (found) setPreview(found);
-            }}
-          />
+            <DiscoveryLayout
+              savedSlugs={savedSlugs}
+              onToggleSave={toggleSave}
+              myConferences={myConferences}
+              onSelect={(event) => setPreview(event)}
+              onLogout={handleLogout}
+              notice={enterError}
+              alerts={alerts}
+              alertsLoading={alertsLoading}
+              alertsError={alertsError}
+              alertsFailed={alertsFailed}
+              unreadAlerts={
+                alerts.filter((item) => item.createdAt > lastSeen).length
+              }
+              lastAlertsSeen={lastSeen}
+              onRefreshAlerts={() => loadAlerts(myConferences)}
+              onAlertsOpened={handleAlertsOpened}
+              onOpenConference={(orgSlug) => {
+                const found = myConferences.find(
+                  (item) => item.org_slug === orgSlug,
+                );
+                if (found) setPreview(found);
+              }}
+            />
           )}
           {entering && (
             <View style={styles.enteringOverlay}>
@@ -455,6 +665,21 @@ export default function App() {
       )}
       <StatusBar style="auto" />
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  if (!CLERK_KEY) {
+    console.warn(
+      '[boot] EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY missing — auth will not work. Fill mobile native/.env.',
+    );
+  }
+  return (
+    <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+      <ClerkBridge>
+        <InnerApp />
+      </ClerkBridge>
+    </ClerkProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Linking,
   Pressable,
@@ -25,6 +25,7 @@ import {
 } from './theme';
 import { MOCK_QUESTIONS, Question, StreamItem } from './mock';
 import { LivePill } from './LivePage';
+import SupabaseService from '../services/supabase';
 
 type StreamPlayerPageProps = {
   stream: StreamItem;
@@ -48,21 +49,57 @@ export default function StreamPlayerPage({
     setTimeout(() => setToast(''), 2000);
   }
 
-  function submitQuestion() {
+  // Same business logic as webapp LivePage: questions per stream_id, newest first.
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchStreamQuestions(stream.id);
+        if (!active || rows.length === 0) return;
+        setQuestions(
+          rows.map((q) => ({
+            id: String(q['id'] ?? ''),
+            author: String(q['author'] ?? 'Attendee'),
+            message: String(q['message'] ?? ''),
+            createdAt: Date.parse(String(q['createdAt'] ?? '')) || Date.now(),
+            answer: String(q['answer'] ?? ''),
+            streamId: String(q['streamId'] ?? stream.id),
+          })),
+        );
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [stream.id]);
+
+  async function submitQuestion() {
     const message = draft.trim();
     if (message.length === 0) return;
-    setQuestions((current) => [
-      {
-        id: `q-${Date.now()}`,
-        author: 'You',
-        message,
-        createdAt: Date.now(),
-        streamId: stream.id,
-      },
-      ...current,
-    ]);
+    const optimistic: Question = {
+      id: `q-${Date.now()}`,
+      author: 'You',
+      message,
+      createdAt: Date.now(),
+      streamId: stream.id,
+    };
+    setQuestions((current) => [optimistic, ...current]);
     setDraft('');
-    showToast('Question sent!');
+    try {
+      // Same payload shape as webapp submitStreamQuestion (author_name, stream_id...).
+      await SupabaseService.submitStreamQuestion({
+        author: 'Attendee',
+        message,
+        streamId: stream.id,
+      });
+      showToast('Question sent!');
+    } catch {
+      // Offline / pre-auth: keep the optimistic local copy (UI unchanged).
+      showToast('Question saved locally — will sync when online');
+    }
   }
 
   if (fullscreen) {

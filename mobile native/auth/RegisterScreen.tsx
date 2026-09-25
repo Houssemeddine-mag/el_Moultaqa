@@ -17,6 +17,11 @@ type RegisterScreenProps = {
   themeColor?: string;
   onSignUp?: (name: string, email: string, password: string) => void;
   onGoLogin?: () => void;
+  // Set by the app when Clerk requires email verification:
+  // shows an extra code field (invisible otherwise, layout unchanged).
+  verificationPending?: boolean;
+  verificationError?: string;
+  onVerifyCode?: (code: string) => void;
 };
 
 const flutterLogo = require('../assets/images/logo.png');
@@ -26,12 +31,16 @@ export default function RegisterScreen({
   themeColor = DEFAULT_THEME_COLOR,
   onSignUp,
   onGoLogin,
+  verificationPending = false,
+  verificationError = '',
+  onVerifyCode,
 }: RegisterScreenProps) {
   const [logoFailed, setLogoFailed] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [code, setCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -180,6 +189,40 @@ export default function RegisterScreen({
             />
 
             {error.length > 0 && <Text style={styles.error}>{error}</Text>}
+
+            {verificationPending && (
+              <>
+                <Text style={styles.label}>Verification code</Text>
+                <TextInput
+                  style={[styles.input, focusStyle('code')]}
+                  placeholder="Code from your email"
+                  placeholderTextColor="#A3A3A3"
+                  value={code}
+                  onChangeText={setCode}
+                  onFocus={() => setFocused('code')}
+                  onBlur={() => setFocused(null)}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={() => onVerifyCode?.(code.trim())}
+                />
+                {verificationError.length > 0 && (
+                  <Text style={styles.error}>{verificationError}</Text>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => onVerifyCode?.(code.trim())}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    { backgroundColor: themeColor },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.primaryLabel}>Verify email</Text>
+                </Pressable>
+              </>
+            )}
 
             <Pressable
               accessibilityRole="button"

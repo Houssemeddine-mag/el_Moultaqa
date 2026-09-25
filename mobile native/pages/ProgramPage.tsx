@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -18,6 +18,7 @@ import {
   withAlpha,
 } from './theme';
 import { MOCK_SESSIONS, Presentation, Session } from './mock';
+import SupabaseService from '../services/supabase';
 
 type ProgramPageProps = {
   onFeedback?: (title: string) => void;
@@ -153,19 +154,71 @@ function StatCard({
 }
 
 export default function ProgramPage({ onFeedback }: ProgramPageProps) {
+  // Same business logic as webapp fetchAllPrograms (wall-clock parsing, conferences).
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchAllPrograms();
+        if (!active || rows.length === 0) return;
+        setSessions(
+          rows.map((p) => {
+            const start = String(p['start'] ?? '');
+            const end = String(p['end'] ?? '');
+            const keynote = (p['keynote'] as Record<string, unknown> | null) ?? null;
+            const conferences = (Array.isArray(p['conferences']) ? p['conferences'] : []) as Record<string, unknown>[];
+            return {
+              id: String(p['id'] ?? ''),
+              title: String(p['title'] ?? 'Session'),
+              date: String(p['date'] ?? ''),
+              time: start && end ? `${start} - ${end}` : start,
+              room: String(p['room'] ?? ''),
+              speaker: String(keynote?.['name'] ?? ''),
+              chairs: (Array.isArray(p['chairs']) ? p['chairs'] : []).map(String),
+              presentations: conferences.map((c, idx) => {
+                const cStart = String(c['start'] ?? '');
+                const cEnd = String(c['end'] ?? '');
+                return {
+                  id: String(c['id'] ?? `${p['id']}-conf-${idx}`),
+                  title: String(c['title'] ?? 'Presentation'),
+                  time: String(c['time'] ?? (cStart && cEnd ? `${cStart} - ${cEnd}` : cStart)),
+                  speaker: String(c['presenter'] ?? ''),
+                };
+              }),
+            };
+          }),
+        );
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const dates = useMemo(() => {
     const seen: string[] = [];
-    for (const session of MOCK_SESSIONS) {
+    for (const session of sessions) {
       if (!seen.includes(session.date)) seen.push(session.date);
     }
     return seen.sort();
-  }, []);
+  }, [sessions]);
   const [activeDate, setActiveDate] = useState(dates[0] ?? '');
 
-  const daySessions = MOCK_SESSIONS.filter(
+  // Keep the selected day valid when real data arrives after mount.
+  useEffect(() => {
+    if (!dates.includes(activeDate) && dates.length > 0) {
+      setActiveDate(dates[0]);
+    }
+  }, [dates, activeDate]);
+
+  const daySessions = sessions.filter(
     (session) => session.date === activeDate,
   );
-  const presentationCount = MOCK_SESSIONS.reduce(
+  const presentationCount = sessions.reduce(
     (total, session) => total + (session.presentations.length || 1),
     0,
   );
@@ -194,7 +247,7 @@ export default function ProgramPage({ onFeedback }: ProgramPageProps) {
         <View>
           <Text style={styles.headerTitle}>Program</Text>
           <Text style={styles.headerSubtitle}>
-            {dates.length}-day schedule • {MOCK_SESSIONS.length} sessions
+            {dates.length}-day schedule • {sessions.length} sessions
           </Text>
         </View>
         <View style={styles.headerBadge}>
@@ -214,7 +267,7 @@ export default function ProgramPage({ onFeedback }: ProgramPageProps) {
         />
         <StatCard
           icon="presentation"
-          value={String(MOCK_SESSIONS.length)}
+          value={String(sessions.length)}
           label="Sessions"
         />
         <StatCard

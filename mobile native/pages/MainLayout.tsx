@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -57,6 +57,24 @@ export default function MainLayout({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pushed, setPushed] = useState<Pushed | null>(null);
   const [unread, setUnread] = useState(MOCK_NOTIFICATIONS.length);
+
+  // Same business logic as webapp: badge reflects real notification count.
+  // Falls back to mock count when offline / pre-auth (UI unchanged).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchNotifications(20);
+        if (!active || rows.length === 0) return;
+        setUnread(rows.length);
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Org name resolved at boot (anon-safe); falls back to mock branding.
   const orgName =

@@ -19,6 +19,7 @@ import {
   withAlpha,
 } from './theme';
 import { MOCK_CONFERENCE, MOCK_SESSIONS, MOCK_SPEAKERS, MOCK_STREAMS, Session } from './mock';
+import SupabaseService from '../services/supabase';
 
 type HomePageProps = {
   onNavigateToProgram?: () => void;
@@ -173,17 +174,99 @@ export default function HomePage({
   onNavigateToProgram,
   onNavigateToKeynotes,
 }: HomePageProps) {
-  const conference = MOCK_CONFERENCE;
+  // Same business logic as webapp HomePage: conference hero from
+  // getConferenceConfig, sessions from fetchAllPrograms, counts from speakers/streams.
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  const [conference, setConference] = useState(MOCK_CONFERENCE);
+  const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
+  const [speakerCount, setSpeakerCount] = useState(MOCK_SPEAKERS.length);
+  const [streamCount, setStreamCount] = useState(MOCK_STREAMS.length);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const config = await SupabaseService.getConferenceConfig();
+        if (!active || !config) return;
+        const rawStart = String(config['startDate'] ?? '');
+        const parsed = rawStart ? new Date(rawStart) : NaN as unknown as Date;
+        const startDate =
+          parsed instanceof Date && !Number.isNaN(parsed.getTime())
+            ? parsed
+            : MOCK_CONFERENCE.startDate;
+        const attendees = config['attendees'];
+        setConference({
+          name: String(config['name'] ?? MOCK_CONFERENCE.name),
+          description: String(config['description'] ?? MOCK_CONFERENCE.description),
+          startDate,
+          location: String(config['location'] ?? MOCK_CONFERENCE.location),
+          website: String(config['website'] ?? MOCK_CONFERENCE.website),
+          totalParticipants: Array.isArray(attendees)
+            ? attendees.length
+            : MOCK_CONFERENCE.totalParticipants,
+        });
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchAllPrograms();
+        if (!active || rows.length === 0) return;
+        setSessions(
+          rows.map((p) => {
+            const start = String(p['start'] ?? '');
+            const end = String(p['end'] ?? '');
+            const keynote = (p['keynote'] as Record<string, unknown> | null) ?? null;
+            return {
+              id: String(p['id'] ?? ''),
+              title: String(p['title'] ?? 'Session'),
+              date: String(p['date'] ?? ''),
+              time: start && end ? `${start} - ${end}` : start,
+              room: String(p['room'] ?? ''),
+              speaker: String(keynote?.['name'] ?? ''),
+              chairs: (Array.isArray(p['chairs']) ? p['chairs'] : []).map(String),
+              presentations: [],
+            };
+          }),
+        );
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    (async () => {
+      try {
+        const speakers = await SupabaseService.fetchKeynoteSpeakers();
+        if (!active) return;
+        if (speakers.length > 0) setSpeakerCount(speakers.length);
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    (async () => {
+      try {
+        const streams = await SupabaseService.getStreams();
+        if (!active) return;
+        if (streams.length > 0) setStreamCount(streams.length);
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const countdown = useCountdown(conference.startDate);
   const [selected, setSelected] = useState<Session | null>(null);
 
   const highlightDays = new Set(
-    MOCK_SESSIONS.map((session) => session.date),
+    sessions.map((session) => session.date),
   ).size;
 
-  const upcoming = [...MOCK_SESSIONS].slice(0, 3);
-  const totalSessions = MOCK_SESSIONS.length;
-  const keynoteCount = MOCK_SESSIONS.filter((session) =>
+  const upcoming = [...sessions].slice(0, 3);
+  const totalSessions = sessions.length;
+  const keynoteCount = sessions.filter((session) =>
     session.title.toLowerCase().includes('keynote'),
   ).length;
 
@@ -334,14 +417,14 @@ export default function HomePage({
           <View style={styles.aboutHighlightDivider} />
           <View style={styles.aboutHighlight}>
             <Text style={styles.aboutHighlightValue}>
-              {MOCK_SPEAKERS.length}
+              {speakerCount}
             </Text>
             <Text style={styles.aboutHighlightLabel}>Speakers</Text>
           </View>
           <View style={styles.aboutHighlightDivider} />
           <View style={styles.aboutHighlight}>
             <Text style={styles.aboutHighlightValue}>
-              {MOCK_STREAMS.length}
+              {streamCount}
             </Text>
             <Text style={styles.aboutHighlightLabel}>Live streams</Text>
           </View>

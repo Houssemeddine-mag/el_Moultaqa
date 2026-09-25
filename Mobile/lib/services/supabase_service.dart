@@ -273,6 +273,27 @@ class SupabaseService {
     return await queryOrgTable("speakers", orderBy: "full_name", orderDir: "ASC");
   }
 
+  // Attendee self-registration — the ONLY way for non-members to join an org.
+  // Public orgs: pass code null. Private orgs: pass the registration code.
+  // Mirrors webapp registerAttendee (008_gated_registration.sql).
+  static Future<Map<String, dynamic>> registerAttendee({
+    required String slug,
+    required String clerkUserId,
+    required String email,
+    String fullName = '',
+    String? code,
+  }) async {
+    final dynamic raw = await client.rpc("register_attendee", params: {
+      "p_slug": slug,
+      "p_clerk_user_id": clerkUserId,
+      "p_email": email,
+      "p_full_name": fullName,
+      "p_registration_code": code,
+    }).timeout(const Duration(seconds: 15));
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return {'success': true, 'data': raw};
+  }
+
   static Future<Map<String, dynamic>?> getMyProfile([String? email]) async {
     if (email == null || email.isEmpty) {
       return null;

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -11,6 +12,7 @@ import {
   withAlpha,
 } from './theme';
 import { MOCK_STREAMS, StreamItem } from './mock';
+import SupabaseService from '../services/supabase';
 
 type LivePageProps = {
   onOpenStream?: (stream: StreamItem) => void;
@@ -26,11 +28,36 @@ export function LivePill() {
 }
 
 export default function LivePage({ onOpenStream }: LivePageProps) {
+  // Same business logic as webapp LivePage: streams from events.settings.streams.
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  const [streams, setStreams] = useState<StreamItem[]>(MOCK_STREAMS);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.getStreams();
+        if (!active || rows.length === 0) return;
+        setStreams(
+          rows.map((s) => ({
+            id: String(s['id'] ?? ''),
+            name: String(s['name'] ?? ''),
+            url: String(s['url'] ?? ''),
+          })),
+        );
+      } catch {
+        // keep mock fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Live Streams</Text>
       <Text style={styles.subtitle}>Choose a stream to watch live.</Text>
-      {MOCK_STREAMS.length === 0 ? (
+      {streams.length === 0 ? (
         <View style={styles.emptyWrap}>
           <MaterialCommunityIcons
             name="television"
@@ -44,7 +71,7 @@ export default function LivePage({ onOpenStream }: LivePageProps) {
         </View>
       ) : (
         <View style={styles.list}>
-          {MOCK_STREAMS.map((stream) => (
+          {streams.map((stream) => (
             <Pressable
               key={stream.id}
               accessibilityRole="button"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Modal,
@@ -19,6 +19,7 @@ import {
   withAlpha,
 } from './theme';
 import { MOCK_SPEAKERS, Speaker } from './mock';
+import SupabaseService from '../services/supabase';
 
 function SpeakerAvatar({ speaker, size }: { speaker: Speaker; size: number }) {
   const [failed, setFailed] = useState(false);
@@ -56,10 +57,37 @@ const flutterAvatar = require('../assets/images/logo.png');
 export default function KeynoteSpeakersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<Speaker | null>(null);
+  // Same business logic as webapp fetchKeynoteSpeakers.
+  // Falls back to mock data when offline / pre-auth (UI unchanged).
+  const [speakers, setSpeakers] = useState<Speaker[]>(MOCK_SPEAKERS);
 
-  function onRefresh() {
+  async function loadSpeakers() {
+    try {
+      const rows = await SupabaseService.fetchKeynoteSpeakers();
+      if (rows.length === 0) return false;
+      setSpeakers(
+        rows.map((sp) => ({
+          id: String(sp['id'] ?? ''),
+          name: String(sp['name'] ?? 'Speaker'),
+          title: String(sp['title'] ?? 'Presenter'),
+          institution: String(sp['company'] ?? ''),
+          bio: String(sp['bio'] ?? ''),
+        })),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    loadSpeakers();
+  }, []);
+
+  async function onRefresh() {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    await loadSpeakers();
+    setRefreshing(false);
   }
 
   return (
@@ -74,12 +102,12 @@ export default function KeynoteSpeakersPage() {
           />
         }
       >
-        {MOCK_SPEAKERS.length === 0 ? (
+        {speakers.length === 0 ? (
           <Text style={styles.emptyText}>
             No keynote speakers available yet.
           </Text>
         ) : (
-          MOCK_SPEAKERS.map((speaker) => (
+          speakers.map((speaker) => (
             <View key={speaker.id} style={styles.card}>
               <View style={styles.avatarRing}>
                 <SpeakerAvatar speaker={speaker} size={120} />
