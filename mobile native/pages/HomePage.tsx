@@ -181,6 +181,7 @@ export default function HomePage({
   const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
   const [speakerCount, setSpeakerCount] = useState(MOCK_SPEAKERS.length);
   const [streamCount, setStreamCount] = useState(MOCK_STREAMS.length);
+  const [sponsorNames, setSponsorNames] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -250,6 +251,20 @@ export default function HomePage({
         if (streams.length > 0) setStreamCount(streams.length);
       } catch {
         // keep mock fallback
+      }
+    })();
+    (async () => {
+      // Same business logic as webapp fetchSponsors: names only here,
+      // the strip stays hidden when the org has no sponsors (UI unchanged).
+      try {
+        const sponsors = await SupabaseService.fetchSponsors();
+        if (!active) return;
+        const names = sponsors
+          .map((s) => String(s['name'] ?? '').trim())
+          .filter((name) => name.length > 0);
+        if (names.length > 0) setSponsorNames(names);
+      } catch {
+        // keep hidden
       }
     })();
     return () => {
@@ -445,6 +460,12 @@ export default function HomePage({
               color="#FFFFFF"
             />
           </Pressable>
+        )}
+        {sponsorNames.length > 0 && (
+          <View style={styles.sponsorsWrap}>
+            <Text style={styles.sponsorsLabel}>Sponsors</Text>
+            <Text style={styles.sponsorsNames}>{sponsorNames.join('  ·  ')}</Text>
+          </View>
         )}
       </View>
 
@@ -889,6 +910,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  sponsorsWrap: {
+    marginTop: 16,
+  },
+  sponsorsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: MUTED,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sponsorsNames: {
+    marginTop: 6,
+    fontSize: 14,
+    color: BODY_DARK,
+    lineHeight: 21,
   },
   dialogBackdrop: {
     flex: 1,

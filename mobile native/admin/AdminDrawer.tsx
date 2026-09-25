@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { GREY_500, THEME_COLOR, withAlpha } from '../pages/theme';
+import SupabaseService from '../services/supabase';
 
 export const ADMIN_DRAWER_ITEMS = [
   { icon: 'home-outline', label: 'Home' },
@@ -24,6 +26,28 @@ export default function AdminDrawer({
   onSelect,
   onExit,
 }: AdminDrawerProps) {
+  // Org branding resolved at boot; falls back to bundled assets (UI unchanged).
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [webappUrl, setWebappUrl] = useState('https://elmoultaqa.com');
+  const logoUrl = !logoFailed
+    ? (SupabaseService.orgDetails?.['logo_url'] as string | undefined) ?? ''
+    : '';
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const config = await SupabaseService.getConferenceConfig();
+        const website = String(config?.['website'] ?? '').trim();
+        if (active && website) setWebappUrl(website);
+      } catch {
+        // keep fallback URL
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <View style={styles.drawer}>
       <LinearGradient
@@ -32,7 +56,16 @@ export default function AdminDrawer({
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Image source={adminLogo} style={styles.logo} resizeMode="contain" />
+        {logoUrl ? (
+          <Image
+            source={{ uri: logoUrl }}
+            style={styles.logo}
+            resizeMode="contain"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <Image source={adminLogo} style={styles.logo} resizeMode="contain" />
+        )}
         <Text style={styles.headerTitle}>Admin Panel</Text>
       </LinearGradient>
 
@@ -63,7 +96,7 @@ export default function AdminDrawer({
         <View style={styles.divider} />
         <Pressable
           accessibilityRole="link"
-          onPress={() => Linking.openURL('https://elmoultaqa.com')}
+          onPress={() => Linking.openURL(webappUrl)}
           style={styles.item}
         >
           <MaterialCommunityIcons name="web" size={24} color={THEME_COLOR} />

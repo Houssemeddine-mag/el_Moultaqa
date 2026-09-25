@@ -24,6 +24,7 @@ export type Speaker = {
   title: string;
   institution: string;
   bio: string;
+  photo?: string;
 };
 
 export type StreamItem = {

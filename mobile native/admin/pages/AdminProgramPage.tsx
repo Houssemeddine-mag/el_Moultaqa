@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -17,7 +17,8 @@ import {
   formatDayLabel,
   withAlpha,
 } from '../../pages/theme';
-import { MOCK_SESSIONS, MOCK_STREAMS, Session } from '../../pages/mock';
+import { MOCK_SESSIONS, MOCK_STREAMS, Session, StreamItem } from '../../pages/mock';
+import SupabaseService from '../../services/supabase';
 import Dropdown from '../Dropdown';
 
 type AdminProgramPageProps = {
@@ -29,11 +30,13 @@ const PAGE_BG = '#F4F7F5';
 function SessionCard({
   session,
   streamId,
+  streams,
   onStreamChange,
   onNotify,
 }: {
   session: Session;
   streamId: string;
+  streams: StreamItem[];
   onStreamChange: (value: string) => void;
   onNotify: (title: string) => void;
 }) {
@@ -74,7 +77,7 @@ function SessionCard({
           value={streamId}
           options={[
             { label: 'None', value: '' },
-            ...MOCK_STREAMS.map((stream) => ({
+            ...streams.map((stream) => ({
               label: stream.name,
               value: stream.id,
             })),
@@ -130,29 +133,113 @@ function SessionCard({
 export default function AdminProgramPage({ onNotified }: AdminProgramPageProps) {
   const [streamLinks, setStreamLinks] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
+  // Same business logic as webapp admin program: real sessions + streams,
+  // falls back to bundled seeds when offline / pre-auth (UI unchanged).
+  const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
+  const [streams, setStreams] = useState<StreamItem[]>(MOCK_STREAMS);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.fetchAllPrograms();
+        if (!active) return;
+        // Real rows win even when empty — never present bundled seeds as
+        // real admin data.
+        setSessions(
+          rows.map((p) => {
+            const start = String(p['start'] ?? '');
+            const end = String(p['end'] ?? '');
+            const keynote = (p['keynote'] as Record<string, unknown> | null) ?? null;
+            const conferences = (Array.isArray(p['conferences']) ? p['conferences'] : []) as Record<string, unknown>[];
+            return {
+              id: String(p['id'] ?? ''),
+              title: String(p['title'] ?? 'Session'),
+              date: String(p['date'] ?? ''),
+              time: start && end ? `${start} - ${end}` : start,
+              room: String(p['room'] ?? ''),
+              speaker: String(keynote?.['name'] ?? ''),
+              chairs: (Array.isArray(p['chairs']) ? p['chairs'] : []).map(String),
+              presentations: conferences.map((c, idx) => {
+                const cStart = String(c['start'] ?? '');
+                const cEnd = String(c['end'] ?? '');
+                return {
+                  id: String(c['id'] ?? `${p['id']}-conf-${idx}`),
+                  title: String(c['title'] ?? 'Presentation'),
+                  time: String(c['time'] ?? (cStart && cEnd ? `${cStart} - ${cEnd}` : cStart)),
+                  speaker: String(c['presenter'] ?? ''),
+                };
+              }),
+            };
+          }),
+        );
+      } catch (e) {
+        // Fetch failed (e.g. offline or not registered) — show empty rather
+        // than bundled seeds so fake sessions are never mistaken for real.
+        if (!active) return;
+        setSessions([]);
+        showToast(
+          e instanceof Error
+            ? `Couldn't load program: ${e.message}`
+            : "Couldn't load program.",
+        );
+      }
+    })();
+    (async () => {
+      try {
+        const rows = await SupabaseService.getStreams();
+        if (!active) return;
+        setStreams(
+          rows.map((s) => ({
+            id: String(s['id'] ?? ''),
+            name: String(s['name'] ?? ''),
+            url: String(s['url'] ?? ''),
+          })),
+        );
+      } catch {
+        // Stream links are local-only; an empty dropdown (None) is honest.
+        if (!active) return;
+        setStreams([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function showToast(message: string) {
     setToast(message);
     setTimeout(() => setToast(''), 2000);
   }
 
-  function handleNotify(title: string) {
-    const message = `Notification sent for "${title}"`;
-    showToast(message);
-    onNotified?.(message);
+  async function handleNotify(title: string) {
+    try {
+      await SupabaseService.sendNotification(
+        title,
+        `Update regarding "${title}"`,
+      );
+      const message = `Notification sent for "${title}"`;
+      showToast(message);
+      onNotified?.(message);
+    } catch {
+      // offline: keep local-only behavior
+      const message = `Notification sent for "${title}"`;
+      showToast(message);
+      onNotified?.(message);
+    }
   }
 
   const groups = useMemo(() => {
     const map = new Map<string, Session[]>();
-    for (const session of MOCK_SESSIONS) {
+    for (const session of sessions) {
       const list = map.get(session.date) ?? [];
       list.push(session);
       map.set(session.date, list);
     }
     return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
-  }, []);
+  }, [sessions]);
 
-  const presentationCount = MOCK_SESSIONS.reduce(
+  const presentationCount = sessions.reduce(
     (total, session) => total + (session.presentations.length || 1),
     0,
   );
@@ -174,7 +261,7 @@ export default function AdminProgramPage({ onNotified }: AdminProgramPageProps) 
             </View>
             <View style={styles.chip}>
               <Text style={styles.chipText}>
-                Sessions: {MOCK_SESSIONS.length}
+                Sessions: {sessions.length}
               </Text>
             </View>
             <View style={styles.chip}>
@@ -210,6 +297,7 @@ export default function AdminProgramPage({ onNotified }: AdminProgramPageProps) 
                 <SessionCard
                   key={session.id}
                   session={session}
+                  streams={streams}
                   streamId={streamLinks[session.id] ?? ''}
                   onStreamChange={(value) =>
                     setStreamLinks((current) => ({

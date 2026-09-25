@@ -12,6 +12,7 @@ import {
   withAlpha,
 } from '../../pages/theme';
 import { MOCK_CONFERENCE, NotificationItem, Question } from '../../pages/mock';
+import SupabaseService from '../../services/supabase';
 
 type AdminHomePageProps = {
   notifications: NotificationItem[];
@@ -99,6 +100,9 @@ export default function AdminHomePage({
   onOpenQuestions,
 }: AdminHomePageProps) {
   const pending = questions.filter((question) => !question.answer).length;
+  // Org name resolved at boot; falls back to bundled branding (UI unchanged).
+  const orgName =
+    SupabaseService.orgDetails?.['name'] ?? MOCK_CONFERENCE.name;
 
   return (
     <ScrollView
@@ -121,7 +125,7 @@ export default function AdminHomePage({
           </View>
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>
-              {MOCK_CONFERENCE.name} Admin
+              {orgName} Admin
             </Text>
             <Text style={styles.headerSubtitle}>Manage your conference</Text>
           </View>

@@ -95,12 +95,13 @@ function SaveButton({
   onToggleSave?: () => void;
 }) {
   if (!onToggleSave) return null;
+  // NOTE: rendered as Text (not Pressable) so web does not nest a
+  // <button> inside the card's <button> (React hydration warning).
   return (
-    <Pressable
+    <Text
       accessibilityRole="button"
       accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark'}
       onPress={onToggleSave}
-      hitSlop={10}
       style={styles.saveButton}
     >
       <MaterialCommunityIcons
@@ -108,7 +109,7 @@ function SaveButton({
         size={16}
         color={saved ? THEME_COLOR : GREY_600}
       />
-    </Pressable>
+    </Text>
   );
 }
 
@@ -253,10 +254,10 @@ function SpotlightCard({
           )}
         </View>
         {onToggleSave && (
-          <Pressable
+          <Text
             accessibilityRole="button"
+            accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark'}
             onPress={onToggleSave}
-            hitSlop={10}
             style={styles.spotlightSave}
           >
             <MaterialCommunityIcons
@@ -264,7 +265,7 @@ function SpotlightCard({
               size={17}
               color="#FFFFFF"
             />
-          </Pressable>
+          </Text>
         )}
       </View>
       <View style={styles.spotlightBottom}>
@@ -338,10 +339,10 @@ function LiveRibbonCard({
         ) : null}
       </View>
       {onToggleSave && (
-        <Pressable
+        <Text
           accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove bookmark' : 'Bookmark'}
           onPress={onToggleSave}
-          hitSlop={10}
           style={styles.ribbonSave}
         >
           <MaterialCommunityIcons
@@ -349,7 +350,7 @@ function LiveRibbonCard({
             size={15}
             color={saved ? THEME_COLOR : '#FFFFFF'}
           />
-        </Pressable>
+        </Text>
       )}
     </Pressable>
   );

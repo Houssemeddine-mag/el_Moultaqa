@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,17 +35,103 @@ export default function AdminLayout({ onExit }: AdminLayoutProps) {
   const orgName =
     SupabaseService.orgDetails?.['name'] ?? MOCK_CONFERENCE.name;
 
+  // Same business logic as webapp admin: load real rows, fall back to
+  // bundled seeds when offline / pre-auth (UI unchanged).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.getNotifications();
+        if (!active) return;
+        setNotifications(
+          rows.map((row, index) => ({
+            id: String(row['id'] ?? `live-${index}`),
+            title: String(row['title'] ?? 'Update'),
+            message: String(row['content'] ?? row['message'] ?? ''),
+            type: String(row['type'] ?? 'info'),
+            createdAt:
+              Date.parse(String(row['created_at'] ?? '')) || Date.now(),
+          })),
+        );
+      } catch {
+        // keep bundled seeds
+      }
+      try {
+        const rows = await SupabaseService.getAllQuestions();
+        if (!active) return;
+        setQuestions(
+          rows.map((row) => ({
+            id: String(row['id'] ?? ''),
+            author: String(row['author_name'] ?? 'Attendee'),
+            message: String(row['message'] ?? ''),
+            createdAt:
+              Date.parse(String(row['created_at'] ?? '')) || Date.now(),
+            answer: String(row['answer'] ?? '') || undefined,
+            streamId: String(row['stream_id'] ?? ''),
+          })),
+        );
+      } catch {
+        // keep bundled seeds
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function selectTab(index: number) {
     setTab(index);
     setDrawerOpen(false);
   }
 
-  function handlePublish(item: {
+  async function reloadNotifications() {
+    try {
+      const rows = await SupabaseService.getNotifications();
+      setNotifications(
+        rows.map((row, index) => ({
+          id: String(row['id'] ?? `live-${index}`),
+          title: String(row['title'] ?? 'Update'),
+          message: String(row['content'] ?? row['message'] ?? ''),
+          type: String(row['type'] ?? 'info'),
+          createdAt: Date.parse(String(row['created_at'] ?? '')) || Date.now(),
+        })),
+      );
+    } catch {
+      // keep current list when offline
+    }
+  }
+
+  async function reloadQuestions() {
+    try {
+      const rows = await SupabaseService.getAllQuestions();
+      setQuestions(
+        rows.map((row) => ({
+          id: String(row['id'] ?? ''),
+          author: String(row['author_name'] ?? 'Attendee'),
+          message: String(row['message'] ?? ''),
+          createdAt: Date.parse(String(row['created_at'] ?? '')) || Date.now(),
+          answer: String(row['answer'] ?? '') || undefined,
+          streamId: String(row['stream_id'] ?? ''),
+        })),
+      );
+    } catch {
+      // keep current list when offline
+    }
+  }
+
+  async function handlePublish(item: {
     title: string;
     message: string;
     type: string;
     priority: string;
   }) {
+    try {
+      await SupabaseService.sendNotification(item.title, item.message);
+      await reloadNotifications();
+      return;
+    } catch {
+      // offline: keep local-only behavior
+    }
     setNotifications((current) => [
       {
         id: `n-${Date.now()}`,
@@ -57,6 +143,41 @@ export default function AdminLayout({ onExit }: AdminLayoutProps) {
       } as NotificationItem,
       ...current,
     ]);
+  }
+
+  async function handleDeleteNotification(id: string) {
+    try {
+      await SupabaseService.deleteNotification(id);
+      await reloadNotifications();
+      return;
+    } catch {
+      // offline: keep local-only behavior
+    }
+    setNotifications((current) => current.filter((item) => item.id !== id));
+  }
+
+  async function handleAnswerQuestion(id: string, answer: string) {
+    try {
+      await SupabaseService.answerQuestion(id, answer);
+      await reloadQuestions();
+      return;
+    } catch {
+      // offline: keep local-only behavior
+    }
+    setQuestions((current) =>
+      current.map((item) => (item.id === id ? { ...item, answer } : item)),
+    );
+  }
+
+  async function handleDeleteQuestion(id: string) {
+    try {
+      await SupabaseService.deleteOrgTable('questions', id);
+      await reloadQuestions();
+      return;
+    } catch {
+      // offline: keep local-only behavior
+    }
+    setQuestions((current) => current.filter((item) => item.id !== id));
   }
 
   return (
@@ -92,28 +213,14 @@ export default function AdminLayout({ onExit }: AdminLayoutProps) {
           <AdminNotificationsPage
             notifications={notifications}
             onPublish={handlePublish}
-            onDelete={(id) =>
-              setNotifications((current) =>
-                current.filter((item) => item.id !== id),
-              )
-            }
+            onDelete={(id) => void handleDeleteNotification(id)}
           />
         )}
         {tab === 3 && (
           <AdminQuestionsPage
             questions={questions}
-            onAnswer={(id, answer) =>
-              setQuestions((current) =>
-                current.map((item) =>
-                  item.id === id ? { ...item, answer } : item,
-                ),
-              )
-            }
-            onDelete={(id) =>
-              setQuestions((current) =>
-                current.filter((item) => item.id !== id),
-              )
-            }
+            onAnswer={(id, answer) => void handleAnswerQuestion(id, answer)}
+            onDelete={(id) => void handleDeleteQuestion(id)}
           />
         )}
       </View>

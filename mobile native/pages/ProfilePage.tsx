@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUser } from '@clerk/expo';
 
 import {
   FEMALE_PINK,
@@ -31,6 +32,20 @@ import {
   SCHOOL_LEVELS,
   UserProfile,
 } from './mock';
+import SupabaseService, { Row } from '../services/supabase';
+
+function rowToProfile(row: Row): UserProfile {
+  return {
+    name: String(row['displayName'] ?? 'Conference User'),
+    email: String(row['email'] ?? ''),
+    organization: String(row['university'] ?? ''),
+    schoolLevel: String(row['schoolLevel'] ?? ''),
+    gender: String(row['gender'] ?? ''),
+    birthday: String(row['birthday'] ?? ''),
+    country: String(row['country'] ?? ''),
+    province: String(row['province'] ?? ''),
+  };
+}
 
 type ProfilePageProps = {
   initialProfile?: UserProfile;
@@ -91,10 +106,40 @@ export default function ProfilePage({
   initialProfile = MOCK_PROFILE,
   onSaved,
 }: ProfilePageProps) {
+  const { user } = useUser();
   const [profile, setProfile] = useState<UserProfile>(initialProfile);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<UserProfile>(initialProfile);
   const [saving, setSaving] = useState(false);
+  const [dbId, setDbId] = useState('');
+
+  // Same business logic as webapp fetchUserProfile: load the real row,
+  // fall back to the bundled profile when offline / pre-auth (UI unchanged).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const uid = user?.id ?? '';
+        const email = user?.primaryEmailAddress?.emailAddress ?? '';
+        if (!uid) return;
+        const row = await SupabaseService.fetchUserProfile(
+          uid,
+          email,
+          user?.fullName ?? '',
+        );
+        if (!active || !row) return;
+        if (row['id']) setDbId(String(row['id']));
+        const loaded = rowToProfile(row);
+        setProfile(loaded);
+        setDraft(loaded);
+      } catch {
+        // keep bundled fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
   const [sheet, setSheet] = useState<
     null | 'photo' | 'school' | 'gender' | 'country' | 'province'
   >(null);
@@ -116,15 +161,44 @@ export default function ProfilePage({
         : THEME_COLOR;
   const shown = editing ? draft : profile;
 
-  function handleSave() {
+  async function handleSave() {
+    const uid = user?.id ?? '';
+    if (!uid) {
+      showToast('Sign in again to save your profile.', true);
+      return;
+    }
     setSaving(true);
-    setTimeout(() => {
+    try {
+      // Same business logic as webapp updateUserProfile (UUID resolve +
+      // auto-insert inside the service). Falls back to local-only on failure.
+      const saved = await SupabaseService.updateUserProfile(uid, dbId, {
+        displayName: draft.name,
+        email: draft.email || user?.primaryEmailAddress?.emailAddress || '',
+        university: draft.organization,
+        schoolLevel: draft.schoolLevel,
+        gender: draft.gender,
+        birthday: draft.birthday,
+        country: draft.country,
+        province: draft.province,
+      });
+      if (saved['id']) setDbId(String(saved['id']));
+      const next = rowToProfile(saved);
+      setProfile(next);
+      setDraft(next);
+      setEditing(false);
+      onSaved?.(next);
+      showToast('Profile updated successfully!');
+    } catch (e) {
       setProfile(draft);
       setEditing(false);
-      setSaving(false);
       onSaved?.(draft);
-      showToast('Profile updated successfully!');
-    }, 600);
+      showToast(
+        e instanceof Error ? `Saved locally: ${e.message}` : 'Saved locally.',
+        true,
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleCancel() {

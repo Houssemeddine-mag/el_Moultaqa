@@ -432,6 +432,7 @@ class SupabaseService {
       gender: meta['gender'] || 'male',
       country: meta['country'] || 'Algeria',
       province: meta['province'] || 'Constantine',
+      birthday: meta['birthday'] || '',
       phone: u['phone'] || '',
       phoneNumber: u['phone'] || '',
       jobTitle: u['bio'] || '',
@@ -478,6 +479,7 @@ class SupabaseService {
         gender: updatedData['gender'],
         country: updatedData['country'],
         province: updatedData['province'],
+        birthday: updatedData['birthday'] || '',
       },
     });
     const meta = (data['metadata'] as Row | undefined) ?? {};

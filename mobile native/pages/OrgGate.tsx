@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -23,6 +23,12 @@ export type OrgRow = {
 
 type OrgGateProps = {
   onDone: (slug: string, role: 'organizer' | 'user') => void;
+  // Joining happens in discovery: the + tile and the zero-org case
+  // both route there instead of a name form here.
+  onBrowse: () => void;
+  // When set (private conference from discovery), skip the fetch and
+  // show the registration-code screen for this slug directly.
+  initialJoinSlug?: string;
 };
 
 function mapRole(raw: unknown): 'organizer' | 'user' {
@@ -49,21 +55,26 @@ function initials(name: string) {
   return (p[0][0] + p[1][0]).toUpperCase();
 }
 
-export default function OrgGate({ onDone }: OrgGateProps) {
+export default function OrgGate({ onDone, onBrowse, initialJoinSlug }: OrgGateProps) {
   const { user } = useUser();
   const { setActive } = useClerk();
   const { userMemberships } = useOrganizationList();
   const memberships = userMemberships?.data ?? [];
 
-  const [phase, setPhase] = useState<
-    'loading' | 'picker' | 'join' | 'code' | 'error'
-  >('loading');
+  const [phase, setPhase] = useState<'loading' | 'picker' | 'code' | 'error'>(
+    initialJoinSlug ? 'code' : 'loading',
+  );
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
-  const [joinName, setJoinName] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [pendingSlug, setPendingSlug] = useState('');
+  const [pendingSlug, setPendingSlug] = useState(initialJoinSlug ?? '');
+  const browsedRef = useRef(false);
+  const goBrowse = useCallback(() => {
+    if (browsedRef.current) return;
+    browsedRef.current = true;
+    onBrowse();
+  }, [onBrowse]);
 
   const enterOrg = useCallback(
     async (slug: string, role: 'organizer' | 'user') => {
@@ -85,7 +96,8 @@ export default function OrgGate({ onDone }: OrgGateProps) {
         .map(toOrgRow);
       setOrgs(list);
       if (list.length === 0) {
-        setPhase('join');
+        // Not a member anywhere — discovery is the join path.
+        goBrowse();
       } else if (list.length === 1) {
         await enterOrg(list[0].slug, mapRole(list[0].role));
       } else {
@@ -98,11 +110,12 @@ export default function OrgGate({ onDone }: OrgGateProps) {
       setError(parts.join(' | '));
       setPhase('error');
     }
-  }, [enterOrg]);
+  }, [enterOrg, goBrowse]);
 
   useEffect(() => {
+    if (initialJoinSlug) return;
     refreshOrgs();
-  }, [refreshOrgs]);
+  }, [refreshOrgs, initialJoinSlug]);
 
   async function tryJoin(slugRaw: string, codeRaw: string): Promise<boolean> {
     const slug = slugRaw
@@ -223,8 +236,12 @@ export default function OrgGate({ onDone }: OrgGateProps) {
         <Pressable
           accessibilityRole="button"
           onPress={() => {
-            setPhase(orgs.length > 1 ? 'picker' : 'join');
             setError('');
+            if (orgs.length > 0) {
+              setPhase('picker');
+            } else {
+              goBrowse();
+            }
           }}
         >
           <Text style={styles.link}>Back</Text>
@@ -233,51 +250,7 @@ export default function OrgGate({ onDone }: OrgGateProps) {
     );
   }
 
-  if (phase === 'join') {
-    return (
-      <ScrollView contentContainerStyle={styles.form}>
-        <Text style={styles.title}>Join a conference</Text>
-        <Text style={styles.hint}>
-          {orgs.length === 0
-            ? 'No conferences yet — enter the conference name below. Public conferences join instantly; private ones ask for a code.'
-            : 'Enter another conference name to join it.'}
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Conference name (e.g. hou)"
-          placeholderTextColor="#A3A3A3"
-          value={joinName}
-          onChangeText={setJoinName}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Registration code (only if private)"
-          placeholderTextColor="#A3A3A3"
-          value={joinCode}
-          onChangeText={setJoinCode}
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
-        {error.length > 0 && <Text style={styles.error}>{error}</Text>}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => tryJoin(joinName, joinCode)}
-          style={styles.primaryButton}
-        >
-          <Text style={styles.primaryLabel}>Join conference</Text>
-        </Pressable>
-        {orgs.length > 0 && (
-          <Pressable accessibilityRole="button" onPress={() => setPhase('picker')}>
-            <Text style={styles.link}>Back to my conferences</Text>
-          </Pressable>
-        )}
-      </ScrollView>
-    );
-  }
-
-  // picker (2+ orgs) — centered bubbles, plus tile to join another
+  // picker (2+ orgs) — centered bubbles, plus tile opens discovery
   return (
     <View style={styles.picker}>
       <Text style={styles.title}>Choose your conference</Text>
@@ -305,18 +278,13 @@ export default function OrgGate({ onDone }: OrgGateProps) {
         <View style={styles.cell}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => {
-              setJoinName('');
-              setJoinCode('');
-              setError('');
-              setPhase('join');
-            }}
+            onPress={onBrowse}
             style={styles.plusBubble}
           >
             <Text style={styles.plusText}>+</Text>
           </Pressable>
           <Text style={styles.cellName}>Join</Text>
-          <Text style={styles.cellSlug}>via name + code</Text>
+          <Text style={styles.cellSlug}>browse conferences</Text>
         </View>
       </View>
     </View>

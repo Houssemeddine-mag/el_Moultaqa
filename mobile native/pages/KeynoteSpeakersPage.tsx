@@ -23,7 +23,8 @@ import SupabaseService from '../services/supabase';
 
 function SpeakerAvatar({ speaker, size }: { speaker: Speaker; size: number }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
+  const uri = !failed ? (speaker.photo ?? '').trim() : '';
+  if (!uri) {
     return (
       <View
         style={[
@@ -45,14 +46,12 @@ function SpeakerAvatar({ speaker, size }: { speaker: Speaker; size: number }) {
   }
   return (
     <Image
-      source={flutterAvatar}
+      source={{ uri }}
       style={{ width: size, height: size, borderRadius: size / 2 }}
       onError={() => setFailed(true)}
     />
   );
 }
-
-const flutterAvatar = require('../assets/images/logo.png');
 
 export default function KeynoteSpeakersPage() {
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +71,7 @@ export default function KeynoteSpeakersPage() {
           title: String(sp['title'] ?? 'Presenter'),
           institution: String(sp['company'] ?? ''),
           bio: String(sp['bio'] ?? ''),
+          photo: String(sp['photo'] ?? ''),
         })),
       );
       return true;

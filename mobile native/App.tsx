@@ -176,8 +176,9 @@ function InnerApp() {
     };
   }, []);
 
-  // Signed-in session (restored or fresh) always lands on discovery —
-  // the hub is the picker for ANY org, never a baked-in one.
+  // Signed-in session (restored or fresh) always lands on the org gate:
+  // members see their org bubbles, non-members go straight to discovery.
+  const [pendingJoinSlug, setPendingJoinSlug] = useState('');
   useEffect(() => {
     if (
       authLoaded &&
@@ -186,7 +187,7 @@ function InnerApp() {
     ) {
       setVerificationPending(false);
       setVerificationError('');
-      setRoute('discovery');
+      setRoute('gate');
     }
     if (
       authLoaded &&
@@ -206,7 +207,8 @@ function InnerApp() {
       const created = await signIn.create({ identifier: email.trim() });
       if (created.status === 'complete') {
         await setActiveSignIn({ session: created.createdSessionId });
-        setRoute('discovery');
+        setPendingJoinSlug('');
+        setRoute('gate');
         return;
       }
       const attempt = await signIn.attemptFirstFactor({
@@ -215,7 +217,8 @@ function InnerApp() {
       });
       if (attempt.status === 'complete') {
         await setActiveSignIn({ session: attempt.createdSessionId });
-        setRoute('discovery');
+        setPendingJoinSlug('');
+        setRoute('gate');
       } else {
         Alert.alert(
           'Sign in',
@@ -240,7 +243,8 @@ function InnerApp() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        setRoute('discovery');
+        setPendingJoinSlug('');
+        setRoute('gate');
       }
     } catch (e) {
       Alert.alert('Sign in failed', friendlyError(e));
@@ -263,7 +267,8 @@ function InnerApp() {
       });
       if (created.status === 'complete') {
         await setActiveSignUp({ session: created.createdSessionId });
-        setRoute('discovery');
+        setPendingJoinSlug('');
+        setRoute('gate');
         return;
       }
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
@@ -282,7 +287,8 @@ function InnerApp() {
         await setActiveSignUp({ session: attempt.createdSessionId });
         setVerificationPending(false);
         setVerificationError('');
-        setRoute('discovery');
+        setPendingJoinSlug('');
+        setRoute('gate');
       } else {
         setVerificationError('Verification incomplete — please try again.');
       }
@@ -291,8 +297,96 @@ function InnerApp() {
     }
   }
 
-  function handleAdminSignIn() {
-    setRoute('admin');
+  // Admin login is restricted: after Clerk sign-in the account must hold
+  // an owner/admin/moderator role in at least one org (any org, disabled
+  // filtered by the RPC). Non-admins get an error and are signed out.
+  async function requireAdminRole(): Promise<boolean> {
+    try {
+      const rows = await SupabaseService.listMyOrganizations();
+      return rows.some((r) =>
+        ['owner', 'admin', 'moderator'].includes(
+          String(r['role'] ?? '').toLowerCase().trim(),
+        ),
+      );
+    } catch (e) {
+      Alert.alert(
+        'Admin sign in failed',
+        e instanceof Error ? e.message : String(e),
+      );
+      return false;
+    }
+  }
+
+  async function denyNonAdmin() {
+    Alert.alert(
+      'Not an administrator',
+      'This account has no administrator access to any conference.',
+    );
+    try {
+      await signOut();
+    } catch {
+      // fall through to local reset
+    }
+    SupabaseService.tokenProvider = null;
+    setRoute('login');
+  }
+
+  async function signInAdminWithPassword(email: string, password: string) {
+    if (!signInLoaded) return;
+    try {
+      const created = await signIn.create({ identifier: email.trim() });
+      let sessionId: string | null | undefined;
+      if (created.status === 'complete') {
+        sessionId = created.createdSessionId;
+      } else {
+        const attempt = await signIn.attemptFirstFactor({
+          strategy: 'password',
+          password,
+        });
+        if (attempt.status !== 'complete') {
+          Alert.alert(
+            'Sign in',
+            'Additional verification is required on the web. Please sign in via the webapp.',
+          );
+          return;
+        }
+        sessionId = attempt.createdSessionId;
+      }
+      if (!sessionId) {
+        Alert.alert('Sign in failed', 'No session was created.');
+        return;
+      }
+      await setActiveSignIn({ session: sessionId });
+      if (await requireAdminRole()) {
+        setPendingJoinSlug('');
+        setRoute('gate');
+      } else {
+        await denyNonAdmin();
+      }
+    } catch (e) {
+      Alert.alert('Sign in failed', friendlyError(e));
+    }
+  }
+
+  async function signInAdminWithSSO() {
+    try {
+      const redirectUrl =
+        Platform.OS === 'web' ? undefined : 'elmoultaqa://example.com/oauth';
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl,
+      });
+      if (!createdSessionId || !setActive) return;
+      await setActive({ session: createdSessionId });
+      if (await requireAdminRole()) {
+        setPendingJoinSlug('');
+        setRoute('gate');
+      } else {
+        await denyNonAdmin();
+      }
+    } catch (e) {
+      Alert.alert('Sign in failed', friendlyError(e));
+    }
   }
 
   const [pending, setPending] = useState<AuthRoute | null>(null);
@@ -485,6 +579,7 @@ function InnerApp() {
         ) {
           setPreview(null);
           setEntering(false);
+          setPendingJoinSlug(event.org_slug);
           setRoute('gate');
           return;
         }
@@ -526,6 +621,7 @@ function InnerApp() {
     }
     SupabaseService.tokenProvider = null;
     setUserRole('user');
+    setPendingJoinSlug('');
     setRoute('login');
   }
 
@@ -559,8 +655,8 @@ function InnerApp() {
         return (
           <AdminLoginScreen
             appName="ElMoultaqa"
-            onAdminSignIn={handleAdminSignIn}
-            onGooglePress={handleAdminSignIn}
+            onAdminSignIn={signInAdminWithPassword}
+            onGooglePress={signInAdminWithSSO}
             onGoBack={() => goAuth('login')}
           />
         );
@@ -599,8 +695,15 @@ function InnerApp() {
         />
       ) : route === 'gate' ? (
         <OrgGate
+          key={pendingJoinSlug || 'gate'}
+          initialJoinSlug={pendingJoinSlug || undefined}
+          onBrowse={() => {
+            setPendingJoinSlug('');
+            setRoute('discovery');
+          }}
           onDone={(slug, role) => {
             void slug;
+            setPendingJoinSlug('');
             setUserRole(role);
             // Organizers land on the admin panel (mirrors /admin-notif),
             // attendees on the main app — for ANY org.

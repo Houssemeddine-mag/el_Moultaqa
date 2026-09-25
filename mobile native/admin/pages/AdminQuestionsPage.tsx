@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -19,7 +19,8 @@ import {
   WARNING_ORANGE,
   withAlpha,
 } from '../../pages/theme';
-import { MOCK_STREAMS, Question } from '../../pages/mock';
+import { MOCK_STREAMS, Question, StreamItem } from '../../pages/mock';
+import SupabaseService from '../../services/supabase';
 
 type AdminQuestionsPageProps = {
   questions: Question[];
@@ -29,8 +30,8 @@ type AdminQuestionsPageProps = {
 
 const PAGE_BG = '#F4F7F5';
 
-function groupName(question: Question) {
-  const stream = MOCK_STREAMS.find((item) => item.id === question.streamId);
+function groupName(question: Question, streams: StreamItem[]) {
+  const stream = streams.find((item) => item.id === question.streamId);
   return stream?.name ?? 'General';
 }
 
@@ -149,10 +150,34 @@ export default function AdminQuestionsPage({
   ).length;
   const answered = questions.length - pending;
 
+  // Real stream names for grouping; falls back to bundled seeds (UI unchanged).
+  const [streams, setStreams] = useState<StreamItem[]>(MOCK_STREAMS);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await SupabaseService.getStreams();
+        if (!active || rows.length === 0) return;
+        setStreams(
+          rows.map((s) => ({
+            id: String(s['id'] ?? ''),
+            name: String(s['name'] ?? ''),
+            url: String(s['url'] ?? ''),
+          })),
+        );
+      } catch {
+        // keep bundled seeds
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const groups = useMemo(() => {
     const map = new Map<string, Question[]>();
     for (const question of questions) {
-      const key = groupName(question);
+      const key = groupName(question, streams);
       const list = map.get(key) ?? [];
       list.push(question);
       map.set(key, list);
@@ -162,7 +187,7 @@ export default function AdminQuestionsPage({
       if (b === 'General') return -1;
       return a < b ? -1 : 1;
     });
-  }, [questions]);
+  }, [questions, streams]);
 
   return (
     <View style={styles.safe}>
