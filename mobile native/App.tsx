@@ -179,6 +179,10 @@ function InnerApp() {
   // Signed-in session (restored or fresh) always lands on the org gate:
   // members see their org bubbles, non-members go straight to discovery.
   const [pendingJoinSlug, setPendingJoinSlug] = useState('');
+  // Which login surface authenticated the session: user login always lands
+  // as attendee (even organizers), admin login keeps the real role so
+  // organizers reach the admin panel.
+  const [loginContext, setLoginContext] = useState<'user' | 'admin'>('user');
   useEffect(() => {
     if (
       authLoaded &&
@@ -208,6 +212,7 @@ function InnerApp() {
       if (created.status === 'complete') {
         await setActiveSignIn({ session: created.createdSessionId });
         setPendingJoinSlug('');
+        setLoginContext('user');
         setRoute('gate');
         return;
       }
@@ -218,6 +223,7 @@ function InnerApp() {
       if (attempt.status === 'complete') {
         await setActiveSignIn({ session: attempt.createdSessionId });
         setPendingJoinSlug('');
+        setLoginContext('user');
         setRoute('gate');
       } else {
         Alert.alert(
@@ -244,6 +250,7 @@ function InnerApp() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         setPendingJoinSlug('');
+        setLoginContext('user');
         setRoute('gate');
       }
     } catch (e) {
@@ -268,6 +275,7 @@ function InnerApp() {
       if (created.status === 'complete') {
         await setActiveSignUp({ session: created.createdSessionId });
         setPendingJoinSlug('');
+        setLoginContext('user');
         setRoute('gate');
         return;
       }
@@ -288,6 +296,7 @@ function InnerApp() {
         setVerificationPending(false);
         setVerificationError('');
         setPendingJoinSlug('');
+        setLoginContext('user');
         setRoute('gate');
       } else {
         setVerificationError('Verification incomplete — please try again.');
@@ -359,6 +368,7 @@ function InnerApp() {
       await setActiveSignIn({ session: sessionId });
       if (await requireAdminRole()) {
         setPendingJoinSlug('');
+        setLoginContext('admin');
         setRoute('gate');
       } else {
         await denyNonAdmin();
@@ -380,6 +390,7 @@ function InnerApp() {
       await setActive({ session: createdSessionId });
       if (await requireAdminRole()) {
         setPendingJoinSlug('');
+        setLoginContext('admin');
         setRoute('gate');
       } else {
         await denyNonAdmin();
@@ -622,6 +633,7 @@ function InnerApp() {
     SupabaseService.tokenProvider = null;
     setUserRole('user');
     setPendingJoinSlug('');
+    setLoginContext('user');
     setRoute('login');
   }
 
@@ -704,10 +716,12 @@ function InnerApp() {
           onDone={(slug, role) => {
             void slug;
             setPendingJoinSlug('');
-            setUserRole(role);
-            // Organizers land on the admin panel (mirrors /admin-notif),
-            // attendees on the main app — for ANY org.
-            setRoute(role === 'organizer' ? 'admin' : 'main');
+            // User login always lands as attendee (even organizers) —
+            // only the admin login surface keeps the real role.
+            const effectiveRole =
+              loginContext === 'admin' ? role : 'user';
+            setUserRole(effectiveRole);
+            setRoute(effectiveRole === 'organizer' ? 'admin' : 'main');
           }}
         />
       ) : route === 'discovery' ? (
